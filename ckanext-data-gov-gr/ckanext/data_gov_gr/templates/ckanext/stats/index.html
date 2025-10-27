@@ -1,0 +1,286 @@
+{% extends "page.html" %}
+
+{% block breadcrumb_content %}
+  <li class="active">{{ 'Statistics' }}</li>
+{% endblock %}
+
+{% block primary_content %}
+  <article class="module">
+
+    <section id="stats-datasets-per-theme" class="module-content tab-content">
+      <h2>{{ _('Datasets Per Theme') }}</h2>
+      {% if datasets_by_theme %}
+        <button id="toggleView" class="btn btn-default mb-5">
+          <i class="fa fa-table"></i> {{ _('Switch to Table') }}
+        </button>
+
+        <div id="theme-table-view" style="display: none;">
+          <table class="table table-chunky table-bordered table-striped">
+            <thead>
+              <tr>
+                <th>{{ _('Theme Code') }}</th>
+                <th>{{ _('Theme Name') }}</th>
+                <th class="metric">{{ _('Number of datasets') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for theme_code, theme_label, num_datasets in datasets_by_theme %}
+                <tr>
+                  <td>
+                    <a href="{{ h.url_for('dataset.search', q='theme:*' + theme_code + '*') }}">
+                      {{ theme_code }}
+                    </a>
+                  </td>
+                  <td>{{ theme_label }}</td>
+                  <td class="metric">{{ num_datasets }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p class="empty">{{ _('No themes found') }}</p>
+      {% endif %}
+
+    </section>
+
+    {% if datasets_by_theme %}
+      <div class="theme-content" id="theme-pie-chart" style="width: 100%; height: 400px;"></div>
+    {% endif %}
+
+    <section id="stats-organizations-per-type" class="module-content tab-content">
+      <h2>{{ _('Organizations Per Publisher Type') }}</h2>
+
+      <div class="total-orgs-counter">
+        <div class="stats-grid">
+          <div class="counter-box total">
+            <span class="counter-number">{{ h.get_organizations_stats().total }}</span>
+            <span class="counter-label">{{ _('Total Organizations') }}</span>
+          </div>
+          <div class="counter-box with-type">
+            <span class="counter-number">{{ h.get_organizations_stats().with_type }}</span>
+            <span class="counter-label">{{ _('With Publisher Type') }}</span>
+            <span class="percentage">({{ h.get_organizations_stats().type_percentage }}%)</span>
+          </div>
+        </div>
+      </div>
+
+      {% if organizations_by_publisher_type %}
+        <button id="toggleOrgView" class="btn btn-default mb-5">
+          <i class="fa fa-table"></i> {{ _('Switch to Table') }}
+        </button>
+
+        <div id="publisher-table-view" style="display: none;">
+          <table class="table table-chunky table-bordered table-striped">
+            <thead>
+              <tr>
+                <th>{{ _('Publisher Type Code') }}</th>
+                <th>{{ _('Publisher Type Name') }}</th>
+                <th class="metric">{{ _('Number of Organizations') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for type_code, type_label, num_orgs in organizations_by_publisher_type %}
+                <tr>
+                  <td>
+                    {{ type_code }}
+                  </td>
+                  <td>{{ type_label }}</td>
+                  <td class="metric">{{ num_orgs }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p class="empty">{{ _('No publisher types found') }}</p>
+      {% endif %}
+    </section>
+
+    {% if organizations_by_publisher_type %}
+      <div class="publisher-content" id="publisher-pie-chart" style="width: 100%; height: 400px;"></div>
+    {% endif %}
+
+    <section id="stats-total-datasets" class="module-content tab-content active">
+      <h2>{{ _('Total number of Datasets') }}</h2>
+
+      <button id="toggleTotalDatasetsView" class="btn btn-default mb-5">
+        <i class="fa fa-table"></i> {{ _('Switch to Table') }}
+      </button>
+
+      <div id="total-datasets-table-view" style="display: none;">
+      {% set xaxis = {'mode': 'time', 'timeformat': '%y-%b'} %}
+      {% set yaxis = {'min': 0} %}
+      <table class="table table-chunky table-bordered table-striped" data-module="" data-module-xaxis="{{ h.dump_json(xaxis) }}" data-module-yaxis="{{ h.dump_json(yaxis) }}">
+        <thead>
+          <tr>
+            <th>{{ _("Date") }}</th>
+            <th>{{ _("Total datasets") }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in raw_packages_by_week %}
+            <tr>
+              <th data-type="date" data-value="{{ row.date.strftime("%s") }}"><time datetime="{{ row.date.isoformat() }}">{{ h.render_datetime(row.date) }}</time></th>
+              <td>{{ row.total_packages }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      </div>
+    </section>
+
+    <div id="total-datasets-line-chart" style="width: 100%; height: 500px;"></div>
+
+    <section id="stats-dataset-revisions" class="module-content tab-content">
+      <h2>{{ _('Dataset Revisions per Week') }}</h2>
+
+      {% set xaxis = {'mode': 'time', 'timeformat': '%y-%b'} %}
+      {% set lines = {'fill': 1} %}
+      <table class="table table-chunky table-bordered table-striped" data-module="" data-module-xaxis="{{ h.dump_json(xaxis) }}" data-module-lines="{{ h.dump_json(lines) }}">
+        <thead>
+          <tr>
+            <th>{{ _("Date") }}</th>
+            <th>{{ _("All dataset revisions") }}</th>
+            <th>{{ _("New datasets") }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in raw_all_package_revisions %}
+            <tr>
+              <th data-type="date" data-value="{{ row.date.strftime("%s") }}"><time datetime="{{ row.date.isoformat() }}">{{ h.render_datetime(row.date) }}</time></th>
+              <td>{{ row.total_revisions }}</td>
+              <td>{{ raw_new_datasets[loop.index0].new_packages }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+
+    <section id="stats-most-edited" class="module-content tab-content">
+      <h2>{{ _('Most Edited Datasets') }}</h2>
+      {% if most_edited_packages %}
+        <table class="table table-chunky table-bordered table-striped">
+          <thead>
+            <tr>
+              <th>{{ _('Dataset') }}</th>
+              <th class="metric">{{ _('Number of edits') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for package, edits in most_edited_packages %}
+              <tr py:for="package, edits in most_edited_packages">
+                <td>
+                  <a href="{{ h.url_for('dataset.read', id=package.name) }}">
+                    {{package.title or package.name}}
+                  </a>
+                </td>
+                <td class="metric">{{ edits }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p class="empty">{{ _('No edited datasets') }}</p>
+      {% endif %}
+    </section>
+
+    <section id="stats-largest-groups" class="module-content tab-content">
+      <h2>{{ _('Largest Groups') }}</h2>
+      {% if largest_groups %}
+        <table class="table table-chunky table-bordered table-striped">
+          <thead>
+            <tr>
+              <th>{{ _('Group') }}</th>
+              <th class="metric">{{ _('Number of datasets') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for group, num_packages in largest_groups %}
+              <tr>
+                <td>
+                  <a href="{{ h.url_for(controller=group.type, action='read', id=group.name) }}">
+                    {{group.title or group.name}}
+                  </a>
+                </td>
+                <td class="metric">{{ num_packages }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p class="empty">{{ _('No groups') }}</p>
+      {% endif %}
+    </section>
+
+    <section id="stats-top-tags" class="module-content tab-content">
+      <h2>{{ _('Top Tags') }}</h2>
+      <table class="table table-chunky table-bordered table-striped">
+        <thead>
+          <tr>
+            <th>{{ _('Tag Name') }}</th>
+            <th class="metric">{{ _('Number of Datasets') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for tag, num_packages in top_tags %}
+            <tr>
+              <td>
+                  <a href="{{ h.url_for('dataset.search', tags=tag.name) }}">
+                    {{tag.name}}
+                  </a>
+                </td>
+              <td class="metric">{{ num_packages }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+
+    <section id="stats-most-create" class="module-content tab-content">
+      <h2>{{ _('Users Creating Most Datasets') }}</h2>
+      <table class="table table-chunky table-bordered table-striped">
+        <thead>
+          <tr>
+            <th>{{ _('User') }}</th>
+            <th class="metric">{{ _('Number of Datasets') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for user, num_packages in top_package_creators %}
+            <tr>
+              <td class="media">{{ h.linked_user(user) }}</td>
+              <td class="metric">{{ num_packages }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+  </article>
+{% endblock %}
+
+{% block secondary_content %}
+  <section class="module module-narrow">
+    <h2 class="module-heading"><i class="fa fa-chart-bar"></i> {{ _('Statistics Menu') }}</h2>
+    <nav data-module="stats-nav">
+      <ul class="unstyled nav nav-simple">
+        <li class="nav-item"><a href="#stats-datasets-per-theme" data-toggle="tab" data-bs-toggle="tab">{{ _('Datasets Per Theme') }}</a></li>
+        <li class="nav-item"><a href="#stats-organizations-per-type" data-toggle="tab" data-bs-toggle="tab">{{ _('Organizations Per Publisher Type') }}</a></li>
+        <li class="nav-item active"><a href="#stats-total-datasets" data-toggle="tab" data-bs-toggle="tab">{{ _('Total Number of Datasets') }}</a></li>
+        <li class="nav-item"><a href="#stats-dataset-revisions" data-toggle="tab" data-bs-toggle="tab">{{ _('Dataset Revisions per Week') }}</a></li>
+        <li class="nav-item"><a href="#stats-most-edited" data-toggle="tab" data-bs-toggle="tab">{{ _('Most Edited Datasets') }}</a></li>
+        <li class="nav-item"><a href="#stats-largest-groups" data-toggle="tab" data-bs-toggle="tab">{{ _('Largest Groups') }}</a></li>
+        <li class="nav-item"><a href="#stats-top-tags" data-toggle="tab" data-bs-toggle="tab">{{ _('Top Tags') }}</a></li>
+      </ul>
+    </nav>
+  </section>
+{% endblock %}
+
+{% block scripts %}
+  {{ super() }}
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+  <script src="{{ url_for('static', filename='javascript/stats/datasets-by-theme.js') }}"></script>
+  <script src="{{ url_for('static', filename='javascript/stats/organizations-by-type.js') }}"></script>
+  <script src="{{ url_for('static', filename='javascript/stats/total-datasets-line.js') }}"></script>
+  {% asset "ckanext_stats/stats" %}
+{% endblock %}
