@@ -2,6 +2,8 @@
 These functions are for use by other extensions for their reports.
 '''
 from datetime import datetime
+import json
+
 import six
 from six.moves import cStringIO as StringIO, zip
 try:
@@ -11,6 +13,67 @@ except ImportError:
 
 import ckan.plugins as p
 from ckan.plugins.toolkit import config
+
+
+def resolve_dataset_title(pkg):
+    '''Return the best available title for a dataset, preferring the core title,
+    then multilingual variants and finally the dataset name.'''
+
+    def _normalise(value):
+        if not value:
+            return None
+
+        if isinstance(value, str):
+            stripped = value.strip()
+            if not stripped:
+                return None
+            try:
+                parsed = json.loads(stripped)
+            except ValueError:
+                return stripped
+            else:
+                value = parsed
+
+        if isinstance(value, dict):
+            for lang in ('el', 'en'):
+                lang_value = value.get(lang)
+                if isinstance(lang_value, str):
+                    lang_value = lang_value.strip()
+                    if lang_value:
+                        return lang_value
+            for lang_value in value.values():
+                if isinstance(lang_value, str):
+                    lang_value = lang_value.strip()
+                    if lang_value:
+                        return lang_value
+        return None
+
+    title = (pkg.title or '').strip() if pkg.title else ''
+    if title:
+        return title
+
+    translations = getattr(pkg, 'title_translated', None)
+    resolved = _normalise(translations)
+    if resolved:
+        return resolved
+
+    extras = getattr(pkg, 'extras', {}) or {}
+    for lang in ('el', 'en'):
+        resolved = _normalise(extras.get(f'title_translated-{lang}'))
+        if resolved:
+            return resolved
+
+    resolved = _normalise(extras.get('title_translated'))
+    if resolved:
+        return resolved
+
+    for key, value in extras.items():
+        if key.startswith('title_translated-'):
+            resolved = _normalise(value)
+            if resolved:
+                return resolved
+
+    return pkg.name
 
 
 def all_organizations(include_none=False):

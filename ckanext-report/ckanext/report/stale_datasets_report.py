@@ -314,7 +314,7 @@ def stale_datasets_report(organization=None):
         
         # Add to results
         # Ensure title and notes are never None to prevent template errors
-        title = pkg.title or toolkit._('No title')
+        title = lib.resolve_dataset_title(pkg)
         notes = lib.dataset_notes(pkg) or ''
         
         results.append(OrderedDict([

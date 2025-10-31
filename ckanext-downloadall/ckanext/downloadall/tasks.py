@@ -14,6 +14,8 @@ import ckanapi.datapackage
 from ckan import model
 from ckan.plugins.toolkit import get_action, config
 
+from . import helpers
+
 
 log = __import__('logging').getLogger(__name__)
 
@@ -41,11 +43,11 @@ def update_zip(package_id, user, skip_if_no_changes=True):
             context['ignore_auth'] = True
         dataset = get_action('package_show')(context, {'id': package_id})
 
-        # Skip if this is a showcase
-        dataset_type = dataset.get('type', 'dataset')
-        if dataset_type == 'showcase':
+        # Skip dataset types that should not have a download-all ZIP
+        if helpers.is_data_service(dataset) or dataset.get('type') == 'showcase':
             log.info(
-                'Skipping zip creation for showcase: {} (ID: {})'.format(dataset.get('name', 'unknown'), package_id))
+                'Skipping zip creation for dataset type "{}": {} (ID: {})'.format(
+                    dataset.get('type', 'unknown'), dataset.get('name', 'unknown'), package_id))
             return
 
         log.info('Starting zip update for dataset: {} (ID: {})'.format(dataset['name'], package_id))

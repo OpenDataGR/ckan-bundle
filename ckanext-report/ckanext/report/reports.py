@@ -41,7 +41,7 @@ def tagless_report(organization):
         q = lib.filter_by_organizations(q, organization, False)
     tagless_pkgs = [OrderedDict((
         ('name', pkg.name),
-        ('title', pkg.title),
+        ('title', lib.resolve_dataset_title(pkg)),
         ('notes', lib.dataset_notes(pkg)),
         ('user', pkg.creator_user_id),
         ('created', pkg.metadata_created.isoformat()),

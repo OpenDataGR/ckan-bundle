@@ -159,7 +159,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const lineChart = document.getElementById('total-datasets-line-chart');
 
         // Έλεγχος αν είμαστε στο total datasets section
-        const isTotalDatasetsSection = hash === '#total-datasets';
+        const isTotalDatasetsSection = hash === '#total-datasets' || hash === '#stats-total-datasets';
 
         // Ρύθμιση ορατότητας
         lineChart.style.display = isTotalDatasetsSection ? 'block' : 'none';

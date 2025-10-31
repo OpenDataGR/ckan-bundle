@@ -220,6 +220,14 @@
                     <div class="value">{{ display_data.dataset_criteria.format_quality.has_media_type|round|int }}%</div>
                   </div>
                   <div class="col-xs-6 col-sm-3 criterion">
+                    <label>{{ _('Format/media type in vocabulary') }}</label>
+                    <div class="value">{{ display_data.dataset_criteria.format_quality.format_media_type_in_vocabulary|round|int }}%</div>
+                  </div>
+                  <div class="col-xs-6 col-sm-3 criterion">
+                    <label>{{ _('Open format') }}</label>
+                    <div class="value">{{ display_data.dataset_criteria.format_quality.is_open_format|round|int }}%</div>
+                  </div>
+                  <div class="col-xs-6 col-sm-3 criterion">
                     <label>{{ _('Machine-readable format') }}</label>
                     <div class="value">{{ display_data.dataset_criteria.format_quality.is_machine_readable|round|int }}%</div>
                   </div>
@@ -299,6 +307,8 @@
       <h5>{{ _('Interoperability') }}</h5>
       <p>{{ _('Format') }}: {% if dist.criteria.has_format %}{{ _('yes') }}{% else %}{{ _('no') }}{% endif %}</p>
       <p>{{ _('Media type') }}: {% if dist.criteria.has_media_type %}{{ _('yes') }}{% else %}{{ _('no') }}{% endif %}</p>
+      <p>{{ _('Format/media type in vocabulary') }}: {% if dist.criteria.format_media_type_in_vocabulary %}{{ _('yes') }}{% else %}{{ _('no') }}{% endif %}</p>
+      <p>{{ _('Open format') }}: {% if dist.criteria.is_open_format %}{{ _('yes') }}{% else %}{{ _('no') }}{% endif %}</p>
       <p>{{ _('Machine-readable format') }}: {% if dist.criteria.is_machine_readable %}{{ _('yes') }}{% else %}{{ _('no') }}{% endif %}</p>
     </div>
   {% endif %}

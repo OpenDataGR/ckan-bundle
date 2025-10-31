@@ -59,6 +59,12 @@ class Harvest(p.SingletonPlugin, DefaultDatasetForm, DefaultTranslation):
             'i18n'
         )
 
+    def i18n_domain(self):
+        return 'ckanext-harvest'
+
+    def i18n_locales(self):
+        return ['el', 'en']
+
     # IPackageController
 
     # CKAN < 2.10 hooks

@@ -15,15 +15,19 @@
           </p>
         </div>
       {% elif package_type == 'data-service' %}
+        {% set data_service_guides_url = h.get_data_service_guides_url() %}
         <h2 class="module-heading"><i class="fa fa-info-circle"></i> {{ _('What are data services?') }}</h2>
         <div class="module-content">
           <p>
-            {% trans %}
-            A CKAN Data Service provides programmatic access to data through APIs,
-            web services, or other automated interfaces. Data services enable
-            applications and systems to access and process data automatically.
-            {% endtrans %}
+            {{ _('A CKAN Data Service provides programmatic access to data through APIs, web services, or other automated interfaces. Data services enable applications and systems to access and process data automatically.') }}
           </p>
+          {% if data_service_guides_url %}
+            <p class="module-link">
+              <a href="{{ data_service_guides_url }}" target="_blank" rel="noopener noreferrer">
+                {{ _('Read the data service submission guide') }}
+              </a>
+            </p>
+          {% endif %}
         </div>
       {% else %}
         <h2 class="module-heading"><i class="fa fa-info-circle"></i> {{ _('What are packages?') }}</h2>

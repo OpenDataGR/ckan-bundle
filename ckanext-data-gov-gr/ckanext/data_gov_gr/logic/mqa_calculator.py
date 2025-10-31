@@ -102,7 +102,7 @@ class MQACalculator:
         # Initialize vocabularies with fallback values
         self.machine_readable_formats = self._FALLBACK_MACHINE_READABLE_FORMATS
         self.open_formats = self._FALLBACK_OPEN_FORMATS
-        self.known_licenses = self._FALLBACK_KNOWN_LICENSES
+        self.known_licenses = set(self._FALLBACK_KNOWN_LICENSES)
         self.known_access_rights = self._FALLBACK_KNOWN_ACCESS_RIGHTS
         self.iana_media_types = self._FALLBACK_IANA_MEDIA_TYPES
 
@@ -145,10 +145,14 @@ class MQACalculator:
                     {}, {'id': self.licenses_vocab}
                 )
                 if vocab_data and 'tags' in vocab_data:
-                    self.known_licenses = [tag['name'].lower() for tag in vocab_data['tags']]
+                    for tag in vocab_data['tags']:
+                        self._add_license_tag(tag)
 
             except (toolkit.ObjectNotFound, toolkit.ValidationError, Exception) as e:
                 log.warning(f"Could not load licenses vocabulary: {e}")
+
+            # Also load CKAN core license registry
+            self._load_known_licenses_from_ckan(toolkit)
 
             # Load access rights
             try:
@@ -699,6 +703,111 @@ class MQACalculator:
         # Return the original URI lowercased if no pattern matches
         return license_uri.lower()
 
+    def _get_resource_license_url(self, resource: Dict[str, Any]) -> str:
+        """
+        Return the license URL defined on a resource (empty string if not present).
+        """
+        value = resource.get('license_url')
+        if value:
+            value_str = str(value).strip()
+            if value_str:
+                return value_str
+        return ''
+
+    def _resource_has_license(self, resource: Dict[str, Any]) -> bool:
+        return bool(self._get_resource_license_url(resource))
+
+    def _resource_license_matches_vocabulary(self, resource: Dict[str, Any]) -> bool:
+        license_url = self._get_resource_license_url(resource)
+        return bool(license_url and self._license_in_registry(license_url))
+
+    def _add_known_license(self, value: Optional[str]) -> None:
+        if not value:
+            return
+        normalized = str(value).strip().lower()
+        if not normalized:
+            return
+
+        # Store common variations to improve matching robustness
+        variants = {
+            normalized,
+            normalized.rstrip('/'),
+            normalized.replace('_', '-'),
+            normalized.replace('-', '_'),
+        }
+
+        for variant in variants:
+            if variant:
+                self.known_licenses.add(variant)
+
+    def _add_license_tag(self, tag: Dict[str, Any]) -> None:
+        """
+        Add all useful values from a vocabulary tag entry to the known license set.
+        """
+        if not isinstance(tag, dict):
+            return
+
+        for field in ('name', 'value', 'value_uri', 'uri', 'display_name'):
+            self._add_known_license(tag.get(field))
+
+        extras = tag.get('extras')
+        if isinstance(extras, (list, tuple)):
+            for extra in extras:
+                if isinstance(extra, dict):
+                    self._add_known_license(extra.get('value'))
+                    self._add_known_license(extra.get('value_uri'))
+                    self._add_known_license(extra.get('uri'))
+
+    def _load_known_licenses_from_ckan(self, toolkit) -> None:
+        """
+        Load licenses defined in CKAN's core registry and merge them with known licenses.
+        """
+        try:
+            license_list = toolkit.get_action('license_list')({}, {'all_fields': True})
+            for item in license_list:
+                for field in ('id', 'title', 'url'):
+                    self._add_known_license(item.get(field))
+        except Exception as e:
+            log.warning(f"Could not load license registry: {e}")
+
+    def _generate_license_candidates(self, license_value: str) -> set:
+        """
+        Generate normalized variants of a license value for matching.
+        """
+        if not license_value:
+            return set()
+
+        normalized = license_value.strip().lower()
+        candidates = {
+            normalized,
+            normalized.rstrip('/'),
+            normalized.replace('_', '-'),
+            normalized.replace('-', '_'),
+        }
+
+        extracted = self._extract_license_id_from_uri(normalized)
+        if extracted:
+            candidates.add(extracted)
+
+        # Add variants without version suffixes like "-4.0" or "_3_0"
+        for candidate in list(candidates):
+            if candidate:
+                simplified = re.sub(r'[-_/ ]?v?\d+(?:\.\d+)*$', '', candidate)
+                if simplified:
+                    candidates.add(simplified)
+
+        return {candidate for candidate in candidates if candidate}
+
+    def _license_in_registry(self, license_value: str) -> bool:
+        """
+        Check if a license value matches any known license entry.
+        """
+        if not license_value:
+            return False
+
+        candidates = self._generate_license_candidates(license_value)
+        return any(candidate in self.known_licenses for candidate in candidates)
+
     def calculate_reusability_score(self, dataset_dict: Dict[str, Any]) -> float:
         """
         Calculate the Reusability score (max 75 points).
@@ -720,13 +829,15 @@ class MQACalculator:
             return 0.0
 
         # Check license information at the resource level
-        license_count = sum(1 for r in resources if r.get('license'))
+        license_count = sum(1 for r in resources if self._resource_has_license(r))
         license_score = (license_count / n) * 20
 
         # Check license vocabulary at the resource level
-        license_vocab_count = sum(1 for r in resources if r.get('license') and 
-                                 (self._extract_license_id_from_uri(r.get('license', '')) in self.known_licenses or 
-                                  r.get('license', '').lower() in self.known_licenses))
+        license_vocab_count = sum(
+            1
+            for r in resources
+            if self._resource_license_matches_vocabulary(r)
+        )
         license_vocab_score = (license_vocab_count / n) * 10
 
         # For dataset-level criteria, we use binary values (0 or 1) instead of percentages
@@ -991,10 +1102,8 @@ class MQACalculator:
         Calculate the metadata completeness score for a distribution (max 30 points).
 
         Criteria:
-        - Title/name - 10 points
-        - Description - 10 points
-        - License - 10 points
-        - License from controlled vocabulary
+        - License present (dct:license/license_url) - 20 points
+        - License from controlled vocabulary - 10 points
 
         Args:
             resource: The resource dictionary
@@ -1004,30 +1113,16 @@ class MQACalculator:
         """
         score = 0
 
-        # Check for title/name
-        if resource.get('name') or resource.get('name_translated'):
-            score += 10
-
-        # Check for description
-        if resource.get('description') or resource.get('description_translated'):
-            score += 10
-
-        # Check for license
-        license_value = resource.get('license')
-        if license_value:
-            score += 10
-            # Log the license value for debugging
-            log.debug(f"Resource license: {license_value}")
-            # Check if the license is in the known licenses list
-            license_id = self._extract_license_id_from_uri(license_value)
-            log.debug(f"Extracted license ID: {license_id}")
-            log.debug(f"Known licenses: {self.known_licenses}")
-            if license_id in self.known_licenses or license_value.lower() in self.known_licenses:
-                log.debug(f"License {license_id} is in the known licenses list")
-                # Give extra points for licenses from controlled vocabulary
+        # Check for license (via license_url)
+        license_url = self._get_resource_license_url(resource)
+        if license_url:
+            score += 20
+            log.debug(f"Resource license URL: {license_url}")
+            if self._license_in_registry(license_url):
+                log.debug("License found in known licenses list")
                 score += 10
             else:
-                log.debug(f"License {license_id} is NOT in the known licenses list")
+                log.debug("License not found in known licenses list")
 
         return score
 
@@ -1079,6 +1174,11 @@ class MQACalculator:
         Returns:
             A dictionary of criteria satisfaction
         """
+        format_in_vocab = bool(resource.get('format') and self._is_format_in_vocabulary(resource.get('format')))
+        media_type_in_vocab = bool(resource.get('mimetype') and self._is_mimetype_in_vocabulary(resource.get('mimetype')))
+
+        license_url = self._get_resource_license_url(resource)
+
         criteria = {
             # Accessibility criteria
             'has_access_url': bool(resource.get('url')),
@@ -1089,16 +1189,13 @@ class MQACalculator:
             # Format quality criteria
             'has_format': bool(resource.get('format')),
             'has_media_type': bool(resource.get('mimetype')),
+            'format_media_type_in_vocabulary': format_in_vocab or media_type_in_vocab,
             'is_open_format': resource.get('format', '').lower() in self.open_formats,
             'is_machine_readable': resource.get('format', '').lower() in self.machine_readable_formats,
 
             # Metadata completeness criteria
-            'has_name': bool(resource.get('name') or resource.get('name_translated')),
-            'has_description': bool(resource.get('description') or resource.get('description_translated')),
-            'has_license': bool(resource.get('license')),
-            'has_license_in_vocabulary': bool(resource.get('license') and 
-                                         (self._extract_license_id_from_uri(resource.get('license', '')) in self.known_licenses or 
-                                          resource.get('license', '').lower() in self.known_licenses)),
+            'has_license': bool(license_url),
+            'has_license_in_vocabulary': bool(license_url and self._license_in_registry(license_url)),
 
             # Documentation criteria
             'has_rights': bool(resource.get('rights')),
@@ -1132,10 +1229,9 @@ class MQACalculator:
             'download_url_accessible': 0,
             'has_format': 0,
             'has_media_type': 0,
+            'format_media_type_in_vocabulary': 0,
             'is_open_format': 0,
             'is_machine_readable': 0,
-            'has_name': 0,
-            'has_description': 0,
             'has_license': 0,
             'has_license_in_vocabulary': 0,
             'has_rights': 0,
@@ -1159,6 +1255,14 @@ class MQACalculator:
         }
 
         # Group criteria by category
+        format_quality_metrics = [
+            criteria_percentages['has_format'],
+            criteria_percentages['has_media_type'],
+            criteria_percentages['format_media_type_in_vocabulary'],
+            criteria_percentages['is_open_format'],
+            criteria_percentages['is_machine_readable']
+        ]
+
         result = {
             'accessibility': {
                 'has_access_url': criteria_percentages['has_access_url'],
@@ -1175,26 +1279,18 @@ class MQACalculator:
             'format_quality': {
                 'has_format': criteria_percentages['has_format'],
                 'has_media_type': criteria_percentages['has_media_type'],
+                'format_media_type_in_vocabulary': criteria_percentages['format_media_type_in_vocabulary'],
                 'is_open_format': criteria_percentages['is_open_format'],
                 'is_machine_readable': criteria_percentages['is_machine_readable'],
-                'percentage': (
-                    criteria_percentages['has_format'] + 
-                    criteria_percentages['has_media_type'] + 
-                    criteria_percentages['is_open_format'] + 
-                    criteria_percentages['is_machine_readable']
-                ) / 4
+                'percentage': sum(format_quality_metrics) / len(format_quality_metrics)
             },
             'metadata_completeness': {
-                'has_name': criteria_percentages['has_name'],
-                'has_description': criteria_percentages['has_description'],
                 'has_license': criteria_percentages['has_license'],
                 'has_license_in_vocabulary': criteria_percentages['has_license_in_vocabulary'],
                 'percentage': (
-                    criteria_percentages['has_name'] + 
-                    criteria_percentages['has_description'] + 
-                    criteria_percentages['has_license'] +
+                    (criteria_percentages['has_license'] * 2) +
                     criteria_percentages['has_license_in_vocabulary']
-                ) / 4
+                ) / 3
             },
             'documentation': {
                 'has_rights': criteria_percentages['has_rights'],

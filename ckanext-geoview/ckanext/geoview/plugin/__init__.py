@@ -680,21 +680,49 @@ class GeoJSONView(GeoViewBase):
         import os
         
         resource = data_dict['resource']
+        original_url = resource.get('url')
         
-        # Extract the filename from the URL
-        filename = os.path.basename(urlparse(resource['url']).path)
-        
-        # Create the URL for our custom proxy
-        proxy_url = url_for(
-            'geojson_view.geoview_proxy',
-            resource_id=resource['id'],
-            filename=filename
-        )
-        
-        # Pass the new URL to the template
-        # The JavaScript will use this for the AJAX call
-        data_dict['resource']['url'] = proxy_url
-        log.debug("Using GeoJSON proxy URL: %s", proxy_url)
+        if resource.get('url_type') == 'upload':
+            # For uploads we proxy via Azure to avoid exposing storage URLs
+            filename = os.path.basename(urlparse(original_url or '').path)
+            if not filename:
+                filename = f"{resource['id']}.geojson"
+
+            proxy_url = url_for(
+                'geojson_view.geoview_proxy',
+                resource_id=resource['id'],
+                filename=filename
+            )
+            data_dict['resource']['url'] = proxy_url
+            log.debug("Using GeoJSON upload proxy URL: %s", proxy_url)
+            return
+
+        # For linked resources prefer CKAN's resource proxy if available,
+        # so that we can fetch remote GeoJSON without CORS issues.
+        if self.proxy_enabled:
+            package_id = (
+                resource.get('package_id')
+                or data_dict.get('package', {}).get('id')
+                or data_dict.get('package_id')
+            )
+
+            if package_id:
+                proxy_url = url_for(
+                    'resource_proxy.proxy_view',
+                    id=package_id,
+                    resource_id=resource['id']
+                )
+                data_dict['resource']['url'] = proxy_url
+                log.debug(
+                    "Using CKAN resource proxy URL for GeoJSON: %s (original: %s)",
+                    proxy_url,
+                    original_url,
+                )
+                return
+
+        # Fall back to the original URL if no proxy applies
+        data_dict['resource']['url'] = original_url
+        log.debug("Using original GeoJSON URL (no proxy applied): %s", original_url)
 
     # ITemplateHelpers
 

@@ -15,8 +15,6 @@ stats = Blueprint(u'stats', __name__)
 def index():
     stats = stats_lib.Stats()
     extra_vars: dict[str, Any] = {
-        'datasets_by_theme': stats.datasets_by_theme(),
-        'organizations_by_publisher_type': stats.organizations_by_publisher_type(),
         'largest_groups': stats.largest_groups(),
         'top_tags': stats.top_tags(),
         'top_package_creators': stats.top_package_creators(),
@@ -55,3 +53,19 @@ def index():
             {'date': h.date_str_to_datetime(
                 week_date), 'deleted_packages': num_packages})
     return render(u'ckanext/stats/index.html', extra_vars)
+
+@stats.route(u'/stats/datasets-by-theme')
+def datasets_by_theme():
+    stats = stats_lib.Stats()
+    extra_vars: dict[str, Any] = {
+        'datasets_by_theme': stats.datasets_by_theme()
+    }
+    return render(u'ckanext/stats/datasets_by_theme.html', extra_vars)
+
+@stats.route(u'/stats/stats-organizations-per-type')
+def organizations_by_publisher_type():
+    stats = stats_lib.Stats()
+    extra_vars: dict[str, Any] = {
+        'organizations_by_publisher_type': stats.organizations_by_publisher_type(),
+    }
+    return render(u'ckanext/stats/organizations_by_publisher_type.html', extra_vars)

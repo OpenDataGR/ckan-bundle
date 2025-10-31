@@ -51,6 +51,10 @@ def qa_package_openness_show(context, data_dict):
     if not dataset:
         raise p.toolkit.ObjectNotFound
 
+    # Skip openness score for decisions and data-services
+    if dataset.type in ['decision', 'data-service']:
+        return {}
+
     qa_objs = QA.get_for_package(dataset.id)
     qa_dict = aggregate_qa_for_a_dataset(qa_objs)
     return qa_dict

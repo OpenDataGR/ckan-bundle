@@ -25,7 +25,7 @@ data - other data values, as a dict
       {% for row in table %}
         <tr>
           <td>
-            <a href="{{ h.url_for(dataset_read_route, id=row.name) }}">
+            <a href="{{ h.url_for(dataset_read_route, id=row.name) }}" title="{{ row.title }}">
               {{ row.title }}
             </a>
           </td>

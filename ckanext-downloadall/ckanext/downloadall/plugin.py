@@ -86,6 +86,11 @@ class DownloadallPlugin(plugins.SingletonPlugin, DefaultTranslation):
                       f"but user context is None (likely worker-triggered for 'downloadall'). Skipping re-queue.")
             return
         if isinstance(entity, model.Package):
+            if helpers.is_data_service(entity) or getattr(entity, 'type', '') == 'showcase':
+                log.debug('Skipping downloadall queue for dataset type "{}": {}'.format(
+                    getattr(entity, 'type', 'unknown'), getattr(entity, 'name', 'UnknownPackage')))
+                purge_downloadall_zip(entity.id, user)
+                return
             enqueue_update_zip(entity.name, entity.id, operation, user)
         elif isinstance(entity, model.Resource):
             if entity.extras.get('downloadall_metadata_modified'):
@@ -94,6 +99,11 @@ class DownloadallPlugin(plugins.SingletonPlugin, DefaultTranslation):
                 log.debug('Ignoring change to zip resource')
                 return
             dataset = entity.related_packages()[0]
+            if helpers.is_data_service(dataset) or getattr(dataset, 'type', '') == 'showcase':
+                log.debug('Skipping downloadall queue for dataset type "{}": {}'.format(
+                    getattr(dataset, 'type', 'unknown'), getattr(dataset, 'name', 'UnknownPackage')))
+                purge_downloadall_zip(dataset.id, user)
+                return
             enqueue_update_zip(dataset.name, dataset.id, operation, user)
         else:
             return
@@ -103,6 +113,7 @@ class DownloadallPlugin(plugins.SingletonPlugin, DefaultTranslation):
     def get_helpers(self):
         return {
             'downloadall__pop_zip_resource': helpers.pop_zip_resource,
+            'downloadall__is_data_service': helpers.is_data_service,
         }
 
     # IPackageController
@@ -158,3 +169,35 @@ def enqueue_update_zip(dataset_name, dataset_id, operation,user=None ):
         title=u'DownloadAll {} "{}" {}'.format(operation, dataset_name,
                                                dataset_id),
         queue=queue)
+
+
+def purge_downloadall_zip(dataset_id, user=None):
+    """Delete downloadall ZIP resources for given dataset."""
+    context = {'model': model, 'session': model.Session}
+    if user:
+        context['user'] = user
+    else:
+        context['ignore_auth'] = True
+
+    try:
+        dataset = toolkit.get_action('package_show')(context, {'id': dataset_id})
+    except Exception as e:
+        log.error('Failed to fetch dataset %s for ZIP purge: %s', dataset_id, e)
+        return
+
+    zip_resource_ids = [
+        res['id'] for res in dataset.get('resources', [])
+        if res.get('downloadall_metadata_modified')
+    ]
+
+    if not zip_resource_ids:
+        return
+
+    log.info('Purging %d downloadall ZIP resource(s) from dataset %s', len(zip_resource_ids), dataset_id)
+
+    for res_id in zip_resource_ids:
+        try:
+            toolkit.get_action('resource_delete')(context, {'id': res_id})
+            log.info('Deleted downloadall ZIP resource %s from dataset %s', res_id, dataset_id)
+        except Exception as e:
+            log.error('Failed to delete downloadall ZIP resource %s: %s', res_id, e)

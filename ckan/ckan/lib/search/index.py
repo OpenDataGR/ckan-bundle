@@ -214,7 +214,8 @@ class PackageSearchIndex(SearchIndex):
             rel_dict[type].append(pkg.name)
         for key, value in rel_dict.items():
             if key not in pkg_dict:
-                pkg_dict[key] = value
+                # Κρατάμε μόνο το πρώτο element για να αποφύγουμε το Solr multiValued error
+                pkg_dict[key] = value[:1] if value else []
 
         pkg_dict[TYPE_FIELD] = PACKAGE_TYPE
 
@@ -289,6 +290,11 @@ class PackageSearchIndex(SearchIndex):
                 commit = False
             conn.add(docs=[pkg_dict], commit=commit)
         except pysolr.SolrError as e:
+            # Log package info για debugging
+            log.error('SOLR ERROR - Package ID: %s, Type: %s',
+                      pkg_dict.get('id', 'UNKNOWN_ID'),
+                      pkg_dict.get('type', 'UNKNOWN_TYPE'))
+
             msg = 'Solr returned an error: {0}'.format(
                 e.args[0][:1000] # limit huge responses
             )

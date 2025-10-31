@@ -8,8 +8,8 @@
         <div class="info-box">
             <div class="type-description">
                 <h5 class="type-header">
-                    <i class="fa fa-database"></i> Dataset
-                    <button class="toggle-type" aria-label="Toggle dataset description">
+                    <i class="fa fa-database"></i> {{ _('Dataset') }}
+                    <button class="toggle-type" aria-label="{{ _('Toggle description') }}">
                         <i class="fa fa-plus"></i>
                     </button>
                 </h5>
@@ -25,8 +25,8 @@
 
             <div class="type-description">
                 <h5 class="type-header">
-                    <i class="fa fa-plug"></i> Data Service
-                    <button class="toggle-type" aria-label="Toggle service description">
+                    <i class="fa fa-plug"></i> {{ _('Data Service') }}
+                    <button class="toggle-type" aria-label="{{ _('Toggle description') }}">
                         <i class="fa fa-plus"></i>
                     </button>
                 </h5>
@@ -43,8 +43,8 @@
             {% if h.should_show_decision_button() %}
             <div class="type-description">
                 <h5 class="type-header">
-                    <i class="fa fa-gavel"></i> Decision
-                    <button class="toggle-type" aria-label="Toggle service description">
+                    <i class="fa fa-gavel"></i> {{ _('Decision') }}
+                    <button class="toggle-type" aria-label="{{ _('Toggle description') }}">
                         <i class="fa fa-plus"></i>
                     </button>
                 </h5>

@@ -104,9 +104,9 @@ document.addEventListener('DOMContentLoaded', function() {
     window.addEventListener('hashchange', checkPublisherVisibility);
 
     function checkPublisherVisibility() {
-        const hash = window.location.hash;
+        const path = window.location.pathname;
         const pieChart = document.getElementById('publisher-pie-chart');
-        const isPublisherSection = hash === '#organizations-per-type';
+        const isPublisherSection = path.includes('/stats/stats-organizations-per-type');
         pieChart.style.display = isPublisherSection ? 'block' : 'none';
     }
 });

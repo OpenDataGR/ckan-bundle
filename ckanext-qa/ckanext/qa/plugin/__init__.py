@@ -143,6 +143,11 @@ class QAPlugin(MixinPlugin, p.SingletonPlugin, toolkit.DefaultDatasetForm):
         # it they will be saved in the resources (not the dataset). I can't see
         # and easy way to stop this, but I think it is harmless. It will get
         # overwritten here when output again.
+
+        # Skip QA info for decisions and data-services
+        if pkg_dict.get('type') in ['decision', 'data-service']:
+            return
+
         qa_objs = QA.get_for_package(pkg_dict['id'])
         if not qa_objs:
             return
@@ -168,6 +173,11 @@ class QAPlugin(MixinPlugin, p.SingletonPlugin, toolkit.DefaultDatasetForm):
         '''
         Extract QA scores from `qa` and add them to the package dictionary for indexing
         '''
+        # Skip openness score for decisions and data-services
+        if pkg_dict.get('type') in ['decision', 'data-service']:
+            pkg_dict.pop('qa', None)
+            return pkg_dict
+
         qa = pkg_dict.get('qa')
         if qa != None:
             # Add openness score

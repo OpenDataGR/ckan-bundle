@@ -8,8 +8,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ckanext-harvest 0.2\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2015-12-11 15:21+0000\n"
-"PO-Revision-Date: 2025-09-24 10:00+0300\n"
+"POT-Creation-Date: 2025-10-14 08:05+0300\n"
+"PO-Revision-Date: 2025-10-14 10:00+0300\n"
 "Last-Translator: \n"
 "Language: el\n"
 "Language-Team: Greek <el@li.org>\n"
@@ -17,11 +17,140 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.1.1\n"
+"Generated-By: Babel 2.15.0\n"
 
-#: ckanext/harvest/helpers.py:70
+#: ckanext/harvest/helpers.py:107
 msgid "title"
 msgstr "τίτλος"
+
+#: ckanext/harvest/plugin.py:332 ckanext/harvest/plugin.py:342
+msgid "Frequency"
+msgstr "Συχνότητα"
+
+#: ckanext/harvest/plugin.py:333 ckanext/harvest/plugin.py:343
+msgid "Type"
+msgstr "Τύπος"
+
+#: ckanext/harvest/utils.py:490
+msgid "Not authorized to see this page"
+msgstr "Δεν επιτρέπεται η πρόσβαση σε αυτήν τη σελίδα"
+
+#: ckanext/harvest/logic/auth/create.py:34
+#: ckanext/harvest/logic/auth/delete.py:18 ckanext/harvest/logic/auth/get.py:32
+#: ckanext/harvest/logic/auth/update.py:19 ckanext/harvest/utils.py:501
+#: ckanext/harvest/utils.py:521 ckanext/harvest/utils.py:591
+#: ckanext/harvest/utils.py:609 ckanext/harvest/utils.py:643
+#: ckanext/harvest/utils.py:669 ckanext/harvest/utils.py:696
+msgid "Harvest source not found"
+msgstr "Η πηγή συγκομιδής δεν βρέθηκε"
+
+#: ckanext/harvest/utils.py:530
+msgid "No jobs yet for this source"
+msgstr "Δεν υπάρχουν ακόμη εργασίες για αυτήν την πηγή"
+
+#: ckanext/harvest/utils.py:563 ckanext/harvest/utils.py:622
+msgid "Harvest job not found"
+msgstr "Η εργασία συγκομιδής δεν βρέθηκε"
+
+#: ckanext/harvest/utils.py:619
+msgid "Harvest job stopped"
+msgstr "Η εργασία συγκομιδής σταμάτησε"
+
+#: ckanext/harvest/utils.py:641
+msgid "Harvest will start shortly. Refresh this page for updates."
+msgstr "Η συγκομιδή θα ξεκινήσει σύντομα. Ανανεώστε τη σελίδα για ενημερώσεις."
+
+#: ckanext/harvest/utils.py:648
+msgid ""
+"Cannot create new harvest jobs on inactive sources. First, please change "
+"the source status to \"active\"."
+msgstr ""
+"Δεν είναι δυνατή η δημιουργία νέων εργασιών συγκομιδής σε ανενεργές πηγές. "
+"Παρακαλώ αλλάξτε πρώτα την κατάσταση της πηγής σε 'ενεργή'."
+
+#: ckanext/harvest/utils.py:653
+msgid "A harvest job has already been scheduled for this source"
+msgstr "Έχει ήδη προγραμματιστεί μια εργασία συγκομιδής για αυτήν την πηγή"
+
+#: ckanext/harvest/utils.py:667
+msgid "Harvest source cleared"
+msgstr "Η πηγή συγκομιδής διαγράφηκε"
+
+#: ckanext/harvest/utils.py:689
+msgid "Harvesting source successfully cleared"
+msgstr "Η πηγή συγκομιδής διαγράφηκε επιτυχώς"
+
+#: ckanext/harvest/utils.py:691
+msgid "Harvesting source successfully inactivated"
+msgstr "Η πηγή συγκομιδής απενεργοποιήθηκε επιτυχώς"
+
+#: ckanext/harvest/utils.py:720
+msgid "No content found"
+msgstr "Δεν βρέθηκε περιεχόμενο"
+
+#: ckanext/harvest/logic/action/update.py:747
+msgid "Error Summary"
+msgstr "Περίληψη Σφαλμάτων"
+
+#: ckanext/harvest/logic/action/update.py:748
+msgid "Document Error"
+msgstr "Σφάλμα Εγγράφου"
+
+#: ckanext/harvest/logic/action/update.py:749
+msgid "Job Errors"
+msgstr "Σφάλματα Εργασίας"
+
+#: ckanext/harvest/logic/auth/create.py:19
+msgid "User {0} not authorized to create harvest sources"
+msgstr "Ο χρήστης {0} δεν είναι εξουσιοδοτημένος να δημιουργήσει πηγές συγκομιδής"
+
+#: ckanext/harvest/logic/auth/create.py:42
+msgid "User not authorized to create a job for source {0}"
+msgstr "Ο χρήστης δεν είναι εξουσιοδοτημένος να δημιουργήσει εργασία για την πηγή {0}"
+
+#: ckanext/harvest/logic/auth/create.py:52
+msgid "Only sysadmins can create harvest jobs for all sources"
+msgstr "Μόνο οι διαχειριστές συστήματος μπορούν να δημιουργήσουν εργασίες συγκομιδής για όλες τις πηγές"
+
+#: ckanext/harvest/logic/auth/create.py:64
+msgid "Only the sysadmins can create harvest objects"
+msgstr "Μόνο οι διαχειριστές συστήματος μπορούν να δημιουργήσουν αντικείμενα συγκομιδής"
+
+#: ckanext/harvest/logic/auth/delete.py:27
+msgid "User {0} not authorized to delete harvest source {1}"
+msgstr "Ο χρήστης {0} δεν είναι εξουσιοδοτημένος να διαγράψει την πηγή συγκομιδής {1}"
+
+#: ckanext/harvest/logic/auth/get.py:41
+msgid "User {0} not authorized to read harvest source {1}"
+msgstr "Ο χρήστης {0} δεν είναι εξουσιοδοτημένος να διαβάσει την πηγή συγκομιδής {1}"
+
+#: ckanext/harvest/logic/auth/get.py:83
+msgid "User {0} not authorized to see jobs from source {1}"
+msgstr "Ο χρήστης {0} δεν είναι εξουσιοδοτημένος να δει τις εργασίες από την πηγή {1}"
+
+#: ckanext/harvest/logic/auth/get.py:105
+msgid "User {0} not authorized to list jobs for source {1}"
+msgstr "Ο χρήστης {0} δεν είναι εξουσιοδοτημένος να προβάλει τις εργασίες για την πηγή {1}"
+
+#: ckanext/harvest/logic/auth/update.py:28
+msgid "User {0} not authorized to update harvest source {1}"
+msgstr "Ο χρήστης {0} δεν είναι εξουσιοδοτημένος να ενημερώσει την πηγή συγκομιδής {1}"
+
+#: ckanext/harvest/logic/auth/update.py:38
+msgid "Only sysadmins can clear history for all harvest jobs"
+msgstr "Μόνο οι διαχειριστές συστήματος μπορούν να εκκαθαρίσουν το ιστορικό για όλες τις εργασίες συγκομιδής"
+
+#: ckanext/harvest/logic/auth/update.py:59
+msgid "Only sysadmins can reimport all harvest objects"
+msgstr "Μόνο οι διαχειριστές συστήματος μπορούν να επανεισάγουν όλα τα αντικείμενα συγκομιδής"
+
+#: ckanext/harvest/logic/auth/update.py:71
+msgid "Only sysadmins can run the pending harvest jobs"
+msgstr "Μόνο οι διαχειριστές συστήματος μπορούν να εκτελέσουν τις εκκρεμείς εργασίες συγκομιδής"
+
+#: ckanext/harvest/logic/auth/update.py:103
+msgid "Only sysadmins can reindex all harvest sources"
+msgstr "Μόνο οι διαχειριστές συστήματος μπορούν να επαναδεικτούν όλες τις πηγές συγκομιδής"
 
 #: ckanext/harvest/controllers/organization.py:40
 msgid "Group not found"
@@ -44,115 +173,12 @@ msgstr "Ετικέτες"
 msgid "Formats"
 msgstr "Μορφές"
 
-msgid "Harvest"
-msgstr "Συγκομιδή"
-
 #: ckanext/harvest/controllers/organization.py:140
 msgid "Licence"
 msgstr "Άδεια"
 
-#: ckanext/harvest/controllers/view.py:28
-msgid "Not authorized to see this page"
-msgstr "Δεν επιτρέπεται η πρόσβαση σε αυτήν τη σελίδα"
-
-#: ckanext/harvest/controllers/view.py:45
-msgid "Harvesting source successfully cleared"
-msgstr "Η πηγή συγκομιδής διαγράφηκε επιτυχώς"
-
-#: ckanext/harvest/controllers/view.py:47
-msgid "Harvesting source successfully inactivated"
-msgstr "Η πηγή συγκομιδής απενεργοποιήθηκε επιτυχώς"
-
-#: ckanext/harvest/controllers/view.py:51 ckanext/harvest/controllers/view.py:63
-#: ckanext/harvest/controllers/view.py:85 ckanext/harvest/controllers/view.py:146
-#: ckanext/harvest/controllers/view.py:184 ckanext/harvest/controllers/view.py:195
-#: ckanext/harvest/controllers/view.py:221 ckanext/harvest/logic/auth/create.py:34
-#: ckanext/harvest/logic/auth/delete.py:18 ckanext/harvest/logic/auth/get.py:33
-#: ckanext/harvest/logic/auth/update.py:19
-msgid "Harvest source not found"
-msgstr "Η πηγή συγκομιδής δεν βρέθηκε"
-
-#: ckanext/harvest/controllers/view.py:61
-msgid "Harvest will start shortly. Refresh this page for updates."
-msgstr "Η συγκομιδή θα ξεκινήσει σύντομα. Ανανεώστε τη σελίδα για ενημερώσεις."
-
-#: ckanext/harvest/controllers/view.py:67
-msgid ""
-"Cannot create new harvest jobs on inactive sources. First, please change the "
-"source status to 'active'."
-msgstr ""
-"Δεν είναι δυνατή η δημιουργία νέων εργασιών συγκομιδής σε ανενεργές πηγές. "
-"Παρακαλώ αλλάξτε πρώτα την κατάσταση της πηγής σε 'ενεργή'."
-
-#: ckanext/harvest/controllers/view.py:71
-msgid "A harvest job has already been scheduled for this source"
-msgstr "Έχει ήδη προγραμματιστεί μια εργασία συγκομιδής για αυτήν την πηγή"
-
-#: ckanext/harvest/controllers/view.py:83
-msgid "Harvest source cleared"
-msgstr "Η πηγή συγκομιδής διαγράφηκε"
-
-#: ckanext/harvest/controllers/view.py:111
-msgid "No content found"
-msgstr "Δεν βρέθηκε περιεχόμενο"
-
-#: ckanext/harvest/controllers/view.py:171
-msgid "Harvest job not found"
-msgstr "Η εργασία συγκομιδής δεν βρέθηκε"
-
-#: ckanext/harvest/controllers/view.py:204
-#: ckanext/harvest/templates/source/admin.html:15
-#: ckanext/harvest/templates/source/job/list.html:13
-msgid "No jobs yet for this source"
-msgstr "Δεν υπάρχουν ακόμη εργασίες για αυτήν την πηγή"
-
-#: ckanext/harvest/logic/auth/create.py:19
-msgid "User {0} not authorized to create harvest sources"
-msgstr "Ο χρήστης {0} δεν είναι εξουσιοδοτημένος να δημιουργήσει πηγές συγκομιδής"
-
-#: ckanext/harvest/logic/auth/create.py:42
-msgid "User not authorized to create a job for source {0}"
-msgstr "Ο χρήστης δεν είναι εξουσιοδοτημένος να δημιουργήσει εργασία για την πηγή {0}"
-
-#: ckanext/harvest/logic/auth/create.py:52
-msgid "Only sysadmins can create harvest jobs for all sources"
-msgstr "Μόνο οι διαχειριστές συστήματος μπορούν να δημιουργήσουν εργασίες συγκομιδής για όλες τις πηγές"
-
-#: ckanext/harvest/logic/auth/create.py:63
-msgid "Only the sysadmins can create harvest objects"
-msgstr "Μόνο οι διαχειριστές συστήματος μπορούν να δημιουργήσουν αντικείμενα συγκομιδής"
-
-#: ckanext/harvest/logic/auth/delete.py:27
-msgid "User {0} not authorized to delete harvest source {1}"
-msgstr "Ο χρήστης {0} δεν είναι εξουσιοδοτημένος να διαγράψει την πηγή συγκομιδής {1}"
-
-#: ckanext/harvest/logic/auth/get.py:42
-msgid "User {0} not authorized to read harvest source {1}"
-msgstr "Ο χρήστης {0} δεν είναι εξουσιοδοτημένος να διαβάσει την πηγή συγκομιδής {1}"
-
-#: ckanext/harvest/logic/auth/get.py:82
-msgid "User {0} not authorized to see jobs from source {1}"
-msgstr "Ο χρήστης {0} δεν είναι εξουσιοδοτημένος να δει τις εργασίες από την πηγή {1}"
-
-#: ckanext/harvest/logic/auth/get.py:104
-msgid "User {0} not authorized to list jobs for source {1}"
-msgstr "Ο χρήστης {0} δεν είναι εξουσιοδοτημένος να προβάλει τις εργασίες για την πηγή {1}"
-
-#: ckanext/harvest/logic/auth/update.py:28
-msgid "User {0} not authorized to update harvest source {1}"
-msgstr "Ο χρήστης {0} δεν είναι εξουσιοδοτημένος να ενημερώσει την πηγή συγκομιδής {1}"
-
-#: ckanext/harvest/logic/auth/update.py:45
-msgid "Only sysadmins can reimport all harvest objects"
-msgstr "Μόνο οι διαχειριστές συστήματος μπορούν να επανεισάγουν όλα τα αντικείμενα συγκομιδής"
-
-#: ckanext/harvest/logic/auth/update.py:57
-msgid "Only sysadmins can run the pending harvest jobs"
-msgstr "Μόνο οι διαχειριστές συστήματος μπορούν να εκτελέσουν τις εκκρεμείς εργασίες συγκομιδής"
-
-#: ckanext/harvest/logic/auth/update.py:89
-msgid "Only sysadmins can reindex all harvest sources"
-msgstr "Μόνο οι διαχειριστές συστήματος μπορούν να επαναδεικτούν όλες τις πηγές συγκομιδής"
+msgid "Harvest"
+msgstr "Συγκομιδή"
 
 #: ckanext/harvest/templates/snippets/add_source_button.html:6
 #: ckanext/harvest/templates/source/org_source_list.html:11
@@ -347,6 +373,33 @@ msgstr "Δημιουργία πηγής συγκομιδής"
 msgid "Harvest sources"
 msgstr "Πηγές συγκομιδής"
 
+#: ckanext/harvest/templates/source/new.html:26
+msgid ""
+" Harvest sources allow importing remote metadata into this catalog. "
+"Remote sources can be other catalogs such as other CKAN instances, CSW "
+"servers or Web Accessible Folders (WAF) (depending on the actual "
+"harvesters enabled for this instance). "
+msgstr ""
+"Οι πηγές συγκομιδής επιτρέπουν την εισαγωγή απομακρυσμένων μεταδεδομένων σε "
+"αυτόν τον κατάλογο. Απομακρυσμένες πηγές μπορεί να είναι άλλοι κατάλογοι όπως "
+"άλλες παρουσίες CKAN, διακομιστές CSW ή Φακέλους Προσβάσιμους από τον Ιστό "
+"(WAF) (εξαρτάται από τους συγκεκριμένους συλλέκτες που είναι ενεργοποιημένοι "
+"για αυτήν την παρουσία). "
+
+#: ckanext/harvest/templates/source/search.html:26
+msgid ""
+"Harvest sources allow importing remote metadata into this catalog. "
+"Remote sources can be other catalogs such as other CKAN instances, CSW "
+"servers or Web Accessible Folders (WAF) (depending on the actual "
+"harvesters enabled for this instance)."
+msgstr ""
+"Οι πηγές συγκομιδής επιτρέπουν την εισαγωγή απομακρυσμένων μεταδεδομένων σε "
+"αυτόν τον κατάλογο. Απομακρυσμένες πηγές μπορεί να είναι άλλοι κατάλογοι όπως "
+"άλλες παρουσίες CKAN, διακομιστές CSW ή Φακέλους Προσβάσιμους από τον Ιστό "
+"(WAF) (εξαρτάται από τους συγκεκριμένους συλλέκτες που είναι ενεργοποιημένοι "
+"για αυτήν την παρουσία)."
+
+#: ckanext/harvest/templates/source/new_source_form.html:8
 msgid "URL"
 msgstr "URL"
 
@@ -534,11 +587,6 @@ msgstr "Αναφορά Εργασίας"
 msgid "Back to job list"
 msgstr "Επιστροφή στη λίστα εργασιών"
 
-#: ckanext/harvest/templates/source/job/read.html:18
-#: ckanext/harvest/templates/source/job/read.html:22
-msgid "Error Summary"
-msgstr "Περίληψη Σφαλμάτων"
-
 #: ckanext/harvest/templates/source/job/read.html:19
 msgid "No errors for this job"
 msgstr "Κανένα σφάλμα για αυτήν την εργασία"
@@ -546,16 +594,6 @@ msgstr "Κανένα σφάλμα για αυτήν την εργασία"
 #: ckanext/harvest/templates/source/job/read.html:23
 msgid "Only the 20 most frequent errors are shown"
 msgstr "Εμφανίζονται μόνο τα 20 πιο συχνά σφάλματα"
-
-#: ckanext/harvest/templates/source/job/read.html:26
-#: ckanext/harvest/templates/source/job/read.html:40
-msgid "Job Errors"
-msgstr "Σφάλματα Εργασίας"
-
-#: ckanext/harvest/templates/source/job/read.html:30
-#: ckanext/harvest/templates/source/job/read.html:57
-msgid "Document Errors"
-msgstr "Σφάλματα Εγγράφου"
 
 #: ckanext/harvest/templates/source/job/read.html:37
 msgid "Error Report"
@@ -572,30 +610,18 @@ msgstr "Απομακρυσμένο περιεχόμενο"
 #: ckanext/harvest/templates/source/job/read.html:73
 msgid "Local content"
 msgstr "Τοπικό περιεχόμενο"
+
 msgid "Members"
 msgstr "Μέλη"
 
-
-msgid "Frequency"
-msgstr "Συχνότητα"
-
-msgid "Type"
-msgstr "Τύπος"
-
-
-
-#: ckanext/harvest/templates/source/new.html:26
-msgid ""
-" Harvest sources allow importing remote metadata into this catalog. "
-"Remote sources can be other catalogs such as other CKAN instances, CSW "
-"servers or Web Accessible Folders (WAF) (depending on the actual "
-"harvesters enabled for this instance). "
-msgstr ""
-"Οι πηγές συγκομιδής επιτρέπουν την εισαγωγή απομακρυσμένων μεταδεδομένων σε "
-"αυτόν τον κατάλογο. Απομακρυσμένες πηγές μπορεί να είναι άλλοι κατάλογοι όπως "
-"άλλες παρουσίες CKAN, διακομιστές CSW ή Φακέλους Προσβάσιμους από τον Ιστό "
-"(WAF) (εξαρτάται από τους συγκεκριμένους συλλέκτες που είναι ενεργοποιημένοι "
-"για αυτήν την παρουσία). "
-
 msgid "Source type"
 msgstr "Τύπος πηγής"
+
+msgid "harvests found"
+msgstr "βρέθηκαν πηγές συγκομιδής"
+
+msgid "Stop"
+msgstr "Διακοπή"
+
+msgid "You need to login in order to continue"
+msgstr "Πρέπει να συνδεθείτε για να συνεχίσετε"

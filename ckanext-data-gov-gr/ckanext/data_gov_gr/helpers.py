@@ -1,5 +1,6 @@
 import logging
 import ckan.plugins.toolkit as toolkit
+from ckan.lib import helpers as core_helpers
 from ckan.lib.helpers import lang
 from ckan.plugins.toolkit import _ # Import για το σύστημα μετάφρασης
 
@@ -318,6 +319,73 @@ def get_config_as_bool(key, default=False):
     value = toolkit.config.get(key, default)
     return toolkit.asbool(value)
 
+def get_config_value(key, default=""):
+    """
+    Retrieve a raw configuration value with an optional default.
+    """
+    value = toolkit.config.get(key)
+    return value if value is not None else default
+
+
+def _localize_data_service_label(text):
+    """
+    Post-process humanized strings for the data-service dataset type so the
+    rendered labels match the active locale.
+    """
+    if not isinstance(text, str):
+        return text
+
+    current_lang = lang()
+    if current_lang == 'el':
+        replacements = {
+            'Data-services': 'Υπηρεσίες Δεδομένων',
+            'Data-service': 'Υπηρεσία Δεδομένων',
+            'Data Services': 'Υπηρεσίες Δεδομένων',
+            'Data Service': 'Υπηρεσία Δεδομένων',
+        }
+    else:
+        replacements = {
+            'Data-services': 'Data Services',
+            'Data-service': 'Data Service',
+        }
+
+    for source, target in replacements.items():
+        text = text.replace(source, target)
+
+    if current_lang == 'el':
+        phrase_replacements = {
+            'My Υπηρεσίες Δεδομένων': 'Οι Υπηρεσίες Δεδομένων μου',
+            'My Υπηρεσία Δεδομένων': 'Η Υπηρεσία Δεδομένων μου',
+            'Create Υπηρεσία Δεδομένων': 'Δημιουργία Υπηρεσίας Δεδομένων',
+            'Add Υπηρεσία Δεδομένων': 'Προσθήκη Υπηρεσίας Δεδομένων',
+            'Save Υπηρεσία Δεδομένων': 'Αποθήκευση Υπηρεσίας Δεδομένων',
+            'Update Υπηρεσία Δεδομένων': 'Ενημέρωση Υπηρεσίας Δεδομένων',
+            'View Υπηρεσία Δεδομένων': 'Προβολή Υπηρεσίας Δεδομένων',
+        }
+        for source, target in phrase_replacements.items():
+            text = text.replace(source, target)
+
+        verb_replacements = {
+            'Create ': 'Δημιουργία ',
+            'Add ': 'Προσθήκη ',
+            'Save ': 'Αποθήκευση ',
+            'Update ': 'Ενημέρωση ',
+            'View ': 'Προβολή ',
+        }
+        for source, target in verb_replacements.items():
+            text = text.replace(source, target)
+    return text
+
+
+def humanize_entity_type(entity_type, object_type, purpose):
+    """
+    Delegate to CKAN's default helper and localize the data-service type labels.
+    """
+    base_value = core_helpers.humanize_entity_type(entity_type, object_type, purpose)
+    if object_type != 'data-service':
+        return base_value
+    return _localize_data_service_label(base_value)
+
 
 def should_hide_mqa_tab():
     """
@@ -376,6 +444,11 @@ def should_show_decision_button():
     """
     return get_config_as_bool('ckanext.data_gov_gr.menu.show_decision', default=True)
 
+def get_data_service_guides_url():
+    """
+    Return the configured URL for the data service guides reference.
+    """
+    return get_config_value('ckanext.data_gov_gr.data_service_guides_url')
 
 def get_helpers():
     return {
@@ -386,7 +459,10 @@ def get_helpers():
         "fluent_language_is_required": fluent_language_is_required,
         "get_organizations_stats": get_organizations_stats,
         'get_access_rights_type': get_access_rights_type,
+        'get_data_service_guides_url': get_data_service_guides_url,
         'get_config_as_bool': get_config_as_bool,
+        'get_config_value': get_config_value,
+        'humanize_entity_type': humanize_entity_type,
         'should_hide_mqa_tab': should_hide_mqa_tab,
         'should_disable_protected_data': should_disable_protected_data,
         'should_hide_azure_translation': should_hide_azure_translation,

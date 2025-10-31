@@ -107,11 +107,11 @@ document.addEventListener('DOMContentLoaded', function() {
     window.addEventListener('hashchange', checkThemeVisibility);
 
     function checkThemeVisibility() {
-        const hash = window.location.hash;
+        const path = window.location.pathname;
         const pieChart = document.getElementById('theme-pie-chart');
 
         // Έλεγχος αν είμαστε στο theme section
-        const isThemeSection = hash === '#datasets-per-theme';
+        const isThemeSection = path.includes('/stats/datasets-by-theme');
 
         // Ρύθμιση ορατότητας
         pieChart.style.display = isThemeSection ? 'block' : 'none';

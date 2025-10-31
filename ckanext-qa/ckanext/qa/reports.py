@@ -414,7 +414,7 @@ def metadata_quality_for_organization(organization=None):
             # Add row for this package
             rows.append(OrderedDict((
                     ('dataset_name', pkg.name),
-                    ('dataset_title', pkg.title),
+                    ('dataset_title', lib.resolve_dataset_title(pkg)),
                     ('dataset_notes', lib.dataset_notes(pkg)),
                     ('organization_name', org.name),
                     ('organization_title', org.title),

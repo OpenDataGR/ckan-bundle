@@ -64,6 +64,14 @@ msgstr "Αναζήτηση Τοποθεσίας"
 msgid "Copied!"
 msgstr "Αντιγράφηκε!"
 
+#: ckanext/data_gov_gr/templates/ckanext_pages/blog_edit.html:12
+msgid "Blog"
+msgstr "Ιστολόγιο"
+
+#: ckanext/data_gov_gr/templates/ckanext_pages/blog_edit.html:16
+msgid "Add blog articles to CKAN here."
+msgstr "Προσθέστε άρθρα blog στο CKAN εδώ."
+
 #: ckanext/data_gov_gr/templates/header.html:106
 msgid "APIs"
 msgstr "APIs"
@@ -122,6 +130,10 @@ msgstr "URL Λήψης"
 #: ckanext/data_gov_gr/templates/package/mqa.html:57
 msgid "Download URL is accessible"
 msgstr "Το URL Λήψης είναι προσβάσιμο"
+
+#: ckanext/data_gov_gr/templates/package/mqa.html:61
+msgid "Access URL is accessible"
+msgstr "Το URL πρόσβασης είναι προσβάσιμο"
 
 #: ckanext/data_gov_gr/templates/package/mqa.html:61
 msgid "Access URL"
@@ -225,21 +237,31 @@ msgid "How easily the data can be integrated with other data and systems."
 msgstr "Πόσο εύκολα μπορούν τα δεδομένα να ενσωματωθούν με άλλα δεδομένα και συστήματα."
 
 #: ckanext/data_gov_gr/templates/package/mqa.html:215
-#: ckanext/data_gov_gr/templates/package/mqa.html:300
+#: ckanext/data_gov_gr/templates/package/mqa.html:304
 msgid "Format"
 msgstr "Μορφότυπος"
 
 #: ckanext/data_gov_gr/templates/package/mqa.html:219
-#: ckanext/data_gov_gr/templates/package/mqa.html:301
+#: ckanext/data_gov_gr/templates/package/mqa.html:305
 msgid "Media type"
 msgstr "Τύπος μέσου"
 
 #: ckanext/data_gov_gr/templates/package/mqa.html:223
-#: ckanext/data_gov_gr/templates/package/mqa.html:302
+#: ckanext/data_gov_gr/templates/package/mqa.html:306
+msgid "Format/media type in vocabulary"
+msgstr "Μορφότυπος/τύπος μέσου από λεξιλόγιο"
+
+#: ckanext/data_gov_gr/templates/package/mqa.html:227
+#: ckanext/data_gov_gr/templates/package/mqa.html:307
+msgid "Open format"
+msgstr "Κοινός μορφότυπος"
+
+#: ckanext/data_gov_gr/templates/package/mqa.html:231
+#: ckanext/data_gov_gr/templates/package/mqa.html:308
 msgid "Machine-readable format"
 msgstr "Μηχαναγνώσιμος μορφότυπος"
 
-#: ckanext/data_gov_gr/templates/package/mqa.html:227
+#: ckanext/data_gov_gr/templates/package/mqa.html:235
 msgid "DCAT-AP compliance"
 msgstr "Συμμόρφωση με DCAT-AP"
 
@@ -502,6 +524,63 @@ msgstr "Υπηρεσίες Δεδομένων"
 msgid "No data-services found"
 msgstr "Δεν βρέθηκαν υπηρεσίες δεδομένων"
 
+msgid "Add Data Service"
+msgstr "Προσθήκη Υπηρεσίας Δεδομένων"
+
+msgid "Add to Data Service"
+msgstr "Προσθήκη στην Υπηρεσία Δεδομένων"
+
+msgid "Create Data Service"
+msgstr "Δημιουργία Υπηρεσίας Δεδομένων"
+
+msgid "Are you sure you want to delete this Data Service?"
+msgstr "Είστε βέβαιοι ότι θέλετε να διαγράψετε αυτή την Υπηρεσία Δεδομένων;"
+
+msgid "A little information about my Data Service..."
+msgstr "Λίγες πληροφορίες για την Υπηρεσία Δεδομένων μου..."
+
+msgid "Edit Data Service"
+msgstr "Επεξεργασία Υπηρεσίας Δεδομένων"
+
+msgid "Data Service Form"
+msgstr "Φόρμα Υπηρεσίας Δεδομένων"
+
+msgid "My Data Services"
+msgstr "Οι Υπηρεσίες Δεδομένων μου"
+
+msgid "View Data Service"
+msgstr "Προβολή Υπηρεσίας Δεδομένων"
+
+msgid "My Data Service"
+msgstr "Η Υπηρεσία Δεδομένων μου"
+
+msgid "There are currently no Data Services for this site"
+msgstr "Δεν υπάρχουν αυτή τη στιγμή Υπηρεσίες Δεδομένων για αυτόν τον ιστότοπο"
+
+msgid "There are no Data Services associated with this dataset"
+msgstr "Δεν υπάρχουν Υπηρεσίες Δεδομένων που να σχετίζονται με αυτό το σύνολο δεδομένων"
+
+msgid "There is no description for this Data Service"
+msgstr "Δεν υπάρχει περιγραφή για αυτή την Υπηρεσία Δεδομένων"
+
+msgid "No Data Service"
+msgstr "Καμία Υπηρεσία Δεδομένων"
+
+msgid "Save Data Service"
+msgstr "Αποθήκευση Υπηρεσίας Δεδομένων"
+
+msgid "Search Data Services..."
+msgstr "Αναζήτηση Υπηρεσιών Δεδομένων..."
+
+msgid "You are not a member of any Data Services."
+msgstr "Δεν είστε μέλος σε καμία Υπηρεσία Δεδομένων."
+
+msgid "User isn't a member of any Data Services."
+msgstr "Ο χρήστης δεν είναι μέλος σε καμία Υπηρεσία Δεδομένων."
+
+msgid "Update Data Service"
+msgstr "Ενημέρωση Υπηρεσίας Δεδομένων"
+
 msgid "New Dataset"
 msgstr "Νέο Σύνολο Δεδομένων"
 
@@ -556,8 +635,18 @@ msgstr "Προσθήκη Συνόλου Δεδομένων - Υπηρεσίας 
 msgid "What are data services?"
 msgstr "Τι είναι οι υπηρεσίες δεδομένων;"
 
+msgid "A CKAN Data Service provides programmatic access to data through APIs, web services, or other automated interfaces. Data services enable applications and systems to access and process data automatically."
+msgstr "Μια CKAN Υπηρεσία Δεδομένων προσφέρει προγραμματιστική πρόσβαση σε δεδομένα μέσω APIs, υπηρεσιών web ή άλλων αυτοματοποιημένων διεπαφών. Οι υπηρεσίες δεδομένων επιτρέπουν σε εφαρμογές και συστήματα να αποκτούν και να επεξεργάζονται δεδομένα αυτόματα."
+
+msgid "Read the data service submission guide"
+msgstr "Διαβάστε τον οδηγό υποβολής υπηρεσίας δεδομένων"
+
 msgid "Data Service"
 msgstr "Υπηρεσία Δεδομένων"
+
+msgid "Toggle description"
+msgstr "Εναλλαγή περιγραφής"
+
 msgid "Leave a comment"
 msgstr "Αφήστε ένα σχόλιο"
 
@@ -616,4 +705,11 @@ msgstr "Αριθμός Οργανισμών"
 
 msgid "No publisher types found"
 msgstr "Δεν βρέθηκαν τύποι εκδοτών"
+msgid "Total Number of Packages"
+msgstr "Πλήθος συνόλων δεδομένων και APIs"
 
+msgid "Package Revisions per Week"
+msgstr "Αναθεωρήσεις συνόλων δεδομένων και APIs ανά εβδομάδα"
+
+msgid "Most Edited Packages"
+msgstr "Περισσότερο επεξεργασμένα σύνολα δεδομένων και APIs "

@@ -56,7 +56,11 @@
       <tbody>
         {% for row in c.data['table'] %}
           <tr>
-            <td>{{h.link_to(row['dataset_title'], '/dataset/%s' % row['dataset_name']) }}</td>
+            <td>
+              <a href="/dataset/{{ row['dataset_name'] }}" title="{{ row['dataset_title'] }}">
+                {{ row['dataset_title'] }}
+              </a>
+            </td>
             <td>{{row['dataset_notes'] }}</td>
             <td>{% if row['mqa_quality_score'] is not none %}{{ row['mqa_quality_score'] }}%{% else %}{% trans %}No MQA score{% endtrans %}{% endif %}</td>
             <td>{% if row.get('mqa_findability_score') is not none %}{{ row['mqa_findability_score']|int if row['mqa_findability_score'] == row['mqa_findability_score']|int else row['mqa_findability_score'] }}/100{% else %}-{% endif %}</td>

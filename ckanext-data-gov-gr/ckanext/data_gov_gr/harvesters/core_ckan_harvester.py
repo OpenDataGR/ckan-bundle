@@ -2,6 +2,8 @@ import json
 import logging
 import datetime
 from datetime import timezone
+from urllib.parse import urlparse
+
 from ckan import model
 from ckan.plugins import toolkit
 from ckanext.harvest.interfaces import IHarvester
@@ -18,39 +20,39 @@ MIN_TAG_LENGTH = 2
 MAX_TAG_LENGTH = 100
 
 
-class GrowthFundHarvester(DataGovGrHarvester, CKANHarvester):
+class CoreCkanHarvester(DataGovGrHarvester, CKANHarvester):
     '''
-    Custom CKAN Harvester for Growth Fund datasets
+    Custom CKAN Harvester for core CKAN datasets
     '''
-
+    _licence_vocabulary_codes_cache = None
 
     def __init__(self, name=None):
-        super(GrowthFundHarvester, self).__init__(name)
-        log.info("Growth Fund Harvester initialized")
+        super(CoreCkanHarvester, self).__init__(name)
+        log.info("Core CKAN Harvester initialized")
 
     def info(self):
         return {
-            'name': 'growth_fund',
-            'title': 'Growth Fund Harvester',
-            'description': 'Harvester for Growth Fund datasets with custom name-to-tag mapping',
+            'name': 'core_ckan_harvester',
+            'title': 'Core CKAN Harvester',
+            'description': 'Harvester for core CKAN datasets with custom name-to-tag mapping',
             'form_config_interface': 'Text'
         }
 
     def gather_stage(self, harvest_job):
         log.info("Gather stage started for job: %s", harvest_job.id)
-        result = super(GrowthFundHarvester, self).gather_stage(harvest_job)
+        result = super(CoreCkanHarvester, self).gather_stage(harvest_job)
         log.debug("Gather stage returned %d objects", len(result) if result else 0)
         return result
 
     def fetch_stage(self, harvest_object):
         log.info("Fetch stage started for object: %s", harvest_object.id)
-        result = super(GrowthFundHarvester, self).fetch_stage(harvest_object)
+        result = super(CoreCkanHarvester, self).fetch_stage(harvest_object)
         log.debug("Fetch stage completed with result: %s", result)
         return result
 
     def import_stage(self, harvest_object):
         log.info("Import stage started for object: %s", harvest_object.id)
-        result = super(GrowthFundHarvester, self).import_stage(harvest_object)
+        result = super(CoreCkanHarvester, self).import_stage(harvest_object)
 
         # Post-import isopen override - after all CKAN processing
         if result and hasattr(result, 'data') and result.data:
@@ -95,7 +97,7 @@ class GrowthFundHarvester(DataGovGrHarvester, CKANHarvester):
             log.debug(f"Remote isopen value: {remote_package_dict.get('isopen')}")
 
             # Call the parent method first to filter extras
-            package_dict = super(GrowthFundHarvester, self).modify_package_dict(
+            package_dict = super(CoreCkanHarvester, self).modify_package_dict(
                 package_dict, harvest_object
             )
 
@@ -121,10 +123,7 @@ class GrowthFundHarvester(DataGovGrHarvester, CKANHarvester):
             self._clean_package_tags(package_dict)
             self._add_harvest_metadata(package_dict, harvest_object)
             
-            # Remove original fields when we have translated versions
-            if 'title_translated-el' in package_dict:
-                package_dict.pop('title', None)
-                
+            # Remove original description when we have translated version
             if 'notes_translated-el' in package_dict:
                 package_dict.pop('notes', None)
 
@@ -311,14 +310,45 @@ class GrowthFundHarvester(DataGovGrHarvester, CKANHarvester):
                 return
 
             publisher = {
-                'name': remote_org.get('title'),
-                'uri': remote_org.get('description'),
-                'url': remote_org.get('description'),
+                'name': remote_org.get('title') or remote_org.get('name'),
                 'identifier': remote_org.get('id'),
             }
 
-            # Remove None values
-            publisher = {k: v for k, v in publisher.items() if v is not None}
+            remote_description = remote_org.get('description')
+            if isinstance(remote_description, str) and remote_description.strip():
+                publisher['description'] = remote_description.strip()
+
+            remote_uri = remote_org.get('uri')
+            remote_url = remote_org.get('url')
+
+            extras = remote_org.get('extras') or []
+            if not isinstance(extras, list):
+                extras = []
+
+            for extra in extras:
+                if not isinstance(extra, dict):
+                    continue
+                key = (extra.get('key') or '').strip().lower()
+                value = extra.get('value')
+                if not isinstance(value, str) or not value.strip():
+                    continue
+
+                if not remote_uri and key in {'uri', 'publisher_uri'}:
+                    remote_uri = value
+                if not remote_url and key in {'url', 'website', 'homepage', 'publisher_url'}:
+                    remote_url = value
+
+                if remote_uri and remote_url:
+                    break
+
+            if isinstance(remote_uri, str) and remote_uri.strip():
+                publisher['uri'] = remote_uri.strip()
+
+            if isinstance(remote_url, str) and remote_url.strip():
+                publisher['url'] = remote_url.strip()
+
+            # Remove empty values
+            publisher = {k: v for k, v in publisher.items() if v}
 
             if publisher:
                 package_dict['publisher'] = [publisher]
@@ -383,7 +413,7 @@ class GrowthFundHarvester(DataGovGrHarvester, CKANHarvester):
         self._ensure_translated_field(package_dict, 'title', 'Untitled Dataset')
 
         # Ensure notes_translated-el exists
-        self._ensure_translated_field(package_dict, 'notes', 'Dataset harvested from Growth Fund source')
+        self._ensure_translated_field(package_dict, 'notes', 'Dataset harvested from Core CKAN source')
 
     def _fix_common_mime_types(self, package_dict, remote_package_dict):
         '''Convert mime types to IANA URIs by adding the IANA prefix'''
@@ -640,11 +670,208 @@ class GrowthFundHarvester(DataGovGrHarvester, CKANHarvester):
                     resource['license_title'] = license_title
                 if license_url:
                     resource['license_url'] = license_url
+
+                mapped_license_value = self._map_license_to_eu_uri(license_url, license_id)
+                if mapped_license_value:
+                    resource['license'] = mapped_license_value
+                elif license_url:
+                    log.debug(f"Resource {i}: license URL '{license_url}' could not be mapped to EU authority URI")
+
                 if is_open is not None:
                     resource['is_open'] = is_open
 
-                log.debug(f"Added license info to resource {i}: {license_id or license_title} (open: {is_open})")
+                log.debug(f"Added license info to resource {i}: {license_id or license_title} (open: {is_open}, mapped: {mapped_license_value})")
             except Exception as e:
                 log.warning(f"Failed to process license for resource {i}, skipping license processing: {e}")
                 # Continue processing other resources even if license processing fails for this one
                 continue
+
+    def _map_license_to_eu_uri(self, license_url, license_id):
+        """
+        Map a given license URL or ID to the Publications Office authority URI
+        expected by the Licence vocabulary.
+        """
+        code = None
+
+        if license_url and isinstance(license_url, str):
+            code = self._extract_license_code_from_url(license_url)
+
+        if not code and license_id and isinstance(license_id, str):
+            code = self._normalize_license_id_to_code(license_id)
+
+        if not code:
+            return None
+
+        code = code.upper()
+        valid_codes = self._get_valid_licence_codes()
+        if valid_codes and code not in valid_codes:
+            log.debug(f"License code '{code}' not present in Licence vocabulary, skipping mapping")
+            return None
+
+        return f'http://publications.europa.eu/resource/authority/licence/{code}'
+
+    def _get_valid_licence_codes(self):
+        """
+        Load and cache the set of valid licence codes from the Licence vocabulary.
+        """
+        if CoreCkanHarvester._licence_vocabulary_codes_cache is not None:
+            return CoreCkanHarvester._licence_vocabulary_codes_cache
+
+        try:
+            vocabulary = toolkit.get_action('vocabularyadmin_vocabulary_show')(
+                {}, {'id': 'Licence'}
+            )
+            tags = vocabulary.get('tags', [])
+            codes = set()
+            for tag in tags:
+                value_uri = tag.get('value_uri')
+                if value_uri and isinstance(value_uri, str):
+                    code = value_uri.rstrip('/').split('/')[-1].upper()
+                    codes.add(code)
+                elif tag.get('name'):
+                    code = tag['name'].rstrip('/').split('/')[-1].upper()
+                    codes.add(code)
+
+            CoreCkanHarvester._licence_vocabulary_codes_cache = codes
+            log.debug(f"Loaded {len(codes)} licence codes from vocabulary")
+            return codes
+        except Exception as e:
+            log.warning(f"Could not load Licence vocabulary codes: {e}")
+            CoreCkanHarvester._licence_vocabulary_codes_cache = set()
+            return CoreCkanHarvester._licence_vocabulary_codes_cache
+
+    def _extract_license_code_from_url(self, license_url):
+        """
+        Attempt to derive the EU Publications licence code from a given URL.
+        """
+        try:
+            url = license_url.strip()
+            if not url:
+                return None
+
+            lower_url = url.lower()
+            if 'publications.europa.eu/resource/authority/licence/' in lower_url:
+                return url.rstrip('/').split('/')[-1]
+
+            parsed = urlparse(url if '://' in url else f'https://{url}')
+            netloc = parsed.netloc.lower()
+            segments = [seg for seg in parsed.path.split('/') if seg]
+
+            if 'creativecommons.org' in netloc and segments:
+                return self._map_creative_commons_segments(segments)
+
+            if ('opendatacommons.org' in netloc or 'opendefinition.org' in netloc) and len(segments) >= 2:
+                licence_key = segments[1].lower()
+                odc_mapping = {
+                    'pddl': 'ODC_PDDL',
+                    'odbl': 'ODC_ODBL',
+                    'by': 'ODC_BY',
+                    'by-sa': 'ODC_BY',
+                    'by-odbl': 'ODC_ODBL'
+                }
+                if licence_key in odc_mapping:
+                    return odc_mapping[licence_key]
+
+            if 'gnu.org' in netloc and segments:
+                if 'fdl' in segments[-1].lower():
+                    return 'GFDL_1_3'
+                if 'gpl' in segments[-1].lower():
+                    return 'GPL_3_0'
+
+            if 'opensource.org' in netloc and segments:
+                last = segments[-1].lower()
+                opensource_mapping = {
+                    'mit': 'MIT',
+                    'apache-2.0': 'APACHE_2_0',
+                    'apache-1.1': 'APACHE_1_1',
+                    'gpl-3.0': 'GPL_3_0',
+                    'gpl-2.0': 'GPL_2_0',
+                    'lgpl-3.0': 'LGPL_3_0',
+                    'lgpl-2.1': 'LGPL_2_1'
+                }
+                if last in opensource_mapping:
+                    return opensource_mapping[last]
+
+            return None
+        except Exception as e:
+            log.debug(f"Failed to extract licence code from URL '{license_url}': {e}")
+            return None
+
+    def _map_creative_commons_segments(self, segments):
+        """
+        Map Creative Commons URL path segments to EU licence codes.
+        """
+        try:
+            if not segments:
+                return None
+
+            if segments[0] == 'licenses' and len(segments) >= 3:
+                variant = segments[1].lower()
+                version = segments[2]
+                territory = None
+                if len(segments) >= 4:
+                    extra = segments[3].lower()
+                    if not extra.startswith('deed') and 'legalcode' not in extra:
+                        territory = segments[3]
+
+                variant_code = ''.join(part.upper() for part in variant.split('-'))
+                version_code = version.replace('.', '_').upper()
+                code = f'CC_{variant_code}'
+                if version_code:
+                    code += f'_{version_code}'
+                if territory:
+                    code += f'_{territory.replace("-", "_").upper()}'
+                return code
+
+            if segments[0] == 'publicdomain' and len(segments) >= 2:
+                sub = segments[1].lower()
+                if sub == 'zero':
+                    return 'CC0'
+                if sub == 'mark':
+                    version = segments[2] if len(segments) >= 3 else ''
+                    version_code = version.replace('.', '_').upper() if version else ''
+                    code = 'CC_PDM'
+                    if version_code:
+                        code += f'_{version_code}'
+                    return code
+
+            return None
+        except Exception as e:
+            log.debug(f"Failed to map Creative Commons segments '{segments}': {e}")
+            return None
+
+    def _normalize_license_id_to_code(self, license_id):
+        """
+        Normalize CKAN licence IDs to EU licence codes when no URL is available.
+        """
+        if not license_id:
+            return None
+
+        normalized = license_id.strip().lower()
+        mapping = {
+            'cc-by': 'CC_BY_4_0',
+            'cc-by-sa': 'CC_BYSA_4_0',
+            'cc-by-nd': 'CC_BYND_4_0',
+            'cc-by-nc': 'CC_BYNC_4_0',
+            'cc-by-nc-sa': 'CC_BYNCSA_4_0',
+            'cc-by-nc-nd': 'CC_BYNCND_4_0',
+            'cc-zero': 'CC0',
+            'cc0': 'CC0',
+            'cc-nc': 'CC_BYNC_4_0',
+            'odc-odbl': 'ODC_ODBL',
+            'odc-pddl': 'ODC_PDDL',
+            'odc-by': 'ODC_BY',
+            'gfdl': 'GFDL_1_3',
+            'gpl': 'GPL_3_0',
+            'gpl-3.0': 'GPL_3_0',
+            'gpl-2.0': 'GPL_2_0',
+            'lgpl': 'LGPL_3_0',
+            'lgpl-3.0': 'LGPL_3_0',
+            'lgpl-2.1': 'LGPL_2_1',
+            'mit': 'MIT',
+            'apache': 'APACHE_2_0',
+            'apache-2.0': 'APACHE_2_0',
+            'apache-1.1': 'APACHE_1_1'
+        }
+
+        return mapping.get(normalized)

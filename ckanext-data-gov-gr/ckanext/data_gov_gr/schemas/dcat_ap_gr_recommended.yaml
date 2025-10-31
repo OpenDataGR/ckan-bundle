@@ -117,6 +117,13 @@ dataset_fields:
         el: Όνομα
         en: Name
 
+    - field_name: description
+      label:
+        el: Περιγραφή
+        en: Description
+      form_snippet: markdown.html
+      form_placeholder: A little information about this organization.
+
     - field_name: email
       label:
         el: Hλεκτρονικό Ταχυδρομείο
@@ -330,6 +337,16 @@ dataset_fields:
   display_snippet: markdown.html
   required: false
   validators: ignore_empty
+
+- field_name: landing_page
+  label:
+    en: Landing page
+    el: Σελίδα προορισμού
+  preset: multiple_text
+  validators: ignore_missing scheming_multiple_text
+  help_text:
+    en: A web page that provides access to the Dataset, its Distributions and/or additional information
+    el: Μια ιστοσελίδα που παρέχει πρόσβαση στo Σύνολο Δεδομένων, των Διανομών του και/ή επιπλέον πληροφορίες
 
 
 resource_fields:

@@ -235,6 +235,9 @@ class SpatialHarvester(HarvesterBase):
         package_update.
         '''
         try:
+            # Import required modules at the beginning
+            from urllib.parse import urlparse
+
             # Debug: Print all available fields from ISO
             log.debug('Available ISO fields for GUID %s: %s',
                       iso_values.get('guid', 'unknown'),
@@ -268,6 +271,15 @@ class SpatialHarvester(HarvesterBase):
             package_dict['notes_translated'] = {
                 'el': iso_values['abstract'] if iso_values['abstract'] else iso_values['title']
             }
+
+            # Extract and store landing page URL from resource locators - FIXED INTEGRATION
+            landing_page_url = self._extract_landing_page(iso_values)
+            if landing_page_url:
+                package_dict['landing_page'] = landing_page_url
+                log.info('Extracted landing page URL: %s for GUID: %s',
+                         landing_page_url, iso_values.get('guid', 'unknown'))
+            else:
+                log.debug('No landing page URL found for GUID: %s', iso_values.get('guid', 'unknown'))
 
             # Determine correct entity type
             package_type = self._determine_package_type(iso_values)
@@ -329,9 +341,12 @@ class SpatialHarvester(HarvesterBase):
 
             def _extract_first_license_url(licences):
                 for licence in licences:
-                    o = urlparse(licence)
-                    if o.scheme and o.netloc:
-                        return licence
+                    try:
+                        o = urlparse(licence)
+                        if o.scheme and o.netloc:
+                            return licence
+                    except Exception:
+                        continue
                 return None
 
             if len(extras['iso_licence']):
@@ -430,6 +445,32 @@ class SpatialHarvester(HarvesterBase):
                         if url:
                             resource = {}
                             resource['format'] = guess_resource_format(resource_locator)
+
+                            # Extract resource name
+                            # Use name from resource_locator or filename from URL
+                            resource_name = resource_locator.get('name') or ''
+                            if not resource_name:
+                                # If no name, use filename from URL
+                                parsed_url = urlparse(url)
+                                resource_name = parsed_url.path.split('/')[-1] or 'Resource'
+
+                            # Store in main name field (required for display)
+                            resource['name'] = resource_name
+
+                            # Store in translated fields as required by schema
+                            resource['name_translated'] = {
+                                'el': resource_name,
+                                'en': resource_name
+                            }
+
+                            # Extract resource description
+                            # Use description from resource_locator for translated description field
+                            resource_description = resource_locator.get('description') or ''
+                            resource['description_translated'] = {
+                                'el': resource_description,
+                                'en': resource_description
+                            }
+
                             if resource['format'] == 'wms' and config.get('ckanext.spatial.harvest.validate_wms',
                                                                           False):
                                 # Check if the service is a view service
@@ -441,8 +482,8 @@ class SpatialHarvester(HarvesterBase):
                             resource.update(
                                 {
                                     'url': url,
-                                    'name': resource_locator.get('name') or p.toolkit._('Unnamed resource'),
-                                    'description': resource_locator.get('description') or '',
+                                    'description': resource_description,
+                                    # Keep original description for backward compatibility
                                     'resource_locator_protocol': resource_locator.get('protocol') or '',
                                     'resource_locator_function': resource_locator.get('function') or '',
                                 })
@@ -1120,4 +1161,137 @@ class SpatialHarvester(HarvesterBase):
 
         return contact_points
 
+    def _extract_landing_page(self, iso_values):
+        """
+        Extracts the landing page URL from ISO metadata resource locators.
+
+        Only extracts URLs that are confirmed landing pages.
+        Returns None for datasets without proper landing page URLs.
+
+        Supported patterns ONLY:
+        1. YPEKA pattern (Υπουργείο Περιβάλλοντος) - identifier-based URLs
+        2. GeoNode pattern (Δήμος Αθηναίων) - specific resource locators
+        3. GeoNetwork catalog URLs
+
+        Args:
+            iso_values (dict): Parsed ISO metadata values
+
+        Returns:
+            str: The landing page URL or None if no proper landing page found
+        """
+
+        # Combine all resource locators from different ISO sections
+        resource_locators = iso_values.get('resource-locator', []) + \
+                            iso_values.get('resource-locator-identification', [])
+
+        log.debug('Searching for landing page in %d resource locators for GUID: %s',
+                  len(resource_locators), iso_values.get('guid', 'unknown'))
+
+        # Debug: Log all resource locators for analysis
+        for i, locator in enumerate(resource_locators):
+            log.debug('Resource locator %d: name="%s", protocol="%s", description="%s", url="%s"',
+                      i,
+                      locator.get('name', ''),
+                      locator.get('protocol', ''),
+                      locator.get('description', ''),
+                      locator.get('url', ''))
+
+        # STRATEGY 1: Check for YPEKA (Υπουργείο Περιβάλλοντος) identifier pattern
+        landing_page_url = self._extract_ypeka_landing_page(iso_values)
+        if landing_page_url:
+            log.info('Found YPEKA landing page via identifier: %s for GUID: %s',
+                     landing_page_url, iso_values.get('guid', 'unknown'))
+            return landing_page_url
+
+        # STRATEGY 2: Check resource locators for confirmed landing page patterns ONLY
+        landing_page_url = self._extract_confirmed_landing_page_only(resource_locators, iso_values)
+        if landing_page_url:
+            return landing_page_url
+
+        log.debug('No confirmed landing page URL found for GUID: %s', iso_values.get('guid', 'unknown'))
+        return None
+
+    def _extract_ypeka_landing_page(self, iso_values):
+        """
+        Extracts landing page URL for Υπουργείο Περιβάλλοντος datasets
+        based on the identifier pattern in the metadata.
+
+        Args:
+            iso_values (dict): Parsed ISO metadata values
+
+        Returns:
+            str: YPEKA landing page URL or None
+        """
+        try:
+            # Check if this is a YPEKA dataset by organization
+            responsible_orgs = iso_values.get('responsible-organisation', [])
+            is_ypeka = False
+
+            for org in responsible_orgs:
+                org_name = org.get('organisation-name', '').lower()
+                if any(keyword in org_name for keyword in
+                       ['υπουργείο περιβάλλοντος', 'ypeka', 'ministry for environment']):
+                    is_ypeka = True
+                    log.debug('Identified as YPEKA dataset by organization: %s', org_name)
+                    break
+
+            if not is_ypeka:
+                return None
+
+            # Extract the GUID from the metadata
+            metadata_guid = iso_values.get('guid', '')
+            if metadata_guid:
+                # Construct the YPEKA GeoNetwork landing page URL
+                ypeka_landing_url = f"http://geoportal.ypen.gr/geonetwork/srv/gre/catalog.search#/metadata/{metadata_guid}"
+                log.info('Constructed YPEKA landing URL from GUID: %s', ypeka_landing_url)
+                return ypeka_landing_url
+
+            return None
+
+        except Exception as e:
+            log.error('Error extracting YPEKA landing page for GUID %s: %s',
+                      iso_values.get('guid', 'unknown'), str(e))
+            return None
+
+    def _extract_confirmed_landing_page_only(self, resource_locators, iso_values):
+        """
+        Extract landing page from resource locators using STRICT pattern matching.
+        ONLY returns URLs that are confirmed to be landing pages.
+        if no confirmed landing page, returns None.
+        """
+        for resource_locator in resource_locators:
+            url = resource_locator.get('url', '').strip()
+            protocol = resource_locator.get('protocol', '').strip()
+            description = resource_locator.get('description', '').strip().lower()
+
+            if not url:
+                continue
+
+            # Specific protocols that indicate landing pages
+            if protocol in ['WWW:LINK-1.0-http--link', 'WWW:LINK-1.0-http--related']:
+                # Additional check: description should indicate it's a landing page
+                if any(keyword in description for keyword in
+                       ['description', 'landing page', 'metadata page', 'online link', 'προβολή', 'πληροφορίες',
+                        'σελίδα']):
+                    log.info('Confirmed landing page by protocol and description: %s', url)
+                    return url
+
+            # GeoNetwork catalog URLs (metadata pages)
+            if '/geonetwork/srv/' in url and '/catalog.search' in url:
+                log.info('Confirmed GeoNetwork catalog URL: %s', url)
+                return url
+
+            # GeoNode layers URLs
+            if '/layers/' in url and ('geonode:' in url or 'geonode_data:' in url):
+                log.info('Confirmed GeoNode layers URL: %s', url)
+                return url
+
+            # YPEKA GeoNetwork pattern
+            if 'geoportal.ypen.gr/geonetwork' in url:
+                log.info('Confirmed YPEKA GeoNetwork URL: %s', url)
+                return url
+
+        # if no confirmed landing page found, return None
+        log.debug('No confirmed landing page patterns found in %d resource locators', len(resource_locators))
+        return None
 
