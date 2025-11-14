@@ -1,4 +1,5 @@
 {% set stats_destination_url = config.get('ckanext.data_gov_gr.stats.destination.url', '/') %}
+{% set footer_source_code_url = config.get('ckanext.data_gov_gr.footer.source_code_url') %}
 
 <footer class="site-footer" role="contentinfo">
   <div class="container">
@@ -12,6 +13,9 @@
             <li><a href="{{ h.url_for('/pages/about-portal') }}">{{ _('About {0}').format(g.site_title) }}</a></li>
             <li><a href="{{ 'https://data-gov-gr.gitbook.io/guides/texnika-egxeiridia' }}">{{ _('API Documentation') }}</a></li>
             <li><a href="{{ 'https://data.europa.eu/en' }}">{{ _('data.europa.eu') }}</a></li>
+            {% if footer_source_code_url %}
+              <li><a href="{{ footer_source_code_url }}">{{ _('Source Code') }}</a></li>
+            {% endif %}
           {% endblock %}
         </ul>
       </div>
@@ -81,7 +85,8 @@
 
   <!-- accessibility widget -->
   {% if h.get_config_as_bool('accessibility.widget.enabled') %}
-    <script src="https://website-widgets.pages.dev/dist/sienna.min.js" defer></script>
+<!--    <script src="https://website-widgets.pages.dev/dist/sienna.min.js" defer></script>-->
+    <script src="https://cdn.jsdelivr.net/gh/Arafeek/AccessWidget/dist/accesswidget.min.js" defer></script>
   {% endif %}
 
 </footer>

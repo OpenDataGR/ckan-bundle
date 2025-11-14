@@ -1,6 +1,8 @@
 import json
 from decimal import Decimal, DecimalException
+from urllib.parse import urlparse
 
+import ckan.plugins.toolkit as toolkit
 from rdflib import URIRef, BNode, Literal, Namespace
 from ckanext.dcat.utils import resource_uri
 
@@ -379,58 +381,176 @@ class EuropeanDCATAP2Profile(BaseEuropeanDCATAPProfile):
                 except ValueError:
                     access_service_list = []
 
+            updated_access_services = []
+
             for access_service_dict in access_service_list:
 
-                access_service_uri = access_service_dict.get("uri")
-                if access_service_uri:
-                    access_service_node = CleanedURIRef(access_service_uri)
-                else:
+                enriched = self._enrich_access_service_from_data_service(
+                    access_service_dict
+                )
+
+                if enriched:
                     access_service_node = BNode()
-                    # Remember the (internal) access service reference for referencing
-                    # in further profiles
                     access_service_dict["access_service_ref"] = str(access_service_node)
 
-                self.g.add((distribution_ref, DCAT.accessService, access_service_node))
+                    self.g.add((distribution_ref, DCAT.accessService, access_service_node))
+                    self.g.add((access_service_node, RDF.type, DCAT.DataService))
 
-                self.g.add((access_service_node, RDF.type, DCAT.DataService))
+                    minimal_items = [
+                        ("title", DCT.title, None, Literal),
+                        ("description", DCT.description, None, Literal),
+                    ]
 
-                #  Simple values
-                items = [
-                    ("availability", DCATAP.availability, None, URIRefOrLiteral),
-                    ("license", DCT.license, None, URIRefOrLiteral),
-                    ("access_rights", DCT.accessRights, None, URIRefOrLiteral),
-                    ("title", DCT.title, None, Literal),
-                    (
-                        "endpoint_description",
-                        DCAT.endpointDescription,
-                        None,
-                        URIRefOrLiteral,
-                        RDFS.Resource,
-                    ),
-                    ("description", DCT.description, None, Literal),
-                ]
+                    self._add_triples_from_dict(
+                        access_service_dict, access_service_node, minimal_items
+                    )
 
-                self._add_triples_from_dict(
-                    access_service_dict, access_service_node, items
-                )
+                    endpoint_items = [
+                        (
+                            "endpoint_url",
+                            DCAT.endpointURL,
+                            None,
+                            URIRefOrLiteral,
+                            RDFS.Resource,
+                        ),
+                    ]
+                    self._add_list_triples_from_dict(
+                        access_service_dict, access_service_node, endpoint_items
+                    )
 
-                #  Lists
-                items = [
-                    (
-                        "endpoint_url",
-                        DCAT.endpointURL,
-                        None,
-                        URIRefOrLiteral,
-                        RDFS.Resource,
-                    ),
-                    ("serves_dataset", DCAT.servesDataset, None, URIRefOrLiteral),
-                ]
-                self._add_list_triples_from_dict(
-                    access_service_dict, access_service_node, items
-                )
+                    updated_access_services.append(access_service_dict)
 
-            if access_service_list:
-                resource_dict["access_services"] = json.dumps(access_service_list)
+                else:
+                    uri = (access_service_dict.get("uri") or "").strip()
+                    if not uri:
+                        continue
+
+                    access_service_node = CleanedURIRef(uri)
+                    self.g.add((distribution_ref, DCAT.accessService, access_service_node))
+
+                    updated_access_services.append({"uri": uri})
+
+            if updated_access_services:
+                resource_dict["access_services"] = json.dumps(updated_access_services)
+            elif resource_dict.get("access_services"):
+                resource_dict.pop("access_services", None)
+
+    def _enrich_access_service_from_data_service(self, access_service_dict):
+        """
+        Populate access service metadata from a referenced data-service dataset, if available.
+        """
+        if not isinstance(access_service_dict, dict):
+            return False
+
+        def has_details():
+            if access_service_dict.get("title") or access_service_dict.get("description"):
+                return True
+            urls = self._ensure_list(access_service_dict.get("endpoint_url"))
+            return bool(urls)
+
+        if has_details():
+            return True
+
+        data_service_id = self._resolve_data_service_identifier(access_service_dict)
+        if not data_service_id:
+            return False
+
+        try:
+            package_show = toolkit.get_action("package_show")
+            data_service = package_show({"ignore_auth": True}, {"id": data_service_id})
+        except (toolkit.ObjectNotFound, toolkit.NotAuthorized, toolkit.ValidationError):
+            return False
+        except Exception:
+            # Any other unexpected error should not break serialization
+            return False
+
+        if data_service.get("type") != "data-service":
+            return False
+
+        def _translated_value(field, default_field=None):
+            translated = data_service.get(f"{field}_translated")
+            if isinstance(translated, dict):
+                value = translated.get(self._default_lang)
+                if not value:
+                    for candidate in translated.values():
+                        if candidate:
+                            value = candidate
+                            break
+            else:
+                value = None
+            if not value:
+                key = default_field or field
+                value = data_service.get(key)
+            return value
+
+        if not access_service_dict.get("title"):
+            title = _translated_value("title")
+            if title:
+                access_service_dict["title"] = title
+
+        if not access_service_dict.get("description"):
+            description = _translated_value("notes")
+            if description:
+                access_service_dict["description"] = description
+
+        if not access_service_dict.get("endpoint_url"):
+            urls = self._ensure_list(data_service.get("endpoint_url"))
+            if urls:
+                access_service_dict["endpoint_url"] = urls
+
+        return has_details()
+
+    @staticmethod
+    def _ensure_list(value):
+        if not value:
+            return []
+        if isinstance(value, list):
+            return [item for item in value if item]
+        if isinstance(value, str):
+            try:
+                parsed = json.loads(value)
+            except ValueError:
+                parsed = None
+            if isinstance(parsed, list):
+                return [item for item in parsed if item]
+            return [value]
+        return [value]
+
+    @staticmethod
+    def _resolve_data_service_identifier(access_service_dict):
+        """
+        Try to resolve a data service identifier from the access service metadata.
+        """
+        candidate_keys = ("data_service_id", "data_service", "data_service_slug")
+        for key in candidate_keys:
+            value = access_service_dict.get(key)
+            if value:
+                return value
+
+        uri = access_service_dict.get("uri")
+        if not uri or not isinstance(uri, str):
+            return None
+
+        uri = uri.strip()
+        if not uri:
+            return None
+
+        parsed = urlparse(uri)
+        if parsed.scheme and parsed.netloc:
+            segments = [segment for segment in parsed.path.split("/") if segment]
+            if not segments:
+                return None
+            if "data-service" in segments:
+                idx = segments.index("data-service")
+                if idx + 1 < len(segments):
+                    return segments[idx + 1]
+            if "data-services" in segments:
+                idx = segments.index("data-services")
+                if idx + 1 < len(segments):
+                    return segments[idx + 1]
+            return segments[-1]
+
+        return uri or None
 
     def _graph_from_dataset_v2_only(self, dataset_dict, dataset_ref):
         """

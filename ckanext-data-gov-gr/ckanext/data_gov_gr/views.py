@@ -12,6 +12,7 @@ from ckan.logic import NotFound, NotAuthorized, get_action
 from ckanext.data_gov_gr.helpers import get_config_as_bool
 
 from ckanext.data_gov_gr.logic.mqa_calculator import MQACalculator
+from ckanext.data_gov_gr.stats import DataGovStats
 
 log = logging.getLogger(__name__)
 
@@ -185,6 +186,126 @@ blueprint.add_url_rule(
     methods=['GET']
 )
 
+
+@blueprint.route('/stats/total-datasets')
+def stats_total_datasets():
+    stats = DataGovStats()
+    raw_packages_by_week = [
+        {
+            'date': toolkit.h.date_str_to_datetime(week_date),
+            'total_packages': cumulative_num_packages
+        }
+        for week_date, _num_packages, cumulative_num_packages in stats.get_num_packages_by_week()
+    ]
+
+    return render(
+        'ckanext/stats/total_datasets.html',
+        {
+            'raw_packages_by_week': raw_packages_by_week
+        }
+    )
+
+
+@blueprint.route('/stats/dataset-revisions')
+def stats_dataset_revisions():
+    stats = DataGovStats()
+
+    raw_all_package_revisions = [
+        {
+            'date': toolkit.h.date_str_to_datetime(week_date),
+            'total_revisions': num_revisions
+        }
+        for week_date, _pkgs, num_revisions, _cumulative in stats.get_by_week('package_revisions')
+    ]
+
+    raw_new_datasets = [
+        {
+            'date': toolkit.h.date_str_to_datetime(week_date),
+            'new_packages': num_packages
+        }
+        for week_date, _pkgs, num_packages, _cumulative in stats.get_by_week('new_packages')
+    ]
+
+    return render(
+        'ckanext/stats/dataset_revisions.html',
+        {
+            'raw_all_package_revisions': raw_all_package_revisions,
+            'raw_new_datasets': raw_new_datasets
+        }
+    )
+
+
+@blueprint.route('/stats/most-edited')
+def stats_most_edited():
+    stats = DataGovStats()
+    extra_vars = {
+        'most_edited_packages': stats.most_edited_packages()
+    }
+    return render('ckanext/stats/most_edited.html', extra_vars)
+
+
+@blueprint.route('/stats/largest-groups')
+def stats_largest_groups():
+    stats = DataGovStats()
+    extra_vars = {
+        'largest_groups': stats.largest_groups()
+    }
+    return render('ckanext/stats/largest_groups.html', extra_vars)
+
+
+@blueprint.route('/stats/top-tags')
+def stats_top_tags():
+    stats = DataGovStats()
+    extra_vars = {
+        'top_tags': stats.top_tags()
+    }
+    return render('ckanext/stats/top_tags.html', extra_vars)
+
+
+@blueprint.route('/stats/top-creators')
+def stats_top_creators():
+    stats = DataGovStats()
+    extra_vars = {
+        'top_package_creators': stats.top_package_creators()
+    }
+    return render('ckanext/stats/top_creators.html', extra_vars)
+
+
+@blueprint.route('/stats/datasets-by-publisher-type')
+def stats_datasets_by_publisher_type():
+    stats = DataGovStats()
+    extra_vars = {
+        'datasets_by_publisher_type': stats.datasets_by_publisher_type(),
+    }
+    return render('ckanext/stats/datasets_by_publisher_type.html', extra_vars)
+
+
+@blueprint.route('/stats/datasets-per-organization')
+def stats_datasets_per_organization():
+    stats = DataGovStats()
+    extra_vars = {
+        'datasets_by_organization': stats.datasets_by_organization(),
+    }
+    return render('ckanext/stats/datasets_by_organization.html', extra_vars)
+
+
+@blueprint.route('/stats/datasets-vs-services')
+def stats_datasets_vs_services():
+    stats = DataGovStats()
+    extra_vars = {
+        'datasets_vs_services': stats.datasets_vs_services(),
+    }
+    return render('ckanext/stats/datasets_vs_services.html', extra_vars)
+
+
+@blueprint.route('/stats/datasets-by-hvd-category')
+def stats_datasets_by_hvd_category():
+    stats = DataGovStats()
+    extra_vars = {
+        'datasets_by_hvd_category': stats.datasets_by_hvd_category(),
+    }
+    return render('ckanext/stats/datasets_by_hvd_category.html', extra_vars)
+
 def more_page():
     """Render the More page with content sections as cards"""
     template_name = 'more_base.html'
@@ -249,4 +370,3 @@ blueprint.add_url_rule("/more", view_func=more_page, endpoint='more_page')
 
 def get_blueprint():
     return blueprint
-

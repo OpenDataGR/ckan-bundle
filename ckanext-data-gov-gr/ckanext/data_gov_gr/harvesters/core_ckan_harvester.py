@@ -122,6 +122,8 @@ class CoreCkanHarvester(DataGovGrHarvester, CKANHarvester):
             self._add_license_to_resources(package_dict)
             self._clean_package_tags(package_dict)
             self._add_harvest_metadata(package_dict, harvest_object)
+            # Ensure access_rights is always set to PUBLIC for CKAN-harvested datasets
+            self._set_default_access_rights_public(package_dict)
             
             # Remove original description when we have translated version
             if 'notes_translated-el' in package_dict:
@@ -414,6 +416,27 @@ class CoreCkanHarvester(DataGovGrHarvester, CKANHarvester):
 
         # Ensure notes_translated-el exists
         self._ensure_translated_field(package_dict, 'notes', 'Dataset harvested from Core CKAN source')
+
+    def _set_default_access_rights_public(self, package_dict):
+        """Force access_rights to PUBLIC for harvested datasets.
+
+        Uses the Publications Office authority URI for PUBLIC access right.
+        Also removes any access_rights occurrences from extras to avoid conflicts.
+        """
+        try:
+            public_uri = 'http://publications.europa.eu/resource/authority/access-right/PUBLIC'
+            package_dict['access_rights'] = public_uri
+
+            # Clean up potential duplicates in extras
+            extras = package_dict.get('extras')
+            if isinstance(extras, list):
+                package_dict['extras'] = [
+                    e for e in extras
+                    if not (isinstance(e, dict) and (e.get('key') or '').strip().lower() == 'access_rights')
+                ]
+            log.debug("Set access_rights to PUBLIC for harvested dataset")
+        except Exception as e:
+            log.error(f"Error setting access_rights to PUBLIC: {e}")
 
     def _fix_common_mime_types(self, package_dict, remote_package_dict):
         '''Convert mime types to IANA URIs by adding the IANA prefix'''
