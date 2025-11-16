@@ -1,4 +1,4 @@
-from flask import Blueprint, redirect
+from flask import Blueprint, Response, redirect, stream_with_context
 from flask.views import MethodView
 from typing import Dict, Any
 import time
@@ -13,10 +13,77 @@ from ckanext.data_gov_gr.helpers import get_config_as_bool
 
 from ckanext.data_gov_gr.logic.mqa_calculator import MQACalculator
 from ckanext.data_gov_gr.stats import DataGovStats
+import requests
 
 log = logging.getLogger(__name__)
 
 blueprint = Blueprint('dataset_type', __name__)
+
+GITBOOK_PDF_ENDPOINT = 'https://api.gitbook.com/v1/spaces/{space_id}/pdf'
+GITBOOK_PDF_TIMEOUT = 60
+
+
+@blueprint.route('/guides/pdf')
+def download_guides_pdf():
+    space_id = config.get('ckanext.data_gov_gr.gitbook.space_id')
+    token = config.get('ckanext.data_gov_gr.gitbook.api_token')
+
+    if not space_id or not token:
+        log.warning('GitBook PDF download requested without configured credentials')
+        abort(404)
+
+    api_url = GITBOOK_PDF_ENDPOINT.format(space_id=space_id.strip())
+    headers = {
+        'Authorization': f'Bearer {token.strip()}',
+        'Accept': 'application/json, application/pdf'
+    }
+
+    try:
+        response = requests.get(api_url, headers=headers, stream=True, timeout=GITBOOK_PDF_TIMEOUT)
+    except requests.RequestException as exc:
+        log.error('GitBook PDF request failed: %s', exc)
+        abort(502, toolkit._('Δεν ήταν δυνατή η λήψη του PDF. Προσπαθήστε ξανά αργότερα.'))
+
+    if response.status_code >= 400:
+        try:
+            error_preview = response.text[:500]
+        except Exception:
+            error_preview = '<binary>'
+        log.error('GitBook PDF request failed (%s): %s', response.status_code, error_preview)
+        abort(502, toolkit._('Δεν ήταν δυνατή η λήψη του PDF. Προσπαθήστε ξανά αργότερα.'))
+
+    content_type = response.headers.get('Content-Type', '')
+    if 'application/json' in content_type.lower():
+        try:
+            payload = response.json()
+        except ValueError:
+            log.error('GitBook PDF JSON response could not be decoded')
+            abort(502, toolkit._('Δεν ήταν δυνατή η λήψη του PDF. Προσπαθήστε ξανά αργότερα.'))
+
+        download_url = payload.get('url')
+        if download_url:
+            return redirect(download_url)
+
+        log.error('GitBook PDF JSON response did not include a download URL: %s', payload)
+        abort(502, toolkit._('Δεν ήταν δυνατή η λήψη του PDF. Προσπαθήστε ξανά αργότερα.'))
+
+    def generate():
+        try:
+            for chunk in response.iter_content(chunk_size=8192):
+                if chunk:
+                    yield chunk
+        finally:
+            response.close()
+
+    response_headers = {
+        'Content-Type': content_type or 'application/pdf',
+        'Content-Disposition': response.headers.get(
+            'Content-Disposition',
+            f'attachment; filename="guides-{space_id.strip()}.pdf"'
+        )
+    }
+
+    return Response(stream_with_context(generate()), headers=response_headers)
 
 def redirect_to_dataset_type():
     current_lang = lang()

@@ -1737,3 +1737,9 @@ a.service-name {
 .margin-top {
     margin-top: 10px;
 }
+
+/* ---------------------------------------------------------------------------- */
+
+.table-striped > tbody > tr:nth-of-type(odd) > * {
+    overflow-wrap: anywhere;
+}

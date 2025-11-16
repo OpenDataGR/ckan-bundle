@@ -80,9 +80,11 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
     def before_index(self, pkg_dict):
         """
         Προσθέτουμε το 'publishertype' από τον συνδεδεμένο οργανισμό.
+        Σημείωση: Δεν παραλείπουμε τα data-service ώστε να υπάρχει διαθέσιμο
+        το πεδίο για φιλτράρισμα στο ευρετήριο υπηρεσιών.
         """
-        # Skip processing for decisions and data-services to avoid adding any QA-related fields
-        if pkg_dict.get('type') in ['decision', 'data-service']:
+        # Skip processing only for decisions
+        if pkg_dict.get('type') in ['decision']:
             return pkg_dict
 
         org_id = pkg_dict.get('owner_org')
@@ -140,66 +142,60 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         return data_dict
 
     def before_dataset_index(self, pkg_dict):
+        """
+        Εμπλουτισμός πεδίων για το ευρετήριο ανά τύπο πακέτου.
+        - dataset: is_hvd, is_nsip, publishertype, resource extras
+        - data-service: is_hvd, publishertype
+        - decision: καμία επέμβαση
+        """
+        pkg_type = pkg_dict.get('type')
 
-        # Skip processing for decisions and data-services to avoid adding any QA-related fields
-        if pkg_dict.get('type') in ['decision', 'data-service']:
+        # Καμία επέμβαση για αποφάσεις
+        if pkg_type == 'decision':
             return pkg_dict
 
-        # --- 1. Βοηθητικό πεδίο για το High-Value Dataset facet ---
-        pkg_dict['is_hvd'] = 'No'
-        # Ελέγχουμε αν το πεδίο 'hvd_category' υπάρχει και έχει τουλάχιστον μία τιμή.
-        if pkg_dict.get('hvd_category'):
-            hvd_category_array_size = 0
-            try:
-                # Στο λεξικό (pkg_dict) που θα αποθηκευτεί στο solr το πεδίο hvd_category είναι str,
-                # οπότε απαιτείται μετατροπή για να ελεγχθεί το μέγεθος του πραγματικού array που αποθηκεύει
-                hvd_category_array = json.loads(pkg_dict['hvd_category'])
-                hvd_category_array_size = len(hvd_category_array)
-            except Exception as e:
-                log.error(f"Unexpected error while processing hvd_category: {e}")
-
-            if hvd_category_array_size  > 0:
-                pkg_dict['is_hvd'] = 'Yes'
-
-        # --- 2. Βοηθητικό πεδίο για το NSIP Dataset facet --
-        access_rights_value = pkg_dict.get('access_rights', '')
-
-        if isinstance(access_rights_value, str):
-            # Ελέγχουμε αν το URL τελειώνει σε NON_PUBLIC ή RESTRICTED
-            if access_rights_value.endswith('/NON_PUBLIC') or access_rights_value.endswith('/RESTRICTED'):
-                pkg_dict['is_nsip'] = 'Yes'
-            elif access_rights_value.endswith('/PUBLIC'):
-                # PUBLIC σημαίνει 'No'
-                pkg_dict['is_nsip'] = 'No'
-
-        org_id = pkg_dict.get('owner_org')
-        if org_id:
-            try:
+        # Publishertype από τον οργανισμό (dataset + data-service)
+        try:
+            org_id = pkg_dict.get('owner_org')
+            if org_id:
                 org = model.Group.get(org_id)
                 if org and org.is_organization:
                     publisher_type_value = org.extras.get('publishertype')
                     if publisher_type_value:
-                        # Ελέγχουμε αν το publisher_type_value είναι ήδη πλήρες URI
                         if not publisher_type_value.startswith('http://'):
-                            # Αν όχι, προσθέτουμε το πρόθεμα URI
                             publisher_type_value = f'http://purl.org/adms/publishertype/{publisher_type_value}'
-
-                        # Προσθέτουμε τόσο το πλήρες URI όσο και το καθαρό όνομα του τύπου εκδότη
                         pkg_dict['publishertype'] = publisher_type_value
+        except Exception as e:
+            log.debug(f"Could not get org extras for {org_id}: {e}")
 
+        # is_hvd (dataset + data-service)
+        pkg_dict['is_hvd'] = 'No'
+        if pkg_dict.get('hvd_category'):
+            hvd_category_array_size = 0
+            try:
+                hvd_category_array = json.loads(pkg_dict['hvd_category'])
+                hvd_category_array_size = len(hvd_category_array)
             except Exception as e:
-                log.debug(f"Could not get org extras for {org_id}: {e}")
-                pass
+                log.error(f"Unexpected error while processing hvd_category: {e}")
+            if hvd_category_array_size > 0:
+                pkg_dict['is_hvd'] = 'Yes'
 
-        # ckan.extra_resource_fields από ckan.ini
-        extra_resource_fields = model.Resource.get_extra_columns()
+        # is_nsip + resource extras μόνο για datasets
+        if pkg_type == 'dataset':
+            access_rights_value = pkg_dict.get('access_rights', '')
+            if isinstance(access_rights_value, str):
+                if access_rights_value.endswith('/NON_PUBLIC') or access_rights_value.endswith('/RESTRICTED'):
+                    pkg_dict['is_nsip'] = 'Yes'
+                elif access_rights_value.endswith('/PUBLIC'):
+                    pkg_dict['is_nsip'] = 'No'
 
-        for field in extra_resource_fields:
-            res_extras_key = f'res_extras_{field}'
-            if res_extras_key in pkg_dict:
-                values = pkg_dict[res_extras_key]
-                if values:
-                    pkg_dict[f'res_{field}'] = str(values)
+            extra_resource_fields = model.Resource.get_extra_columns()
+            for field in extra_resource_fields:
+                res_extras_key = f'res_extras_{field}'
+                if res_extras_key in pkg_dict:
+                    values = pkg_dict[res_extras_key]
+                    if values:
+                        pkg_dict[f'res_{field}'] = str(values)
 
         return pkg_dict
 
@@ -446,4 +442,3 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
             # Αγνοούμε σφάλματα για να μην σπάσει η ενημέρωση
             pass
         return pkg_dict
-

@@ -401,13 +401,17 @@ class CoreCkanHarvester(DataGovGrHarvester, CKANHarvester):
         """Helper to ensure translated fields exist to avoid repetition"""
         translated_key = f'{field_name}_translated-el'
 
-        if not package_dict.get(translated_key):
+        if translated_key not in package_dict:
+            value = None
             if package_dict.get(field_name):
-                package_dict[translated_key] = package_dict[field_name]
+                value = package_dict[field_name]
             elif package_dict.get(f'{field_name}_translated-en'):
-                package_dict[translated_key] = package_dict[f'{field_name}_translated-en']
-            else:
-                package_dict[translated_key] = default_value
+                value = package_dict[f'{field_name}_translated-en']
+            elif default_value is not None:
+                value = default_value
+            if not isinstance(value, str):
+                value = ''
+            package_dict[translated_key] = value
             log.debug(f"Set {translated_key}: {package_dict[translated_key]}")
 
     def _fix_required_fields(self, package_dict):
@@ -415,7 +419,7 @@ class CoreCkanHarvester(DataGovGrHarvester, CKANHarvester):
         self._ensure_translated_field(package_dict, 'title', 'Untitled Dataset')
 
         # Ensure notes_translated-el exists
-        self._ensure_translated_field(package_dict, 'notes', 'Dataset harvested from Core CKAN source')
+        self._ensure_translated_field(package_dict, 'notes', 'Χωρίς περιγραφή')
 
     def _set_default_access_rights_public(self, package_dict):
         """Force access_rights to PUBLIC for harvested datasets.
@@ -787,10 +791,10 @@ class CoreCkanHarvester(DataGovGrHarvester, CKANHarvester):
                 licence_key = segments[1].lower()
                 odc_mapping = {
                     'pddl': 'ODC_PDDL',
-                    'odbl': 'ODC_ODBL',
+                    'odbl': 'ODC_BL',
                     'by': 'ODC_BY',
                     'by-sa': 'ODC_BY',
-                    'by-odbl': 'ODC_ODBL'
+                    'by-odbl': 'ODC_BL'
                 }
                 if licence_key in odc_mapping:
                     return odc_mapping[licence_key]
@@ -881,7 +885,7 @@ class CoreCkanHarvester(DataGovGrHarvester, CKANHarvester):
             'cc-zero': 'CC0',
             'cc0': 'CC0',
             'cc-nc': 'CC_BYNC_4_0',
-            'odc-odbl': 'ODC_ODBL',
+            'odc-odbl': 'ODC_BL',
             'odc-pddl': 'ODC_PDDL',
             'odc-by': 'ODC_BY',
             'gfdl': 'GFDL_1_3',

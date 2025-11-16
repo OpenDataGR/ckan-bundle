@@ -2,6 +2,8 @@
 
 import logging
 import json
+from typing import Optional
+from ckan import model
 from ckanext.dcat.harvesters.rdf import DCATRDFHarvester
 from ckanext.harvest.interfaces import IHarvester
 import ckan.plugins as plugins
@@ -128,6 +130,8 @@ class CustomDcatHarvester(DCATRDFHarvester, IHarvester):
             log.info(f"[DATA.GOV.GR HARVESTER] Applying custom mapping to dataset: {package_dict.get('name', 'unknown')}")
             log.info(f"[DATA.GOV.GR HARVESTER] Original frequency value: {package_dict.get('frequency', 'NOT SET')}")
 
+            # Owner org is provided by each specific harvester (eg EKAN); no changes here
+
             # Extract source data from harvest object for metadata preservation
             source_data = self._extract_source_data_from_harvest_object(harvest_object)
 
@@ -189,6 +193,8 @@ class CustomDcatHarvester(DCATRDFHarvester, IHarvester):
             log.error(f"Error applying custom mapping: {e}", exc_info=True)
 
         return package_dict
+
+    
 
     def _extract_source_data_from_harvest_object(self, harvest_object):
         """
@@ -498,9 +504,36 @@ class CustomDcatHarvester(DCATRDFHarvester, IHarvester):
                     if 'authority/data-theme/' in theme_value:
                         log.debug(f"Theme is already a valid authority URI: {theme_value}")
                     else:
-                        # If parsing fails and not valid URI, remove the field
-                        del dataset_dict['theme']
-                        log.debug(f"Removed invalid theme: {theme_value}")
+                        # If parsing fails and not valid URI, will move to tags below
+                        pass
+
+        # Move any remaining theme values to tags to avoid controlled vocabulary errors
+        if 'theme' in dataset_dict:
+            values = dataset_dict['theme']
+            if not isinstance(values, list):
+                values = [values]
+
+            # Prepare tag list on the dataset
+            existing_tags = set()
+            for t in dataset_dict.get('tags', []) or []:
+                if isinstance(t, dict) and 'name' in t and t['name']:
+                    existing_tags.add(t['name'].strip().lower())
+
+            for tv in values:
+                if not isinstance(tv, str) or not tv.strip():
+                    continue
+                label = tv
+                # If it's an authority URI, use the last segment as tag label
+                if 'authority/data-theme/' in tv:
+                    label = tv.rsplit('/', 1)[-1]
+                clean = label.strip()
+                if clean and clean.lower() not in existing_tags:
+                    dataset_dict.setdefault('tags', []).append({'name': clean})
+                    existing_tags.add(clean.lower())
+
+            # Remove theme field entirely to avoid "unexpected choice" validation
+            del dataset_dict['theme']
+            log.debug('Moved theme values to tags and removed theme field to satisfy controlled vocabulary')
 
     def _fix_authority_uri_field(self, dataset_dict, field_name, uri_base, valid_codes):
         """
@@ -574,6 +607,8 @@ class CustomDcatHarvester(DCATRDFHarvester, IHarvester):
             if isinstance(frequency, str):
                 # Convert to uppercase - this handles "other" -> "OTHER", etc.
                 dataset_dict['frequency'] = frequency.strip().upper()
+
+        # (EKAN-specific mapping is handled upstream; no ISO mapping here)
 
         # Get valid codes from database vocabulary
         valid_frequency_codes = self._get_vocabulary_valid_codes('Frequency')
@@ -705,6 +740,32 @@ class CustomDcatHarvester(DCATRDFHarvester, IHarvester):
         # Get valid codes from database vocabulary
         valid_language_codes = self._get_vocabulary_valid_codes('Languages')
 
+        def normalize_language_value(value: str) -> Optional[str]:
+            if not value or not isinstance(value, str):
+                return None
+            candidate = value.strip()
+            if not candidate:
+                return None
+
+            alias_map = {
+                'EN': 'ENG',
+                'EL': 'ELL',
+                'GR': 'ELL',
+            }
+
+            if 'publications.europa.eu' in candidate:
+                code = candidate.split('/')[-1].upper()
+                code = alias_map.get(code, code)
+                if code not in valid_language_codes:
+                    return None
+                base = candidate.rsplit('/', 1)[0]
+                return f"{base}/{code}"
+
+            code = alias_map.get(candidate.upper(), candidate.upper())
+            if code not in valid_language_codes:
+                return None
+            return f"https://publications.europa.eu/resource/authority/language/{code}"
+
         # Handle language in extras (where it usually ends up from RDF)
         for extra in dataset_dict.get('extras', []):
             if extra['key'] == 'language':
@@ -719,33 +780,23 @@ class CustomDcatHarvester(DCATRDFHarvester, IHarvester):
                             language_uri = language_array[0]
                             if isinstance(language_uri, str):
                                 # Extract code from URI (last part after /)
-                                language_code = language_uri.split('/')[-1].upper()
+                                normalized_uri = normalize_language_value(language_uri)
 
-                                if language_code in valid_language_codes:
-                                    # Move language from extras to main dataset field
-                                    dataset_dict['language'] = language_uri
-                                    log.info(f"[LANGUAGE] Moved valid language from extras: '{language_uri}' (code: {language_code})")
-                                    # Remove from extras since it's now in main field
-                                    dataset_dict['extras'].remove(extra)
+                                if normalized_uri:
+                                    dataset_dict['language'] = normalized_uri
+                                    log.info(f"[LANGUAGE] Moved valid language from extras: '{normalized_uri}'")
                                 else:
-                                    log.warning(f"[LANGUAGE] Language code '{language_code}' not in controlled vocabulary. URI: {language_uri}")
-                                    # Still remove from extras to avoid confusion
-                                    dataset_dict['extras'].remove(extra)
+                                    log.warning(f"[LANGUAGE] Language value '{language_uri}' not in controlled vocabulary")
+                                dataset_dict['extras'].remove(extra)
                     except (json.JSONDecodeError, IndexError):
                         # If not JSON, check if it's already a valid authority URI
-                        if 'publications.europa.eu' in language_value:
-                            language_code = language_value.split('/')[-1].upper()
-                            if language_code in valid_language_codes:
-                                # Move to main field
-                                dataset_dict['language'] = language_value
-                                log.info(f"[LANGUAGE] Moved valid language URI from extras: '{language_value}' (code: {language_code})")
-                                dataset_dict['extras'].remove(extra)
-                            else:
-                                log.warning(f"[LANGUAGE] Language code '{language_code}' not in controlled vocabulary. URI: {language_value}")
-                                dataset_dict['extras'].remove(extra)
+                        normalized_uri = normalize_language_value(language_value)
+                        if normalized_uri:
+                            dataset_dict['language'] = normalized_uri
+                            log.info(f"[LANGUAGE] Moved valid language URI from extras: '{normalized_uri}'")
                         else:
                             log.warning(f"[LANGUAGE] Invalid language format in extras: {language_value}")
-                            dataset_dict['extras'].remove(extra)
+                        dataset_dict['extras'].remove(extra)
                 break
 
         # Also check if language exists in main dataset fields
@@ -759,22 +810,18 @@ class CustomDcatHarvester(DCATRDFHarvester, IHarvester):
                     if isinstance(language_array, list) and language_array:
                         language_uri = language_array[0]
                         if isinstance(language_uri, str):
-                            language_code = language_uri.split('/')[-1].upper()
-                            if language_code in valid_language_codes:
-                                dataset_dict['language'] = language_uri
-                                log.info(f"[LANGUAGE] Fixed language in main field: '{language_uri}' (code: {language_code})")
+                            normalized_uri = normalize_language_value(language_uri)
+                            if normalized_uri:
+                                dataset_dict['language'] = normalized_uri
+                                log.info(f"[LANGUAGE] Fixed language in main field: '{normalized_uri}'")
                             else:
-                                log.warning(f"[LANGUAGE] Language code '{language_code}' not in controlled vocabulary. Removing field.")
+                                log.warning(f"[LANGUAGE] Language value '{language_uri}' not in controlled vocabulary. Removing field.")
                                 del dataset_dict['language']
                 except (json.JSONDecodeError, IndexError):
-                    # Check if it's already a valid authority URI
-                    if 'publications.europa.eu' in language_value:
-                        language_code = language_value.split('/')[-1].upper()
-                        if language_code in valid_language_codes:
-                            log.info(f"[LANGUAGE] Language already valid: '{language_value}' (code: {language_code})")
-                        else:
-                            log.warning(f"[LANGUAGE] Language code '{language_code}' not in controlled vocabulary. Removing field.")
-                            del dataset_dict['language']
+                    normalized_uri = normalize_language_value(language_value)
+                    if normalized_uri:
+                        dataset_dict['language'] = normalized_uri
+                        log.info(f"[LANGUAGE] Normalized language in main field: '{normalized_uri}'")
                     else:
                         log.warning(f"[LANGUAGE] Invalid language format in main field: {language_value}")
                         del dataset_dict['language']
@@ -911,8 +958,17 @@ class CustomDcatHarvester(DCATRDFHarvester, IHarvester):
 
             # Ensure required resource fields exist
             if not resource.get('url'):
-                log.warning(f"Resource missing URL, skipping: {resource.get('name', 'unnamed')}")
-                continue
+                fallback_url = (
+                    resource.get('download_url')
+                    or resource.get('access_url')
+                    or resource.get('foaf_page')
+                    or resource.get('uri')
+                )
+                if fallback_url:
+                    resource['url'] = fallback_url
+                else:
+                    log.warning(f"Resource missing URL, skipping: {resource.get('name', 'unnamed')}")
+                    continue
 
             # Fix resource name - required field
             if not resource.get('name') or not resource['name'].strip():

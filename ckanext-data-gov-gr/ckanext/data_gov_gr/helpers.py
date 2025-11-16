@@ -327,6 +327,15 @@ def get_config_value(key, default=""):
     return value if value is not None else default
 
 
+def has_gitbook_pdf_export():
+    """
+    Check whether the GitBook PDF export configuration is complete.
+    """
+    space_id = get_config_value('ckanext.data_gov_gr.gitbook.space_id')
+    token = get_config_value('ckanext.data_gov_gr.gitbook.api_token')
+    return bool(space_id and token)
+
+
 def _localize_data_service_label(text):
     """
     Post-process humanized strings for the data-service dataset type so the
@@ -462,6 +471,7 @@ def get_helpers():
         'get_data_service_guides_url': get_data_service_guides_url,
         'get_config_as_bool': get_config_as_bool,
         'get_config_value': get_config_value,
+        'has_gitbook_pdf_export': has_gitbook_pdf_export,
         'humanize_entity_type': humanize_entity_type,
         'should_hide_mqa_tab': should_hide_mqa_tab,
         'should_disable_protected_data': should_disable_protected_data,
