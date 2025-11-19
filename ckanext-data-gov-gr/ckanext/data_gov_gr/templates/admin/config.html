@@ -1,0 +1,91 @@
+{% ckan_extends %}
+
+{% import 'macros/form.html' as form %}
+
+{% block admin_form %}
+
+  {{ super() }}
+
+  <h3>{{ _('Στατιστικά και Power BI') }}</h3>
+
+  {{ form.input(
+    'ckanext.data_gov_gr.powerbi_embed_url',
+    id='field-ckanext.data_gov_gr.powerbi_embed_url',
+    label=_('Σύνδεσμος ενσωμάτωσης Power BI'),
+    value=data['ckanext.data_gov_gr.powerbi_embed_url'],
+    error=errors['ckanext.data_gov_gr.powerbi_embed_url'],
+    placeholder='https://app.powerbi.com/view?r=...'
+  ) }}
+
+  <h3>{{ _('Αναδυόμενο ερωτηματολόγιο χρήστη') }}</h3>
+
+  {{ form.input(
+    'ckanext.data_gov_gr.user_survey.url',
+    id='field-ckanext.data_gov_gr.user_survey.url',
+    label=_('Σύνδεσμος ερωτηματολογίου χρήστη'),
+    value=data['ckanext.data_gov_gr.user_survey.url'],
+    error=errors['ckanext.data_gov_gr.user_survey.url'],
+    placeholder='https://example.com/your-survey?lang={locale}'
+  ) }}
+
+  <h3>{{ _('Σελίδα εφαρμογών (Showcases)') }}</h3>
+
+  {{ form.textarea(
+    'ckanext.data_gov_gr.showcase.disclaimer',
+    id='field-ckanext.data_gov_gr.showcase.disclaimer',
+    label=_('Κείμενο αποποίησης ευθύνης για τις εφαρμογές (HTML επιτρέπεται)'),
+    value=data['ckanext.data_gov_gr.showcase.disclaimer'],
+    error=errors['ckanext.data_gov_gr.showcase.disclaimer'],
+    placeholder=_('Εισάγετε εδώ το κείμενο αποποίησης ευθύνης για την σελίδα εφαρμογών / Showcases.')
+  ) }}
+
+  <h3>{{ _('Προεπιλεγμένη Εφαρμοστέα Νομοθεσία') }}</h3>
+
+  {{ form.input(
+    'ckanext.data_gov_gr.dataset.legislation.open',
+    id='field-ckanext.data_gov_gr.dataset.legislation.open',
+    label=_('Για Ανοικτά Δεδομένα (access_rights_type=open)'),
+    value=data['ckanext.data_gov_gr.dataset.legislation.open'],
+    error=errors['ckanext.data_gov_gr.dataset.legislation.open'],
+    placeholder='https://... (π.χ. οδηγία 2019/1024)'
+  ) }}
+
+  {{ form.input(
+    'ckanext.data_gov_gr.dataset.legislation.protected',
+    id='field-ckanext.data_gov_gr.dataset.legislation.protected',
+    label=_('Για Προστατευόμενα Δεδομένα (access_rights_type=protected)'),
+    value=data['ckanext.data_gov_gr.dataset.legislation.protected'],
+    error=errors['ckanext.data_gov_gr.dataset.legislation.protected'],
+    placeholder='https://... (π.χ. κανονισμός 2022/868)'
+  ) }}
+
+{% endblock %}
+
+{% block admin_form_help %}
+
+  {{ super() }}
+
+  <p>
+    <strong>{{ _('Σύνδεσμος ενσωμάτωσης Power BI') }}:</strong>
+    {{ _('Πλήρες iframe src URL από το Power BI (\"Publish to web\" ή \"Embed → Website or portal\"). Αν οριστεί εδώ, υπερισχύει της τιμής powerbi.embed_url στο configuration file.') }}
+  </p>
+
+  <p>
+    <strong>{{ _('Σύνδεσμος ερωτηματολογίου χρήστη') }}:</strong>
+    {{ _('Διεύθυνση (URL) του εξωτερικού ερωτηματολογίου, που χρησιμοποιείται τόσο στο link του footer όσο και στο αναδυόμενο παράθυρο αξιολόγησης.') }}
+    {{ _('Μπορείτε να χρησιμοποιήσετε παραμετρικό link εδώ (π.χ. με τη γλώσσα: ?lang=el).') }}
+  </p>
+
+  <p>
+    <strong>{{ _('Κείμενο αποποίησης ευθύνης για τις εφαρμογές') }}:</strong>
+    {{ _('Κείμενο αποποίησης ευθύνης (disclaimer) που εμφανίζεται στη σελίδα ευρετηρίου των εφαρμογών (showcases).') }}
+    {{ _('Υποστηρίζει απλό HTML για συνδέσμους ή μορφοποίηση.') }}
+  </p>
+
+  <p>
+    <strong>{{ _('Προεπιλεγμένη Εφαρμοστέα Νομοθεσία') }}:</strong>
+    {{ _('Συνδέσμοι νομοθεσίας που προ-συμπληρώνονται στο πεδίο «Εφαρμοστέα Νομοθεσία» κατά τη δημιουργία συνόλου δεδομένων, ανάλογα με τον τύπο πρόσβασης (open / protected).') }}
+    {{ _('Αν τα πεδία μείνουν κενά, δεν θα προ-συμπληρώνεται τιμή.') }}
+  </p>
+
+{% endblock %}

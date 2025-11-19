@@ -305,6 +305,23 @@ def get_access_rights_type():
     from ckan.common import request
     return request.params.get('access_rights_type', '')
 
+
+def get_dataset_legislation_default():
+    """
+    Επιστρέφει την προεπιλεγμένη τιμή για το πεδίο Εφαρμοστέα Νομοθεσία
+    κατά τη δημιουργία συνόλου δεδομένων, με βάση το access_rights_type.
+    """
+    access_type = get_access_rights_type()
+
+    if access_type == 'open':
+        # Προεπιλεγμένη νομοθεσία για ανοιχτά δεδομένα
+        return get_config_value('ckanext.data_gov_gr.dataset.legislation.open', '')
+    if access_type == 'protected':
+        # Προεπιλεγμένη νομοθεσία για προστατευόμενα δεδομένα
+        return get_config_value('ckanext.data_gov_gr.dataset.legislation.protected', 'DGA')
+
+    return ''
+
 def get_config_as_bool(key, default=False):
     """
     Get configuration value as boolean.
@@ -317,7 +334,19 @@ def get_config_as_bool(key, default=False):
         bool: Boolean value of the configuration
     """
     value = toolkit.config.get(key, default)
-    return toolkit.asbool(value)
+
+    # Some runtime-edited values can end up as lists (eg hidden+checkbox
+    # combinations). In that case, use the last submitted value.
+    if isinstance(value, list):
+        if not value:
+            return default
+        value = value[-1]
+
+    try:
+        return toolkit.asbool(value)
+    except Exception:
+        log.warning('Invalid boolean config %s=%r, using default=%r', key, value, default)
+        return default
 
 def get_config_value(key, default=""):
     """
@@ -325,6 +354,27 @@ def get_config_value(key, default=""):
     """
     value = toolkit.config.get(key)
     return value if value is not None else default
+
+
+def get_powerbi_embed_url():
+    """
+    Return the configured Power BI embed URL.
+
+    Priority:
+    1. Runtime-editable admin config: ``ckanext.data_gov_gr.powerbi_embed_url``
+    2. Fallback config file option: ``powerbi.embed_url``
+    """
+    # 1. Admin-configurable value from /ckan-admin/config
+    admin_value = toolkit.config.get('ckanext.data_gov_gr.powerbi_embed_url')
+    if admin_value:
+        return admin_value.strip()
+
+    # 2. Fallback to static config option in ckan.ini
+    ini_value = toolkit.config.get('powerbi.embed_url')
+    if ini_value:
+        return ini_value.strip()
+
+    return ""
 
 
 def has_gitbook_pdf_export():
@@ -459,6 +509,27 @@ def get_data_service_guides_url():
     """
     return get_config_value('ckanext.data_gov_gr.data_service_guides_url')
 
+
+def allow_org_admins_public_decisions():
+    """
+    Ελέγχει αν οι διαχειριστές οργανισμών και οι εκδότες, μπορούν να δημιουργούν δημόσια Decisions.
+    Αν η παράμετρος είναι κενή, σχόλιο, ή απουσιάζει, επιστρέφει True.
+    """
+    value = toolkit.config.get('ckanext.data_gov_gr.decision.allow_org_admins_public')
+
+    # Αν η παράμετρος απουσιάζει, είναι None, κενή string, ή περιέχει μόνο σχόλιο
+    if value is None:
+        return True
+
+    value_str = str(value).strip()
+
+    # Αν είναι κενή ή ξεκινά με # (σχόλιο)
+    if value_str == '' or value_str.startswith('#'):
+        return True
+
+    # Αν έχει τιμή, μετατρέπεται σε boolean
+    return toolkit.asbool(value)
+
 def get_helpers():
     return {
         "vocabulary_facet_item_label": vocabulary_facet_item_label,
@@ -468,14 +539,17 @@ def get_helpers():
         "fluent_language_is_required": fluent_language_is_required,
         "get_organizations_stats": get_organizations_stats,
         'get_access_rights_type': get_access_rights_type,
+        'get_dataset_legislation_default': get_dataset_legislation_default,
         'get_data_service_guides_url': get_data_service_guides_url,
         'get_config_as_bool': get_config_as_bool,
         'get_config_value': get_config_value,
+        'get_powerbi_embed_url': get_powerbi_embed_url,
         'has_gitbook_pdf_export': has_gitbook_pdf_export,
         'humanize_entity_type': humanize_entity_type,
         'should_hide_mqa_tab': should_hide_mqa_tab,
         'should_disable_protected_data': should_disable_protected_data,
         'should_hide_azure_translation': should_hide_azure_translation,
         'should_show_decision_menu': should_show_decision_menu,
-        'should_show_decision_button': should_show_decision_button
+        'should_show_decision_button': should_show_decision_button,
+        'allow_org_admins_public_decisions': allow_org_admins_public_decisions
     }

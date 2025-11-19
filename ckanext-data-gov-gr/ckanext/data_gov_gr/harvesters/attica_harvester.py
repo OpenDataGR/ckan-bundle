@@ -388,6 +388,7 @@ class AtticaOpenDataHarvester(CKANHarvester):
 
         download_link = None
         redirect_link = None
+        preview_link = None
 
         dropdown_menu = item.find('ul', class_='dropdown-menu')
         if dropdown_menu:
@@ -397,11 +398,14 @@ class AtticaOpenDataHarvester(CKANHarvester):
                     download_link = link
                 elif 'Αναδρομολόγηση' in link_text:
                     redirect_link = link
+                elif 'Προεπισκόπηση' in link_text:
+                    preview_link = link
 
         # Default τιμή: αν δεν βρούμε κάτι άλλο, χρησιμοποιούμε τη σελίδα του resource
         actual_download_url = resource_page_url
         download_url = None
         redirect_url = None
+        preview_url = None
 
         # Αν υπάρχει Download, παίρνουμε αυτό το href
         if download_link:
@@ -415,6 +419,12 @@ class AtticaOpenDataHarvester(CKANHarvester):
             redirect_url = redirect_link.get('href', '') or ''
             if redirect_url and not redirect_url.startswith('http'):
                 redirect_url = urljoin(dataset_url, redirect_url)
+
+        # Αν υπάρχει Προεπισκόπηση, πάντα θα υπάρχει, παίρνουμε αυτό το href
+        if preview_link:
+            preview_url = preview_link.get('href', '') or ''
+            if preview_url and not preview_url.startswith('http'):
+                preview_url = urljoin(dataset_url, preview_url)
 
         # Get filename from a.description
         description_link = item.find('a', class_='description')
@@ -436,6 +446,7 @@ class AtticaOpenDataHarvester(CKANHarvester):
             'filename': filename,
             'download_url': download_url,  # μόνο αν υπάρχει Download
             'redirect_url': redirect_url,  # μόνο αν υπάρχει Αναδρομολόγηση
+            'preview_url': preview_url,
         }
 
         return resource_data
@@ -733,6 +744,7 @@ class AtticaOpenDataHarvester(CKANHarvester):
         """
         package_dict['landing_page'] = dataset_data['url']
         package_dict['access_rights'] = 'http://publications.europa.eu/resource/authority/access-right/PUBLIC'
+        package_dict['applicable_legislation'] = ['https://eur-lex.europa.eu/eli/dir/2019/1024/oj/eng']
 
         # Contact
         contact_info = [{
@@ -745,7 +757,7 @@ class AtticaOpenDataHarvester(CKANHarvester):
 
         # Publisher (από maintainer + σταθερές τιμές)
         publisher_info = [{
-            "uri": "https://opendata.attica.gov.gr/content" + dataset_data.get('organization'),
+            "uri": "https://opendata.attica.gov.gr/content/" + dataset_data.get('organization'),
             "name": dataset_data.get('maintainer'),
             "email": dataset_data.get('maintainer_email'),
             "url": "https://www.patt.gov.gr",
@@ -813,7 +825,7 @@ class AtticaOpenDataHarvester(CKANHarvester):
 
             resource_dict = {
                 'url': resource_url,
-                'access_url': resource_data.get('page_url'),
+                'access_url': resource_data.get('preview_url'),
                 'download_url': resource_data.get('download_url'),
                 'name': resource_name,
                 'format': resource_format,
@@ -878,6 +890,8 @@ class AtticaOpenDataHarvester(CKANHarvester):
 
             if resource_data.get('created'):
                 resource_dict['created'] = resource_data['created']
+
+            resource_dict['availability'] = "http://publications.europa.eu/resource/authority/planned-availability/STABLE"
 
             # Αν θέλουμε να κρατήσουμε επιπλέον πληροφορίες σε extras ανά resource
             resource_extras = []

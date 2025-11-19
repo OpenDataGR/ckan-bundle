@@ -705,21 +705,49 @@ class MQACalculator:
 
     def _get_resource_license_url(self, resource: Dict[str, Any]) -> str:
         """
-        Return the license URL defined on a resource (empty string if not present).
+        Return an effective license value defined on a resource
+        (empty string if not present).
+
+        The value is used to determine whether a resource has *any* license.
+        We look at several common fields, **πάντα** με πρώτη προτεραιότητα
+        το ``license``:
+
+        - ``license`` (Scheming field backed by the ``Licence`` vocabulary)
+          → σημαίνει “έχει άδεια και είναι από ελεγχόμενο λεξιλόγιο”
+        - ``license_url`` (harvested / mapped datasets)
+        - ``license_id``
+        - ``license_title``
         """
-        value = resource.get('license_url')
-        if value:
+        for field in ('license', 'license_url', 'license_id', 'license_title'):
+            value = resource.get(field)
+            if not value:
+                continue
             value_str = str(value).strip()
             if value_str:
                 return value_str
         return ''
 
     def _resource_has_license(self, resource: Dict[str, Any]) -> bool:
+        """
+        Check if a resource has any license information, regardless of source.
+
+        This returns True if *any* of the common license fields is present
+        (license_url, license, license_id, license_title).
+        """
         return bool(self._get_resource_license_url(resource))
 
     def _resource_license_matches_vocabulary(self, resource: Dict[str, Any]) -> bool:
-        license_url = self._get_resource_license_url(resource)
-        return bool(license_url and self._license_in_registry(license_url))
+        """
+        Check if the resource license comes from the controlled vocabulary.
+
+        On this portal, resource-level licenses selected from the controlled
+        vocabulary are stored in the ``license`` field (Scheming + Vocabulary
+        admin). If this field is present, we consider the license to be from
+        the controlled vocabulary. Licenses provided only via ``license_url``,
+        ``license_id`` or ``license_title`` are treated as non-vocabulary
+        licenses.
+        """
+        return bool(resource.get('license'))
 
     def _add_known_license(self, value: Optional[str]) -> None:
         if not value:
@@ -1113,16 +1141,21 @@ class MQACalculator:
         """
         score = 0
 
-        # Check for license (via license_url)
-        license_url = self._get_resource_license_url(resource)
-        if license_url:
+        # Check for license presence (any source)
+        license_value = self._get_resource_license_url(resource)
+        has_vocab_license = bool(resource.get('license'))
+
+        if license_value:
+            # Any license (license_url, license, id, title) -> +20 points
             score += 20
-            log.debug(f"Resource license URL: {license_url}")
-            if self._license_in_registry(license_url):
-                log.debug("License found in known licenses list")
+            log.debug(f"Resource license value: {license_value}")
+
+            # License from controlled vocabulary (resource.license) -> +10 points
+            if has_vocab_license:
+                log.debug("License comes from controlled vocabulary (resource.license)")
                 score += 10
             else:
-                log.debug("License not found in known licenses list")
+                log.debug("License does not come from controlled vocabulary field")
 
         return score
 
@@ -1177,7 +1210,9 @@ class MQACalculator:
         format_in_vocab = bool(resource.get('format') and self._is_format_in_vocabulary(resource.get('format')))
         media_type_in_vocab = bool(resource.get('mimetype') and self._is_mimetype_in_vocabulary(resource.get('mimetype')))
 
-        license_url = self._get_resource_license_url(resource)
+        license_value = self._get_resource_license_url(resource)
+        has_license = bool(license_value)
+        has_license_in_vocab = bool(resource.get('license'))
 
         criteria = {
             # Accessibility criteria
@@ -1194,8 +1229,8 @@ class MQACalculator:
             'is_machine_readable': resource.get('format', '').lower() in self.machine_readable_formats,
 
             # Metadata completeness criteria
-            'has_license': bool(license_url),
-            'has_license_in_vocabulary': bool(license_url and self._license_in_registry(license_url)),
+            'has_license': has_license,
+            'has_license_in_vocabulary': has_license_in_vocab,
 
             # Documentation criteria
             'has_rights': bool(resource.get('rights')),

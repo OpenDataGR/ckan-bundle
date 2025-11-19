@@ -60,6 +60,31 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
 
         self._change_valid_name()
 
+    def update_config_schema(self, schema):
+        """
+        Make the Power BI embed URL configurable from /ckan-admin/config.
+
+        This defines runtime-editable configuration options for:
+        - ``ckanext.data_gov_gr.powerbi_embed_url`` (Power BI)
+        - ``ckanext.data_gov_gr.user_survey.url`` (user survey popup/link URL)
+        - ``ckanext.data_gov_gr.showcase.disclaimer`` (apps/showcases disclaimer)
+        - ``ckanext.data_gov_gr.dataset.legislation.open`` (default applicable legislation for open datasets)
+        - ``ckanext.data_gov_gr.dataset.legislation.protected`` (default applicable legislation for protected datasets)
+        which are independent from their fallback values in the ini file.
+        """
+        ignore_missing = toolkit.get_validator('ignore_missing')
+        unicode_safe = toolkit.get_validator('unicode_safe')
+
+        schema.update({
+            'ckanext.data_gov_gr.powerbi_embed_url': [ignore_missing, unicode_safe],
+            'ckanext.data_gov_gr.user_survey.url': [ignore_missing, unicode_safe],
+            'ckanext.data_gov_gr.showcase.disclaimer': [ignore_missing, unicode_safe],
+            'ckanext.data_gov_gr.dataset.legislation.open': [ignore_missing, unicode_safe],
+            'ckanext.data_gov_gr.dataset.legislation.protected': [ignore_missing, unicode_safe],
+        })
+
+        return schema
+
     # IBlueprint
 
     def get_blueprint(self):

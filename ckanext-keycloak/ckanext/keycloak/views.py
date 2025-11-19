@@ -77,13 +77,13 @@ def sso_login():
     if userinfo:
         # Επιλέγουμε το username βάσει config
         if use_sub_as_name:
-            username = userinfo['sub']
+            username = 'user_' + userinfo['sub']
         else:
             username = userinfo['preferred_username']
 
         user_dict = {
             'name': username,
-            'email': userinfo['email'],
+            'email': userinfo.get('email', userinfo['sub']+'@localhost.gr'),
             'password': helpers.generate_password(),
             'fullname': userinfo['name'],
             'plugin_extras': {

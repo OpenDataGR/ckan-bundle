@@ -9,7 +9,7 @@ from ckan.lib.base import render, abort
 from ckan.lib.helpers import lang
 from ckan.plugins import toolkit
 from ckan.logic import NotFound, NotAuthorized, get_action
-from ckanext.data_gov_gr.helpers import get_config_as_bool
+from ckanext.data_gov_gr.helpers import get_config_as_bool, get_powerbi_embed_url
 
 from ckanext.data_gov_gr.logic.mqa_calculator import MQACalculator
 from ckanext.data_gov_gr.stats import DataGovStats
@@ -372,6 +372,29 @@ def stats_datasets_by_hvd_category():
         'datasets_by_hvd_category': stats.datasets_by_hvd_category(),
     }
     return render('ckanext/stats/datasets_by_hvd_category.html', extra_vars)
+
+
+@blueprint.route('/stats/powerbi')
+def stats_powerbi():
+    """
+    Render the Power BI statistics page.
+
+    The embed URL is provided via the admin-configurable
+    ``ckanext.data_gov_gr.powerbi_embed_url`` option if set in
+    ``/ckan-admin/config``. If it is not set there, this view will fall back
+    to the ``powerbi.embed_url`` option from the configuration file.
+    """
+    embed_url = get_powerbi_embed_url()
+
+    if not embed_url:
+        log.info('Power BI stats page requested but powerbi.embed_url is not configured')
+
+    return render(
+        'ckanext/stats/powerbi.html',
+        {
+            'powerbi_embed_url': embed_url
+        }
+    )
 
 def more_page():
     """Render the More page with content sections as cards"""

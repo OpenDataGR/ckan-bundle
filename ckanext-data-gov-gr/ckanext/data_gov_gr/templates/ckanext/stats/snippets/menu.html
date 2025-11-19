@@ -38,6 +38,12 @@
       <li class="nav-item{% if active == 'top_creators' %} active{% endif %}">
         <a href="{{ h.url_for('dataset_type.stats_top_creators') }}">{{ _('Users Creating Most Datasets') }}</a>
       </li>
+      {% set powerbi_url = h.get_powerbi_embed_url() %}
+      {% if powerbi_url %}
+        <li class="nav-item{% if active == 'powerbi' %} active{% endif %}">
+          <a href="{{ h.url_for('dataset_type.stats_powerbi') }}">{{ _('Power BI Αναφορές') }}</a>
+        </li>
+      {% endif %}
     </ul>
   </nav>
 </section>

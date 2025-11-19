@@ -348,6 +348,9 @@ class EkanDcatHarvester(CustomDcatHarvester, IHarvester):
         out = super(EkanDcatHarvester, self).modify_package_dict(package_dict, temp_dict, harvest_object)
 
         try:
+            # EKAN datasets are always considered PUBLIC for access_rights
+            self._force_public_access_rights(out)
+
             # Remove helper keys not guaranteed by schema and strip placeholder formats
             resources = out.get('resources') or []
             for res in list(resources):
@@ -379,6 +382,29 @@ class EkanDcatHarvester(CustomDcatHarvester, IHarvester):
             log.warning('EKAN post-normalization failed: %s', e)
 
         return out
+
+    def _force_public_access_rights(self, dataset: dict) -> None:
+        """Force access_rights to PUBLIC for EKAN-harvested datasets.
+
+        Uses the Publications Office authority URI. Also removes any
+        access_rights occurrences from extras to avoid conflicts with
+        scheming validation.
+        """
+        try:
+            public_uri = 'http://publications.europa.eu/resource/authority/access-right/PUBLIC'
+            dataset['access_rights'] = public_uri
+
+            extras = dataset.get('extras')
+            if isinstance(extras, list):
+                dataset['extras'] = [
+                    e for e in extras
+                    if not (
+                        isinstance(e, dict)
+                        and (e.get('key') or '').strip().lower() == 'access_rights'
+                    )
+                ]
+        except Exception as e:
+            log.warning('EKAN access_rights PUBLIC normalization failed: %s', e)
 
     def _ensure_owner_org(self, dataset: dict, harvest_job) -> None:
         try:

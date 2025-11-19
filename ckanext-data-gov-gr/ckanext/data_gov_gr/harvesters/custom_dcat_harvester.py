@@ -168,6 +168,10 @@ class CustomDcatHarvester(DCATRDFHarvester, IHarvester):
             # Fix 6: Ensure required translated fields exist for data.gov.gr
             self._fix_required_translated_fields(package_dict)
 
+            # Fix 6.1: Normalise spatial_coverage, enrich WKT polygons with
+            # bbox / centroid so that scheming + DCAT profiles can use them.
+            self._fix_spatial_coverage(package_dict)
+
             # Fix 7: Clean tag validation issues
             self._fix_tag_validation(package_dict)
 
@@ -218,6 +222,97 @@ class CustomDcatHarvester(DCATRDFHarvester, IHarvester):
 
         if source_data.get('license_id'):
             dataset_dict['license_id'] = source_data['license_id']
+
+    def _fix_spatial_coverage(self, dataset_dict):
+        """Enrich spatial_coverage entries with bbox/centroid when possible.
+
+        Many EKAN / NAP DCAT feeds provide a WKT POLYGON in the
+        spatial_coverage text. To align with the scheming DCAT profile
+        (which expects bbox/centroid fields), derive a simple envelope
+        and centroid from rectangular polygons. Existing bbox/centroid
+        values are left untouched.
+        """
+        spatial = dataset_dict.get('spatial_coverage')
+        if not isinstance(spatial, list) or not spatial:
+            return
+
+        for item in spatial:
+            if not isinstance(item, dict):
+                continue
+
+            # Skip if already enriched
+            if any(item.get(k) for k in ('bbox', 'centroid', 'geom')):
+                continue
+
+            text = item.get('text')
+            if not isinstance(text, str):
+                continue
+
+            coords = self._parse_wkt_polygon(text)
+            if not coords:
+                continue
+
+            xs = [x for x, _ in coords]
+            ys = [y for _, y in coords]
+            minx, maxx = min(xs), max(xs)
+            miny, maxy = min(ys), max(ys)
+
+            bbox = {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [minx, miny],
+                        [minx, maxy],
+                        [maxx, maxy],
+                        [maxx, miny],
+                        [minx, miny],
+                    ]
+                ],
+            }
+            centroid = {
+                "type": "Point",
+                "coordinates": [
+                    (minx + maxx) / 2.0,
+                    (miny + maxy) / 2.0,
+                ],
+            }
+
+            try:
+                item['bbox'] = json.dumps(bbox, ensure_ascii=False)
+                item['centroid'] = json.dumps(centroid, ensure_ascii=False)
+                # Preserve original WKT as geom and use a friendly label
+                item['geom'] = text.strip()
+                if text.strip().upper().startswith('POLYGON'):
+                    item['text'] = 'Γεωγραφική περιοχή'
+            except Exception as e:
+                log.warning(f"Error normalising spatial_coverage: {e}")
+
+    def _parse_wkt_polygon(self, wkt_text):
+        if not wkt_text or not isinstance(wkt_text, str):
+            return None
+        s = wkt_text.strip()
+        if not s.upper().startswith('POLYGON'):
+            return None
+        try:
+            start = s.find('((')
+            end = s.rfind('))')
+            if start == -1 or end == -1 or end <= start + 2:
+                return None
+            inner = s[start + 2 : end]
+            coords = []
+            for part in inner.split(','):
+                part = part.strip()
+                if not part:
+                    continue
+                tokens = part.split()
+                if len(tokens) < 2:
+                    continue
+                x = float(tokens[0])
+                y = float(tokens[1])
+                coords.append((x, y))
+            return coords or None
+        except Exception:
+            return None
             log.debug(f"Preserved license_id from source: {source_data['license_id']}")
 
         if source_data.get('license_title'):
