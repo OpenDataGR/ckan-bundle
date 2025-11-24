@@ -2,6 +2,7 @@ import hashlib
 import json
 import logging
 import re
+from collections import defaultdict
 from urllib.parse import urljoin, urlparse
 
 import requests
@@ -21,6 +22,137 @@ class AtticaOpenDataHarvester(CKANHarvester):
     Custom harvester for Attica Region Open Data portal
     Harvests from https://opendata.attica.gov.gr/content
     """
+
+    # ##################################################################################################################
+
+    # ------------------------------------------------------------------
+    # Mapping από ΛΕΚΤΙΚΑ κατηγοριών portal -> EU theme code
+    # ------------------------------------------------------------------
+    CATEGORY_LABEL_THEME_MAP = {
+        'εργασία & επαγγέλματα': 'SOCI',
+        'στατιστικά': 'SOCI',
+        'αγροτική, κτηνιατρική & αλιεία': 'AGRI',
+        'υγεία & κοινωνική μέριμνα': 'HEAL',
+        'δημόσια διοίκηση - οργάνωση': 'GOVE',
+        'έργα & υποδομές': 'REGI',
+        'ανακοινώσεις': None,
+        'μεταφορές': 'TRAN',
+        'γεωχωρικά': 'REGI',
+        'οικονομικά': 'ECON',
+        'πολιτική προστασία': 'JUST',
+        'περιβάλλον': 'ENVI',
+        'εταιρίες': 'ECON',
+        'διαγωνισμοί': 'GOVE',
+        'διεθνή Θέματα': 'INTR',
+        'ενέργεια': 'ENER',
+        'παιδεία – πολιτισμός – αθλητισμός': 'EDUC',
+    }
+
+    def _normalize_category_label(self, label):
+        """
+        Helper: normalize label για lookup στο CATEGORY_LABEL_THEME_MAP
+        """
+        if not label:
+            return ''
+        # Ενιαία παύλα, αφαίρεση διπλών κενών, lower
+        norm = label.replace('–', '-').replace('—', '-')
+        norm = ' '.join(norm.split())
+        return norm.lower()
+
+    def _get_portal_collections(self, base_url):
+        """
+        Διαβάζει από το portal της περιφέρειας τις κατηγορίες και επιστρέφει
+        dict { filter_id: label }
+        """
+        collections = {}
+
+        try:
+            resp = requests.get(base_url, timeout=30)
+            resp.raise_for_status()
+        except Exception as e:
+            log.warning(f"Could not fetch base URL for collections: {base_url} - {e}")
+            return collections
+
+        soup = BeautifulSoup(resp.content, 'html.parser')
+
+        for a in soup.find_all('a', class_='filter_set'):
+            if a.get('data-filter') != 'collections':
+                continue
+
+            filter_id = a.get('data-filter_id')
+            if not filter_id:
+                continue
+
+            label_span = a.find('span', class_='me-1')
+            if label_span:
+                label = label_span.get_text(strip=True)
+            else:
+                label = a.get_text(strip=True)
+
+            if label:
+                collections[str(filter_id)] = label
+
+        log.info(f"Found {len(collections)} portal collections (categories)")
+        return collections
+
+    def _collect_portal_categories(self, base_url, start_page, end_page):
+        """
+        Για κάθε κατηγορία σαρώνει τις σελίδες και φτιάχνει
+        mapping dataset_url -> set(category_labels)
+        """
+        dataset_to_categories = defaultdict(set)
+
+        collections = self._get_portal_collections(base_url)
+        if not collections:
+            return dataset_to_categories
+
+        for filter_id, label in collections.items():
+            log.info(f"Collecting datasets for portal category '{label}' (collections={filter_id})")
+
+            empty_pages_in_a_row = 0
+
+            for page_num in range(start_page, end_page + 1):
+                page_url = f"{base_url}?collections={filter_id}&page={page_num}"
+                log.debug(f"  Category page: {page_url}")
+
+                try:
+                    resp = requests.get(page_url, timeout=30)
+                    resp.raise_for_status()
+                except Exception as e:
+                    log.warning(f"  Error fetching category page {page_url}: {e}")
+                    break
+
+                soup = BeautifulSoup(resp.content, 'html.parser')
+                dataset_items = soup.find_all('li', class_='dataset-item')
+
+                if not dataset_items:
+                    empty_pages_in_a_row += 1
+                    log.debug(f"  No datasets on page {page_num} (empty_pages_in_a_row={empty_pages_in_a_row})")
+                    if empty_pages_in_a_row >= 3:
+                        log.info(f"  Stopping category '{label}' at page {page_num} (3 empty pages in a row)")
+                        break
+                    continue
+
+                empty_pages_in_a_row = 0
+
+                for item in dataset_items:
+                    dataset_heading = item.find('h3', class_='dataset-heading')
+                    if not dataset_heading:
+                        continue
+
+                    link = dataset_heading.find('a')
+                    if not link or not link.get('href'):
+                        continue
+
+                    dataset_url = link['href']
+                    if not dataset_url.startswith('http'):
+                        dataset_url = urljoin(base_url, dataset_url)
+
+                    dataset_to_categories[dataset_url].add(label)
+
+        return dataset_to_categories
+
+    # ##################################################################################################################
 
     def _create_or_update_package(self, package_dict, harvest_object, package_dict_form='package_show'):
         """
@@ -120,7 +252,9 @@ class AtticaOpenDataHarvester(CKANHarvester):
 
     def gather_stage(self, harvest_job):
         """
-        Gather all dataset URLs from the specified page range
+        Gather all dataset URLs from the specified page range.
+        Αν include_categories == True, θα μαζέψει και mapping
+        dataset_url -> portal category labels.
         """
         log.debug('In AtticaOpenDataHarvester gather_stage')
 
@@ -134,10 +268,11 @@ class AtticaOpenDataHarvester(CKANHarvester):
         # Get page range from config (default 1-30)
         start_page = source_config.get('start_page', 1)
         end_page = source_config.get('end_page', 30)
+        include_categories = source_config.get('include_categories', True)
 
         empty_pages_in_a_row = 0
 
-        # Iterate through pages
+        # 1. Βάση: σκανάρισμα /content?page=N
         for page_num in range(start_page, end_page + 1):
             page_url = f"{base_url}?page={page_num}"
             log.info(f"Gathering datasets from page {page_num}: {page_url}")
@@ -191,15 +326,28 @@ class AtticaOpenDataHarvester(CKANHarvester):
                 log.error(f"Error gathering from page {page_num}: {str(e)}")
                 continue
 
-        log.info(f"Total datasets found: {len(dataset_urls)}")
+        log.info(f"Total datasets found (unique): {len(dataset_urls)}")
 
-        # Create harvest objects
+        # 2. Αν θέλουμε κατηγορίες, φτιάχνουμε mapping dataset_url -> set(labels)
+        dataset_to_categories = {}
+        if include_categories:
+            log.info("include_categories enabled: collecting portal categories per dataset")
+            dataset_to_categories = self._collect_portal_categories(base_url, start_page, end_page)
+
+        # 3. Δημιουργία harvest objects με JSON content
         object_ids = []
         for dataset_url in dataset_urls:
+            portal_categories = sorted(dataset_to_categories.get(dataset_url, []))
+
+            content_obj = {
+                "url": dataset_url,
+                "portal_categories": portal_categories
+            }
+
             obj = HarvestObject(
                 guid=dataset_url,
                 job=harvest_job,
-                content=dataset_url
+                content=json.dumps(content_obj, ensure_ascii=False)
             )
             obj.save()
             object_ids.append(obj.id)
@@ -210,14 +358,29 @@ class AtticaOpenDataHarvester(CKANHarvester):
 
     def fetch_stage(self, harvest_object):
         """
-        Fetch the dataset page and extract metadata
+        Fetch the dataset page and extract metadata.
+        Το harvest_object.content μπορεί να είναι JSON ή σκέτο URL.
         """
         log.debug('In AtticaOpenDataHarvester fetch_stage')
 
-        dataset_url = harvest_object.content
-        log.info(f"Fetching dataset: {dataset_url}")
+        dataset_url = None
+        portal_categories = []
 
         try:
+            # Προσπάθεια για JSON format
+            try:
+                content_data = json.loads(harvest_object.content)
+                dataset_url = content_data.get('url')
+                portal_categories = content_data.get('portal_categories', []) or []
+            except (TypeError, ValueError, KeyError):
+                # Παλιό format: σκέτο URL
+                dataset_url = harvest_object.content
+
+            if not dataset_url:
+                raise ValueError("No dataset URL found in harvest_object.content")
+
+            log.info(f"Fetching dataset: {dataset_url}")
+
             response = requests.get(dataset_url, timeout=30)
             response.raise_for_status()
 
@@ -227,8 +390,12 @@ class AtticaOpenDataHarvester(CKANHarvester):
             # Extract dataset metadata
             dataset_data = self._extract_dataset_metadata(soup, dataset_url)
 
+            # Αποθηκεύουμε και τις κατηγορίες του portal
+            if portal_categories:
+                dataset_data['portal_categories'] = portal_categories
+
             # Store as JSON in harvest object
-            harvest_object.content = json.dumps(dataset_data)
+            harvest_object.content = json.dumps(dataset_data, ensure_ascii=False)
             harvest_object.save()
 
             return True
@@ -305,6 +472,9 @@ class AtticaOpenDataHarvester(CKANHarvester):
         if tags:
             dataset_data['tags'] = tags
 
+        # Δημιουργοί από το breadcrumb
+        self._extract_creators_from_breadcrumb(dataset_data, soup, dataset_url)
+
         return dataset_data
 
     def _extract_basic_metadata(self, dataset_data, soup):
@@ -355,8 +525,8 @@ class AtticaOpenDataHarvester(CKANHarvester):
             resource_data = self._extract_single_resource(item, dataset_url)
 
             # Εμπλουτισμός από τη σελίδα του resource
-            if resource_data.get('page_url'):
-                self._enrich_resource_from_page(resource_data, resource_data['page_url'])
+            if resource_data.get('preview_url'):
+                self._enrich_resource_from_page(resource_data, resource_data['preview_url'])
 
             dataset_data['resources'].append(resource_data)
 
@@ -505,8 +675,8 @@ class AtticaOpenDataHarvester(CKANHarvester):
             dataset_data['maintainer'] = 'Περιφέρεια Αττικής'
 
         dataset_data.setdefault('author', 'Περιφέρεια Αττικής')
-        dataset_data.setdefault('author_email', 'opendata@attica.gov.gr')
-        dataset_data.setdefault('maintainer_email', 'opendata@attica.gov.gr')
+        dataset_data.setdefault('author_email', 'opendata@patt.gov.gr')
+        dataset_data.setdefault('maintainer_email', 'opendata@patt.gov.gr')
 
         # Αν θέλεις και default license_id:
         # dataset_data.setdefault('license_id', 'other-open')
@@ -590,6 +760,123 @@ class AtticaOpenDataHarvester(CKANHarvester):
 
         return tags
 
+    def _extract_creators_from_breadcrumb(self, dataset_data, soup, dataset_url):
+        """
+        Εξαγωγή δημιουργών από το breadcrumb.
+
+        Λογική:
+        - Αγνοούμε τα:
+            - Home ("/")
+            - "Ανοιχτά δεδομένα" ("/content")
+        - Κρατάμε:
+            - ΤΟ ΠΡΩΤΟ breadcrumb μετά το /content (π.χ. Γενική Διεύθυνση ...)
+            - ΤΟ ΠΡΟΤΕΛΕΥΤΑΙΟ breadcrumb (π.χ. Διεύθυνση Αγροτικής & ...)
+        - Γεμίζουμε το πεδίο dataset_data['creator'] ως λίστα από dicts
+          σύμφωνα με το scheming (uri, name, description, email, url, type, identifier).
+        """
+
+        nav = soup.find('nav', attrs={'aria-label': 'breadcrumb'})
+        if not nav:
+            return
+
+        ol = nav.find('ol', class_='breadcrumb')
+        if not ol:
+            return
+
+        breadcrumb_items = []
+        for li in ol.find_all('li'):
+            a = li.find('a')
+            if not a:
+                continue
+
+            href = a.get('href', '').strip()
+            text = a.get_text(strip=True)
+
+            if not href or not text:
+                continue
+
+            breadcrumb_items.append({
+                'li': li,
+                'href': href,
+                'text': text
+            })
+
+        if not breadcrumb_items:
+            return
+
+        # Φιλτράρουμε home και "Ανοιχτά δεδομένα"
+        filtered = []
+        for item in breadcrumb_items:
+            href = item['href']
+            # Κανονικοποίηση σε absolute URL
+            full_href = urljoin(dataset_url, href)
+            parsed = urlparse(full_href)
+            path = parsed.path or '/'
+
+            path_norm = path.rstrip('/')
+
+            # Αγνοούμε:
+            #   - "/"
+            #   - "/content"
+            if path_norm in ['', '/', '/content']:
+                continue
+
+            item['full_href'] = full_href
+            item['path'] = path
+            filtered.append(item)
+
+        if not filtered:
+            return
+
+        # --- αφαιρούμε το τελευταίο breadcrumb αν είναι active (= dataset title) ---
+        # (δηλαδή ο τίτλος του dataset, δεν τον θέλουμε ως creator)
+        last_li = breadcrumb_items[-1]['li']
+        if 'active' in last_li.get('class', []):
+            if len(filtered) >= 1:
+                filtered = filtered[:-1]
+
+        if not filtered:
+            # π.χ. αν όλα τα breadcrumbs εκτός home/content είναι μόνο το dataset
+            return
+
+        creators = []
+
+        # 1ος δημιουργός: το ΠΡΩΤΟ στοιχείο μετά το /content
+        first_creator_item = filtered[0]
+
+        # 2ος δημιουργός: το ΠΡΟΤΕΛΕΥΤΑΙΟ στοιχείο (στην πράξη το τελευταίο μετά το κόψιμο)
+        if len(filtered) >= 2:
+            second_creator_item = filtered[-1]
+        else:
+            second_creator_item = None
+
+        def _make_creator(entry):
+            full_href = entry.get('full_href')
+            text = entry.get('text', '').strip()
+
+            parsed = urlparse(full_href)
+            path_parts = [p for p in parsed.path.split('/') if p]
+            identifier = path_parts[-1] if path_parts else ''
+
+            return {
+                # scheming subfields
+                'uri': full_href,
+                'name': text,
+                'description': '',
+                'email': 'opendata @patt.gov.gr',
+                'url': 'https://opendata.attica.gov.gr/',
+                'type': '',
+                'identifier': identifier,
+            }
+
+        creators.append(_make_creator(first_creator_item))
+
+        if second_creator_item and second_creator_item is not first_creator_item:
+            creators.append(_make_creator(second_creator_item))
+
+        if creators:
+            dataset_data['creator'] = creators
+
     # ##################################################################################################################
 
     def _generate_package_id(self, dataset_url):
@@ -649,8 +936,15 @@ class AtticaOpenDataHarvester(CKANHarvester):
         # Resources – αξιοποίηση των επιπλέον πεδίων (download_url, mimetype, size κτλ.)
         self._attach_resources(package_dict, dataset_data, package_license_id)
 
+        # ---- Portal categories -> EU themes + extra tags ----
+        theme_uris, portal_category_tags = self._compute_portal_categories_theme_and_tags(dataset_data)
+
+        if theme_uris:
+            existing = set(package_dict.get('theme', []))
+            package_dict['theme'] = list(existing.union(theme_uris))
+
         # Tags – συνδυασμός tags, high_value_category, generic
-        self._attach_tags(package_dict, dataset_data)
+        self._attach_tags(package_dict, dataset_data, extra_tags=portal_category_tags)
 
         return package_dict
 
@@ -745,12 +1039,13 @@ class AtticaOpenDataHarvester(CKANHarvester):
         package_dict['landing_page'] = dataset_data['url']
         package_dict['access_rights'] = 'http://publications.europa.eu/resource/authority/access-right/PUBLIC'
         package_dict['applicable_legislation'] = ['https://eur-lex.europa.eu/eli/dir/2019/1024/oj/eng']
+        package_dict['language_options'] = ['http://publications.europa.eu/resource/authority/language/ELL']
 
         # Contact
         contact_info = [{
-            "uri": "https://www.patt.gov.gr/",
+            "uri": "https://opendata.attica.gov.gr/",
             "name": "Περιφέρεια Αττικής",
-            "email": "opendata@attica.gov.gr",
+            "email": "opendata @patt.gov.gr",
             "url": "https://www.patt.gov.gr/7_epikoinonia/epikoinonia/"
         }]
         package_dict['contact'] = contact_info
@@ -759,12 +1054,17 @@ class AtticaOpenDataHarvester(CKANHarvester):
         publisher_info = [{
             "uri": "https://opendata.attica.gov.gr/content/" + dataset_data.get('organization'),
             "name": dataset_data.get('maintainer'),
-            "email": dataset_data.get('maintainer_email'),
-            "url": "https://www.patt.gov.gr",
+            "email": "opendata @patt.gov.gr",
+            "url": "https://opendata.attica.gov.gr/",
             "type": "",
             "identifier": dataset_data.get('organization')
         }]
         package_dict['publisher'] = publisher_info
+
+        # Δημιουργοί (creator)
+        if dataset_data.get('creator'):
+            # Περιμένουμε λίστα από dicts με τα υποπεδία (uri, name, description, email, url, type, identifier)
+            package_dict['creator'] = dataset_data['creator']
 
         # Temporal coverage από resources
         temporal = self._compute_temporal_coverage(dataset_data)
@@ -925,7 +1225,34 @@ class AtticaOpenDataHarvester(CKANHarvester):
 
             package_dict['resources'].append(resource_dict)
 
-    def _attach_tags(self, package_dict, dataset_data):
+    def _compute_portal_categories_theme_and_tags(self, dataset_data):
+        """
+        Από το dataset_data['portal_categories'] βγάζει theme_uris και extra_tags
+        """
+        portal_categories = dataset_data.get('portal_categories', []) or []
+
+        theme_uris = set()
+        extra_tags = []
+
+        base_theme_uri = "http://publications.europa.eu/resource/authority/data-theme/"
+
+        for label in portal_categories:
+            if not label:
+                continue
+
+            # Πάντα tag
+            extra_tags.append(label)
+
+            # Theme mapping
+            norm = self._normalize_category_label(label)
+            theme_code = self.CATEGORY_LABEL_THEME_MAP.get(norm)
+
+            if theme_code:
+                theme_uris.add(base_theme_uri + theme_code)
+
+        return theme_uris, extra_tags
+
+    def _attach_tags(self, package_dict, dataset_data, extra_tags=None):
         """
         Χτίζει τα tags και τα βάζει στο package_dict['tags'].
         """
@@ -1016,6 +1343,11 @@ class AtticaOpenDataHarvester(CKANHarvester):
         _add_tag('Περιφέρεια Αττικής')
         _add_tag('Ανοιχτά Δεδομένα')
 
+        # Extra tags (π.χ. κατηγορίες portal)
+        if extra_tags:
+            for t in extra_tags:
+                _add_tag(t)
+
         if tags:
             package_dict['tags'] = tags
 
@@ -1025,15 +1357,27 @@ class AtticaOpenDataHarvester(CKANHarvester):
         """
         Επιστρέφει την τιμή για το πεδίο 'license' του resource ως URI.
 
-        Λογική:
-        - Πρώτα κοιτάμε αν υπάρχει κάποιο λεκτικό άδειας στο resource (license / license_title / license_text)
-        - Αν όχι, χρησιμοποιούμε το package_license_id (που είναι επίσης λεκτικό τύπου 'BY, SA', 'ΒΥ' κτλ.)
-        - Αν βρούμε λεκτικό 'BY, SA' ή 'BY-SA' -> URI CC_BYSA_1_0
-        - Αν βρούμε λεκτικό 'ΒΥ' -> URI CC_BY_1_0
-        - Αν δεν ταιριάξει κανόνας -> επιστρέφουμε None (δεν γράφουμε καθόλου license στο resource_dict)
+        Mapping (ακριβείς τιμές):
+            BY          -> CC_BY_1_0
+            BY, SA      -> CC_BYSA_1_0
+            BY, ND      -> CC_BYND_1_0
+            BY, NC      -> CC_BYNC_1_0
+            BY, NC, SA  -> CC_BYNCSA_1_0
+            BY, NC, ND  -> CC_BYNCND_1_0
+
+        Γίνεται μόνο ελαφριά κανονικοποίηση κενών γύρω από τα κόμματα.
         """
 
-        # Πιθανές πηγές λεκτικού άδειας σε επίπεδο resource
+        LICENSE_MAPPING = {
+            "BY": "http://publications.europa.eu/resource/authority/licence/CC_BY_1_0",
+            "BY, SA": "http://publications.europa.eu/resource/authority/licence/CC_BYSA_1_0",
+            "BY, ND": "http://publications.europa.eu/resource/authority/licence/CC_BYND_1_0",
+            "BY, NC": "http://publications.europa.eu/resource/authority/licence/CC_BYNC_1_0",
+            "BY, NC, SA": "http://publications.europa.eu/resource/authority/licence/CC_BYNCSA_1_0",
+            "BY, NC, ND": "http://publications.europa.eu/resource/authority/licence/CC_BYNCND_1_0",
+        }
+
+        # Πιθανές πηγές λεκτικού άδειας
         license_text = (
             resource_data.get('license')
             or resource_data.get('license_title')
@@ -1045,30 +1389,16 @@ class AtticaOpenDataHarvester(CKANHarvester):
         if not license_text:
             return None
 
-        # Κανονικοποίηση κειμένου για συγκρίσεις
-        norm = str(license_text).upper().strip()
-        # Βγάζουμε κενά για να πιάνουμε παραλλαγές τύπου "BY , SA"
-        norm_no_space = ''.join(norm.split())
+        # Ελαφριά κανονικοποίηση: καθάρισμα κενών, όμοια μορφή "BY, NC, SA"
+        raw = str(license_text).strip()
 
-        # ------------------------------
-        # Κανόνες mapping σε CC BY-SA 1.0 URI
-        # ------------------------------
-        # Παραλλαγές με κόμμα/παύλα κτλ.
-        if (
-            'BY,SA' in norm_no_space
-            or 'BY-SA' in norm_no_space
-            or 'BY,SA' in norm_no_space
-            or 'BY-SA' in norm_no_space
-        ):
-            return "http://publications.europa.eu/resource/authority/licence/CC_BYSA_1_0"
+        # Σπάμε στα ',' και κάνουμε strip σε κάθε κομμάτι
+        parts = [p.strip() for p in raw.split(',')]
+        # Ξαναενώνουμε αγνοώντας άδεια κομμάτια
+        normalized = ', '.join(p for p in parts if p)
 
-        if (
-            norm == 'BY'
-        ):
-            return "http://publications.europa.eu/resource/authority/licence/CC_BY_1_0"
-
-        # Αν δεν βρέθηκε κάποιος γνωστός συνδυασμός, δεν βάζουμε άδεια στο resource
-        return None
+        # Επιστρέφουμε το URI αν υπάρχει mapping, αλλιώς None
+        return LICENSE_MAPPING.get(normalized)
 
     def _get_hvd_category_uris(self, dataset_data):
         """
@@ -1091,23 +1421,25 @@ class AtticaOpenDataHarvester(CKANHarvester):
 
         norm = value.lower()
 
-        # Mapping λεκτικών -> URI (εύκολα επεκτάσιμο)
+        # Mapping λεκτικών -> URI
         hvd_map = {
             # Γεωχωρικά / Geospatial
-            'γεωχωρικά': 'http://data.europa.eu/bna/c_ac64a52d',
             'γεωχωρικές πληροφορίες': 'http://data.europa.eu/bna/c_ac64a52d',
-            'geospatial': 'http://data.europa.eu/bna/c_ac64a52d',
+
+            # Γεωσκόπηση και περιβάλλον / Earth observation and environment
+            'γεωσκόπηση και περιβάλλον': 'http://data.europa.eu/bna/c_dd313021',
+
+            # Μετεωρολογικά / Meteorological
+            'μετεωρολογικές πληροφορίες': 'http://data.europa.eu/bna/c_164e0bf5',
 
             # Στατιστικά / Statistics
-            'στατιστικά': 'http://data.europa.eu/bna/c_e1da4e07',
             'στατιστικές': 'http://data.europa.eu/bna/c_e1da4e07',
-            'statistics': 'http://data.europa.eu/bna/c_e1da4e07',
 
-            # εδώ μπορούνε να προστεθούν κι άλλες τιμές από τον πίνακα:
-            # 'μετεωρολογικά': 'http://data.europa.eu/bna/c_164e0bf5',
-            # 'εταιρείες και ιδιοκτησία εταιρειών': 'http://data.europa.eu/bna/c_a9135398',
-            # 'κινητικότητα': 'http://data.europa.eu/bna/c_b79e35eb',
-            # κ.λπ.
+            # Εταιρείες και ιδιοκτησία εταιρειών / Companies and company ownership
+            'εταιρείες και ιδιοκτησιακό καθεστώς εταιρειών': 'http://data.europa.eu/bna/c_a9135398',
+
+            # Κινητικότητα / Mobility
+            'κινητικότητα': 'http://data.europa.eu/bna/c_b79e35eb',
         }
 
         uri = hvd_map.get(norm)
@@ -1119,13 +1451,17 @@ class AtticaOpenDataHarvester(CKANHarvester):
     def _compute_temporal_coverage(self, dataset_data):
         """
         Compute temporal coverage from resource 'year' fields.
-        Επιστρέφει dict:
-            { "start": "YYYY-01-01", "end": "YYYY-12-31" }
-        ή None αν δεν υπάρχουν έτη.
+
+        - Αν δεν υπάρχουν έτη -> None
+        - Αν υπάρχει μόνο ΕΝΑΣ πόρος και είναι τύπος URL,
+          τότε επιστρέφουμε μόνο start (χωρίς end),
+          γιατί το URL ενημερώνεται συνεχώς.
+        - Σε κάθε άλλη περίπτωση επιστρέφουμε start/end κανονικά.
         """
+        resources = dataset_data.get("resources", []) or []
         years = []
 
-        for res in dataset_data.get("resources", []):
+        for res in resources:
             year = res.get("year")
             if not year:
                 continue
@@ -1134,7 +1470,7 @@ class AtticaOpenDataHarvester(CKANHarvester):
             try:
                 y = int(str(year).strip())
                 years.append(y)
-            except:
+            except Exception:
                 continue
 
         if not years:
@@ -1143,6 +1479,20 @@ class AtticaOpenDataHarvester(CKANHarvester):
         start_year = min(years)
         end_year = max(years)
 
+        # Ειδική περίπτωση:
+        #  - ακριβώς ένας πόρος
+        #  - τύπος αρχείου = "URL" (από το πεδίο file_type)
+        if len(resources) == 1:
+            only_res = resources[0]
+            file_type = (only_res.get("format") or only_res.get("file_type") or "").strip().upper()
+
+            if file_type == "URL":
+                # Επιστρέφουμε ΜΟΝΟ start (χωρίς end)
+                return {
+                    "start": f"{start_year}-01-01"
+                }
+
+        # Default συμπεριφορά: start & end
         return {
             "start": f"{start_year}-01-01",
             "end": f"{end_year}-12-31"

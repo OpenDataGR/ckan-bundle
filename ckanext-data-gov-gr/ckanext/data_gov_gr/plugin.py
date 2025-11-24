@@ -71,6 +71,10 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         - ``ckanext.data_gov_gr.dataset.legislation.open`` (default applicable legislation for open datasets)
         - ``ckanext.data_gov_gr.dataset.legislation.protected`` (default applicable legislation for protected datasets)
         which are independent from their fallback values in the ini file.
+
+        Επιπλέον, ορίζει παραμετρικές επιλογές μενού για τα σύνολα δεδομένων:
+        - ``ckanext.data_gov_gr.menu.dataset.items`` (JSON λίστα από αντικείμενα
+          με πεδία ``label`` και ``query``)
         """
         ignore_missing = toolkit.get_validator('ignore_missing')
         unicode_safe = toolkit.get_validator('unicode_safe')
@@ -81,6 +85,8 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
             'ckanext.data_gov_gr.showcase.disclaimer': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.dataset.legislation.open': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.dataset.legislation.protected': [ignore_missing, unicode_safe],
+            # Νέα, JSON παραμετρικές επιλογές για dropdown συνόλων δεδομένων
+            'ckanext.data_gov_gr.menu.dataset.items': [ignore_missing, unicode_safe],
         })
 
         return schema

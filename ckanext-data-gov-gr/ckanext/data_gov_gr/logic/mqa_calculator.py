@@ -214,6 +214,11 @@ class MQACalculator:
         Returns:
             A dictionary containing all MQA scores
         """
+        # Reset per-dataset URL tracking so that accessibility
+        # status code analytics are scoped to this dataset only.
+        self._access_urls = []
+        self._download_urls = []
+
         # Store the resources for this dataset, filtering out bulk download resources
         all_resources = dataset_dict.get('resources', [])
         self._resources = self._filter_bulk_download_resources(all_resources)
@@ -269,10 +274,6 @@ class MQACalculator:
         - Spatial information (dct:spatial) - 20 points
         - Temporal information (dct:temporal) - 20 points
         """
-        resources = dataset_dict.get('resources', [])
-        if not resources:
-            return 0.0
-
         # For dataset-level criteria, we use binary values (0 or 1) instead of percentages
         has_keywords = 1 if dataset_dict.get('tags') and len(dataset_dict.get('tags', [])) > 0 else 0
 
@@ -606,12 +607,13 @@ class MQACalculator:
         has_description = bool(dataset_dict.get('description') or dataset_dict.get('notes'))
 
         # If there are no resources, we only check title and description
-        resources = dataset_dict.get('resources', [])
+        # (the rest of the DCAT-AP structure is enforced by the schema).
+        resources = self._filter_bulk_download_resources(dataset_dict.get('resources', []))
         if not resources:
             return has_title and has_description
 
-        # If there are resources, check if at least one has an access URL
-        has_access_url = any(bool(r.get('url')) for r in resources)
+        # If there are resources, check that all of them have an access URL
+        has_access_url = all(bool(r.get('url')) for r in resources)
 
         return has_title and has_description and has_access_url
 
@@ -634,8 +636,14 @@ class MQACalculator:
         """
         resources = self._filter_bulk_download_resources(dataset_dict.get('resources', []))
         n = len(resources)
+
+        # Check for DCAT-AP compliance (dataset-level)
+        dcat_compliance = 1 if self._check_dcat_ap_compliance(dataset_dict) else 0
+
+        # If there are no resources, only the dataset-level DCAT-AP
+        # compliance can contribute to the score.
         if n == 0:
-            return 0.0
+            return dcat_compliance * 30.0
 
         # 1) Count how many resources satisfy each sub-criterion
         format_specified_count = sum(1 for r in resources if r.get('format'))
@@ -647,9 +655,6 @@ class MQACalculator:
 
         # For format/media type from vocabulary, we'll use the higher of the two counts
         format_vocab_count = max(format_from_vocab_count, media_type_from_vocab_count)
-
-        # Check for DCAT-AP compliance (dataset-level)
-        dcat_compliance = 1 if self._check_dcat_ap_compliance(dataset_dict) else 0
 
         # 2) Calculate score as (prevalence * sub-criterion weight) for each sub-criterion
         score = (
@@ -853,20 +858,24 @@ class MQACalculator:
         """
         resources = self._filter_bulk_download_resources(dataset_dict.get('resources', []))
         n = len(resources)
-        if n == 0:
-            return 0.0
 
-        # Check license information at the resource level
-        license_count = sum(1 for r in resources if self._resource_has_license(r))
-        license_score = (license_count / n) * 20
+        # Resource-level license information contributes only when there
+        # are non-bulk resources. Dataset-level criteria are evaluated
+        # regardless of the presence of resources.
+        license_score = 0.0
+        license_vocab_score = 0.0
+        if n > 0:
+            # Check license information at the resource level
+            license_count = sum(1 for r in resources if self._resource_has_license(r))
+            license_score = (license_count / n) * 20
 
-        # Check license vocabulary at the resource level
-        license_vocab_count = sum(
-            1
-            for r in resources
-            if self._resource_license_matches_vocabulary(r)
-        )
-        license_vocab_score = (license_vocab_count / n) * 10
+            # Check license vocabulary at the resource level
+            license_vocab_count = sum(
+                1
+                for r in resources
+                if self._resource_license_matches_vocabulary(r)
+            )
+            license_vocab_score = (license_vocab_count / n) * 10
 
         # For dataset-level criteria, we use binary values (0 or 1) instead of percentages
         has_access_rights = 1 if dataset_dict.get('access_rights') else 0
@@ -914,8 +923,10 @@ class MQACalculator:
         # 1) Count how many resources satisfy each sub-criterion
         rights_count = sum(1 for r in resources if r.get('rights'))
         size_count = sum(1 for r in resources if r.get('size'))
-        issue_count = sum(1 for r in resources if r.get('created'))
-        mod_count = sum(1 for r in resources if r.get('metadata_modified') )
+        # Treat dct:issued as the primary issue date and fall back
+        # to the resource creation date if issued is not present.
+        issue_count = sum(1 for r in resources if r.get('issued') or r.get('created'))
+        mod_count = sum(1 for r in resources if r.get('metadata_modified'))
 
         # 2) Calculate score as (prevalence * sub-criterion weight) for each sub-criterion
         score = (
@@ -1185,11 +1196,11 @@ class MQACalculator:
         if resource.get('size'):
             score += 5
 
-        # Check for issue date
-        if resource.get('created'):
+        # Check for issue date (dct:issued), falling back to creation date
+        if resource.get('issued') or resource.get('created'):
             score += 5
 
-        # Check for modification date
+        # Check for modification date (metadata last updated)
         if resource.get('metadata_modified'):
             score += 5
 

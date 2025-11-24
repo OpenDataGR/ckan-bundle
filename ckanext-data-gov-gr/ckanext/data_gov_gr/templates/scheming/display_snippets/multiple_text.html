@@ -1,0 +1,14 @@
+{%- set values = data[field.field_name] -%}
+<ol>
+{%- for element in values -%}
+  <li>
+    {%- if field.field_name == 'landing_page' -%}
+      <a href="{{ element }}" target="_blank" rel="noopener noreferrer">{{ element }}</a>
+    {%- elif field.field_name == 'applicable_legislation' and element.startswith('http') -%}
+      <a href="{{ element }}" target="_blank" rel="noopener noreferrer">{{ element }}</a>
+    {%- else -%}
+      {{ element }}
+    {%- endif -%}
+  </li>
+{%- endfor -%}
+</ol>

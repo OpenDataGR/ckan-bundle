@@ -1,4 +1,5 @@
 import logging
+import json
 import ckan.plugins.toolkit as toolkit
 from ckan.lib import helpers as core_helpers
 from ckan.lib.helpers import lang
@@ -377,6 +378,103 @@ def get_powerbi_embed_url():
     return ""
 
 
+def _resolve_dataset_item_url(raw_value: str) -> str | None:
+    """
+    Μετατρέπει την τιμή του πεδίου \"query\" σε πλήρες URL.
+
+    Υποστηρίζει:
+      - Πλήρες URL (http/https) -> επιστρέφεται όπως είναι
+      - Σχετικό path που ξεκινά με \"/\" (π.χ. \"/dataset/?is_hvd=Yes\")
+      - Path χωρίς αρχικό \"/\" (π.χ. \"dataset/?is_hvd=Yes\") που
+        μετατρέπεται σε \"/dataset/?is_hvd=Yes\"
+      - Μόνο το query μέρος (π.χ. \"fq=is_hvd:true\" ή \"?fq=is_hvd:true\"),
+        οπότε το προσαρτά στο ``/dataset``.
+    """
+    raw = (raw_value or '').strip()
+    if not raw:
+        return None
+
+    lower = raw.lower()
+    if lower.startswith('http://') or lower.startswith('https://') or raw.startswith('/'):
+        return raw
+
+    # Υποστήριξη για τιμές τύπου \"dataset/?is_hvd=Yes\" χωρίς αρχικό '/'
+    if raw.startswith('dataset'):
+        return '/' + raw
+
+    base_url = core_helpers.url_for('dataset.search')
+    # Αφαιρούμε αρχικό '?' αν υπάρχει, για να ενώσουμε σωστά
+    if raw.startswith('?'):
+        raw = raw[1:]
+
+    sep = '&' if '?' in base_url else '?'
+    return f'{base_url}{sep}{raw}'
+
+def get_dataset_menu_items():
+    """
+    Επιστρέφει τις παραμετρικές επιλογές του dropdown για τα σύνολα δεδομένων,
+    όπως έχουν οριστεί από το /ckan-admin/config.
+
+    Προτεραιότητα πηγών:
+
+      1. Νέα JSON ρύθμιση ``ckanext.data_gov_gr.menu.dataset.items`` (δυναμικός αριθμός επιλογών),
+         π.χ. ::
+
+           [
+             {\"label\": \"HVDs\", \"query\": \"fq=is_hvd:true\"},
+             {\"label\": \"Ιστορικά\", \"query\": \"fq=dataset_type:historical\"}
+           ]
+
+         Όπου:
+           - ``label``: το κείμενο που θα εμφανιστεί στο dropdown
+           - ``query``: το κομμάτι του CKAN search query (π.χ. ``fq=...``)
+
+    Επιστρέφει λίστα από dictionaries με πεδία:
+      - ``label``: το κείμενο που θα εμφανιστεί
+      - ``url``: πλήρες URL (είτε όπως δόθηκε, είτε προσαρμοσμένο στο ``/dataset``)
+    """
+
+    # Δυναμική ρύθμιση με JSON
+    # Χρησιμοποιούμε το raw από το config ώστε να ξεχωρίζουμε
+    # την περίπτωση «δεν έχει οριστεί καθόλου» (None) από την
+    # περίπτωση «ορίστηκε αλλά είναι κενό/[]».
+    raw = toolkit.config.get('ckanext.data_gov_gr.menu.dataset.items')
+    if raw is not None:
+        raw_str = str(raw).strip()
+        if raw_str:
+            try:
+                parsed = json.loads(raw_str)
+                items = []
+                if isinstance(parsed, list):
+                    for entry in parsed:
+                        if not isinstance(entry, dict):
+                            continue
+                        label = (entry.get('label') or '').strip()
+                        query = (entry.get('query') or '').strip()
+                        if not label or not query:
+                            continue
+
+                        url = _resolve_dataset_item_url(query)
+                        if not url:
+                            continue
+
+                        items.append({'label': label, 'url': url})
+
+                # Ακόμη κι αν η λίστα είναι κενή, σεβόμαστε τη ρύθμιση JSON
+                return items
+            except Exception as e:
+                log.exception('Error parsing ckanext.data_gov_gr.menu.dataset.items JSON: %s', e)
+                # Σε περίπτωση σφάλματος επιστρέφουμε κενή λίστα
+                return []
+        else:
+            # Έχει οριστεί το key αλλά είναι κενό -> σημαίνει
+            # «καμία επιλογή» για το dropdown
+            return []
+
+    # Αν δεν έχει οριστεί καθόλου η JSON ρύθμιση, δεν εμφανίζονται επιλογές
+    return []
+
+
 def has_gitbook_pdf_export():
     """
     Check whether the GitBook PDF export configuration is complete.
@@ -551,5 +649,6 @@ def get_helpers():
         'should_hide_azure_translation': should_hide_azure_translation,
         'should_show_decision_menu': should_show_decision_menu,
         'should_show_decision_button': should_show_decision_button,
-        'allow_org_admins_public_decisions': allow_org_admins_public_decisions
+        'allow_org_admins_public_decisions': allow_org_admins_public_decisions,
+        'get_dataset_menu_items': get_dataset_menu_items
     }

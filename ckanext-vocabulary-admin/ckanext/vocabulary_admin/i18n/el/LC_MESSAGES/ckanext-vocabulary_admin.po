@@ -153,6 +153,9 @@ msgstr "Το λεξιλόγιο και όλες οι ετικέτες του δ�
 msgid "Tag deleted successfully"
 msgstr "Η ετικέτα διαγράφηκε με επιτυχία"
 
+msgid "Vocabulary updated successfully"
+msgstr "Το λεξιλόγιο ενημερώθηκε με επιτυχία"
+
 msgid "Όνομα"
 msgstr "Όνομα"
 

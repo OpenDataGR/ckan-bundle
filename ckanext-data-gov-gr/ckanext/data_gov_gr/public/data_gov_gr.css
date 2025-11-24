@@ -274,8 +274,37 @@ li#simple-tab:hover, li#advanced-tab:hover {
     color: white;
 }
 
-.masthead .main-navbar ul li:hover a, .masthead .main-navbar ul li:focus a, .masthead .main-navbar ul li.active a {
+/* Χρωματισμός hover για όλα τα κύρια tabs (περιλαμβάνει και το dropdown \"Σύνολα Δεδομένων\") */
+.masthead .main-navbar > ul > li > a:hover,
+.masthead .main-navbar > ul > li > a:focus {
     background-color: var(--color-primary-light);
+}
+
+.masthead .main-navbar > ul > li.active > a {
+    background-color: var(--color-primary-light);
+}
+
+/* Dropdown μενού για τα Σύνολα Δεδομένων */
+.masthead .main-navbar .dropdown-menu {
+    min-width: 220px;
+    border-radius: 8px;
+    margin-top: 0.5rem;
+    border: none;
+    /* Χωρίς γενικό φόντο/πάνελ, μόνο τα items θα χρωματίζονται στο hover */
+    background-color: transparent;
+    box-shadow: none;
+}
+
+.masthead .main-navbar .dropdown-menu .dropdown-item {
+    color: #fff;
+    padding: 0.5rem 1.25rem;
+    font-size: 0.95rem;
+}
+
+.masthead .main-navbar .dropdown-menu .dropdown-item:hover,
+.masthead .main-navbar .dropdown-menu .dropdown-item:focus {
+    background-color: var(--color-primary-light);
+    color: #fff;
 }
 
 .site-footer {
@@ -1777,6 +1806,13 @@ a.service-name {
   border-bottom: 1px solid #e9ecef;
   box-shadow: 0 1px 2px rgba(0,0,0,0.1);
   margin-bottom: 2px;
+}
+
+/* ---------------------------------------------------------------------------- */
+/* Διόρθωση overflow στον πίνακα σφαλμάτων harvest */
+
+table.harvest-error-list tr td div.error {
+    overflow-wrap: anywhere;
 }
 
 /* ---------------------------------------------------------------------------- */
