@@ -290,12 +290,14 @@ li#simple-tab:hover, li#advanced-tab:hover {
     border-radius: 8px;
     margin-top: 0.5rem;
     border: none;
-    /* Χωρίς γενικό φόντο/πάνελ, μόνο τα items θα χρωματίζονται στο hover */
+    /* Χωρίς πρόσθετο πάνελ πίσω από τα στοιχεία */
     background-color: transparent;
     box-shadow: none;
 }
 
 .masthead .main-navbar .dropdown-menu .dropdown-item {
+    /* Στοιχεία dropdown με ίδιο φόντο με την κεφαλίδα */
+    background-color: var(--color-primary);
     color: #fff;
     padding: 0.5rem 1.25rem;
     font-size: 0.95rem;

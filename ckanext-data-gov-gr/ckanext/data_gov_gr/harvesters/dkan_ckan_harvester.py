@@ -7,6 +7,7 @@ from urllib.parse import urlencode
 from ckan.lib.helpers import json
 from ckan.model import meta
 from ckan.plugins import toolkit
+from ckanext.data_gov_gr import helpers as data_gov_helpers
 
 from ckanext.data_gov_gr.harvesters.core_ckan_harvester import CoreCkanHarvester
 from ckanext.harvest.harvesters.ckanharvester import (
@@ -227,6 +228,13 @@ class DkanCkanHarvester(CoreCkanHarvester):
             package_dict, harvest_object
         )
 
+        # Όλα τα DKAN-harvested σύνολα δεδομένων θεωρούνται PUBLIC
+        # στο data.gov.gr, άρα βάζουμε ρητά access_rights = PUBLIC.
+        try:
+            self._set_default_access_rights_public(package_dict)
+        except Exception as e:
+            log.error("Error forcing access_rights PUBLIC in DKAN harvester: %s", e)
+
         remote_package = {}
         try:
             if harvest_object and harvest_object.content:
@@ -238,12 +246,15 @@ class DkanCkanHarvester(CoreCkanHarvester):
             )
             remote_package = {}
 
+        # Set core DKAN/DCAT fields based on remote data
         self._sanitize_package_flags(package_dict)
         self._sanitize_package_dates(package_dict, remote_package)
         self._sanitize_resource_metadata(package_dict, remote_package)
         self._ensure_package_license(package_dict, remote_package)
         self._ensure_package_name(package_dict, harvest_object, remote_package)
         self._ensure_contact_from_maintainer(package_dict)
+        self._ensure_applicable_legislation(package_dict)
+        self._ensure_landing_page(package_dict, remote_package)
 
         return package_dict
 
@@ -758,6 +769,46 @@ class DkanCkanHarvester(CoreCkanHarvester):
         ascii_value = re.sub(r"-+", "-", ascii_value)
         return ascii_value
 
+    def _ensure_applicable_legislation(self, package_dict):
+        """
+        Ensure that the dataset has an ``applicable_legislation`` field set.
+
+        For DKAN-harvested datasets on data.gov.gr τα σύνολα δεδομένων
+        θεωρούνται πάντα PUBLIC, οπότε χρησιμοποιούμε μόνο την προεπιλογή
+        για ανοιχτά δεδομένα:
+
+        - PUBLIC datasets -> ``ckanext.data_gov_gr.dataset.legislation.open``
+        """
+        if not isinstance(package_dict, dict):
+            return
+
+        # Do not override an explicit value if it already exists
+        existing = package_dict.get("applicable_legislation")
+        if existing:
+            return
+
+        access_rights = package_dict.get("access_rights")
+        if not isinstance(access_rights, str):
+            return
+
+        access_lower = access_rights.strip().lower()
+        # Εφαρμόζουμε προεπιλεγμένη νομοθεσία μόνο όταν είναι PUBLIC
+        if not (access_lower.endswith("/public") or "access-right/public" in access_lower):
+            return
+
+        value = data_gov_helpers.get_config_value(
+            "ckanext.data_gov_gr.dataset.legislation.open", ""
+        )
+        if not isinstance(value, str):
+            return
+
+        value = value.strip()
+        if not value:
+            return
+
+        # Schema expects a multiple_text field, so store as a list
+        package_dict["applicable_legislation"] = [value]
+
     def _ensure_contact_from_maintainer(self, package_dict):
         maintainer = package_dict.get("maintainer")
         maintainer_email = package_dict.get("maintainer_email")
@@ -800,6 +851,28 @@ class DkanCkanHarvester(CoreCkanHarvester):
                 package_dict["contact"] = contacts
         except Exception as e:
             log.error("Error syncing maintainer into contact point: %s", e)
+
+    def _ensure_landing_page(self, package_dict, remote_package):
+        """
+        Χρησιμοποιεί το πεδίο ``url`` από το απομακρυσμένο DKAN dataset
+        ως ``landing_page`` στο data.gov.gr, αν δεν έχει ήδη οριστεί.
+        """
+        if not isinstance(package_dict, dict):
+            return
+
+        # Μην πειράζεις αν υπάρχει ήδη landing_page (π.χ. από άλλο harvester logic)
+        if package_dict.get("landing_page"):
+            return
+
+        if not isinstance(remote_package, dict):
+            return
+
+        remote_url = remote_package.get("url")
+        if isinstance(remote_url, str):
+            remote_url = remote_url.strip()
+
+        if remote_url:
+            package_dict["landing_page"] = remote_url
 
     def _map_to_media_type(self, mime_value, lookup):
         """
