@@ -16,6 +16,7 @@ from ckanext.harvest.model import HarvestObject, HarvestObjectExtra
 from ckanext.harvest.interfaces import IHarvester
 
 from ckanext.data_gov_gr.harvesters.custom_dcat_harvester import CustomDcatHarvester
+from ckanext.data_gov_gr import helpers as data_gov_helpers
 from ckanext.dcat.processors import RDFParser, RDFParserException
 from ckanext.dcat.profiles import DCAT, DCT, FOAF
 
@@ -350,6 +351,8 @@ class EkanDcatHarvester(CustomDcatHarvester, IHarvester):
         try:
             # EKAN datasets are always considered PUBLIC for access_rights
             self._force_public_access_rights(out)
+            # Ensure applicable_legislation is set for PUBLIC datasets
+            self._ensure_applicable_legislation(out)
 
             # Remove helper keys not guaranteed by schema and strip placeholder formats
             resources = out.get('resources') or []
@@ -382,6 +385,44 @@ class EkanDcatHarvester(CustomDcatHarvester, IHarvester):
             log.warning('EKAN post-normalization failed: %s', e)
 
         return out
+
+    def _ensure_applicable_legislation(self, dataset: dict) -> None:
+        """
+        Ensure that the dataset has an ``applicable_legislation`` field set
+        when access_rights is PUBLIC.
+
+        Uses the same configuration keys as the manual UI:
+        - ``ckanext.data_gov_gr.dataset.legislation.open`` for open datasets.
+        """
+        try:
+            if not isinstance(dataset, dict):
+                return
+
+            existing = dataset.get('applicable_legislation')
+            if existing:
+                return
+
+            access_rights = dataset.get('access_rights')
+            if not isinstance(access_rights, str):
+                return
+
+            lowered = access_rights.strip().lower()
+            if not (lowered.endswith('/public') or 'access-right/public' in lowered):
+                return
+
+            value = data_gov_helpers.get_config_value(
+                'ckanext.data_gov_gr.dataset.legislation.open', ''
+            )
+            if not isinstance(value, str):
+                return
+
+            value = value.strip()
+            if not value:
+                return
+
+            dataset['applicable_legislation'] = [value]
+        except Exception as e:
+            log.warning('EKAN applicable_legislation PUBLIC normalization failed: %s', e)
 
     def _force_public_access_rights(self, dataset: dict) -> None:
         """Force access_rights to PUBLIC for EKAN-harvested datasets.

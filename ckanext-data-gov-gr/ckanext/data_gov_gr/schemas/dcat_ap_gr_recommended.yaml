@@ -53,6 +53,8 @@ dataset_fields:
   required_languages: [ el ]  # <-- Νέο custom field
   required: true
   form_snippet: fluent_markdown.html
+  display_snippet: html.html
+
   fluent_help_text:
     el:
       el: H Περιγραφή ενός Συνόλου Δεδομένων σε ελεύθερο κείμενο στα Ελληνικά
@@ -591,8 +593,8 @@ resource_fields:
     - field_name: uri
       label: URI
       help_text:
-        el: Το μοναδικό URI της περιγραφής της υπηρεσίας δεδομένων στο data.gov.gr
-        en: The unique URI of the dataservice description in the data.gov.gr
+        el: Το μοναδικό URI της περιγραφής της υπηρεσίας δεδομένων στο σύστημα
+        en: The unique URI of the dataservice description in the system
 
   help_text:
     el: Μια υπηρεσία δεδομένων που παρέχει πρόσβαση στον πόρο

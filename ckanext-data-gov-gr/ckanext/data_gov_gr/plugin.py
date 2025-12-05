@@ -17,6 +17,7 @@ from ckanext.data_gov_gr.logic import validators, actions, auth
 import json
 
 from ckanext.keycloak.helpers import enable_internal_login
+from ckanext.dcat.interfaces import IDCATRDFHarvester
 
 plugin_dir = os.path.dirname(sys.modules[__name__].__file__)
 import ckanext.data_gov_gr.helpers as helpers
@@ -34,6 +35,7 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IValidators)
     plugins.implements(plugins.IFacets)
     plugins.implements(plugins.IBlueprint)
+    plugins.implements(IDCATRDFHarvester)
 
     def _get_clean_license_id(self, license_uri_or_id):
         """
@@ -95,6 +97,69 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
 
     def get_blueprint(self):
         return views.get_blueprint()
+
+    # IDCATRDFHarvester
+
+    def before_download(self, url, harvest_job):
+        """
+        Pass-through hook before downloading the remote RDF/JSON-LD document.
+        We don't modify the URL at this stage.
+        """
+        return url, []
+
+    def update_session(self, session):
+        """
+        Leave the HTTP session unchanged (no custom headers/certs needed here).
+        """
+        return session
+
+    def after_download(self, content, harvest_job):
+        """
+        Tweak JSON-LD feeds so that `accessUrl` keys are normalised to
+        `accessURL`, which is what the DCAT parser expects to map to
+        dcat:accessURL.
+        """
+        if not content:
+            return content, []
+
+        try:
+            if '"accessUrl"' in content:
+                content = content.replace('"accessUrl"', '"accessURL"')
+        except Exception:
+            # In case of non-text content, just leave it untouched
+            pass
+
+        return content, []
+
+    def after_parsing(self, rdf_parser, harvest_job):
+        """
+        No-op hook after the RDF/JSON-LD content has been parsed into a graph.
+        """
+        return rdf_parser, []
+
+    def after_update(self, harvest_object, dataset_dict, temp_dict):
+        """
+        No-op hook after package_update.
+        """
+        return None
+
+    def after_create(self, harvest_object, dataset_dict, temp_dict):
+        """
+        No-op hook after package_create.
+        """
+        return None
+
+    def update_package_schema_for_create(self, package_schema):
+        """
+        Leave the package schema unchanged on create.
+        """
+        return package_schema
+
+    def update_package_schema_for_update(self, package_schema):
+        """
+        Leave the package schema unchanged on update.
+        """
+        return package_schema
 
     # ΙValidators
     def get_validators(self) -> Dict[str, Any]:
@@ -440,36 +505,69 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         user_obj = model.User.get(user)
         return bool(user_obj and user_obj.sysadmin)
 
-    def before_create(self, context, pkg_dict):
+    def before_create(self, *args, **kwargs):
         """
-        Καλείται πριν τη δημιουργία ενός dataset/decision.
-        Αν το dataset είναι τύπου 'decision' και ο χρήστης **δεν** είναι sysadmin:
+        Συνδυασμένο hook:
+
+        - Ως IDCATRDFHarvester.before_create(harvest_object, dataset_dict, temp_dict)
+          (καλείται από τον DCATRDFHarvester πριν το package_create)
+        - Ως IPackageController.before_create(context, pkg_dict)
+          (καλείται από τον CKAN πριν τη δημιουργία dataset/decision)
+          Αν το dataset είναι τύπου 'decision' και ο χρήστης **δεν** είναι sysadmin:
           - Επιβάλλει να είναι ιδιωτικό (private=True)
           - Αποτρέπει την επιλογή Public στο UI ή μέσω API
         """
-        try:
-            if pkg_dict.get('type') == 'decision':
-                if not self._is_sysadmin(context):
-                    # "Κλείδωνουμε" το decision σε ιδιωτικό
-                    pkg_dict['private'] = True
-        except Exception:
-            # Αγνοούμε σφάλματα για να μην σπάσει η δημιουργία dataset
-            pass
-        return pkg_dict
+        # Κλήση από DCATRDFHarvester (harvest_object, dataset_dict, temp_dict)
+        if len(args) == 3 and args and not isinstance(args[0], dict):
+            # Δεν χρειάζεται να κάνουμε κάτι ειδικά για το harvest case
+            return
 
-    def before_update(self, context, pkg_dict):
+        # Κλήση από IPackageController (context, pkg_dict)
+        if len(args) == 2 and isinstance(args[0], dict) and isinstance(args[1], dict):
+            context, pkg_dict = args
+            try:
+                if pkg_dict.get('type') == 'decision':
+                    if not self._is_sysadmin(context):
+                        # "Κλειδώνουμε" το decision σε ιδιωτικό
+                        pkg_dict['private'] = True
+            except Exception:
+                # Αγνοούμε σφάλματα για να μην σπάσει η δημιουργία dataset
+                pass
+            return pkg_dict
+
+        # Οποιαδήποτε άλλη κλήση την αγνοούμε σιωπηλά
+        return
+
+    def before_update(self, *args, **kwargs):
         """
-        Καλείται πριν την ενημέρωση ενός dataset/decision.
+        Συνδυασμένο hook:
+
+        - Ως IDCATRDFHarvester.before_update(harvest_object, dataset_dict, temp_dict)
+          (καλείται από τον DCATRDFHarvester πριν το package_update)
+        - Ως IPackageController.before_update(context, pkg_dict)
+          (καλείται από τον CKAN πριν την ενημέρωση dataset/decision)
+                  Καλείται πριν την ενημέρωση ενός dataset/decision.
         Αν το dataset είναι τύπου 'decision' και ο χρήστης **δεν** είναι sysadmin:
           - Επιβάλλει να παραμείνει ιδιωτικό (private=True)
           - Αποτρέπει την αλλαγή σε Public μέσω UI ή API
         """
-        try:
-            if pkg_dict.get('type') == 'decision':
-                if not self._is_sysadmin(context):
-                    # Απαγόρευση αλλαγής σε public για μη-sysadmin
-                    pkg_dict['private'] = True
-        except Exception:
-            # Αγνοούμε σφάλματα για να μην σπάσει η ενημέρωση
-            pass
-        return pkg_dict
+        # Κλήση από DCATRDFHarvester (harvest_object, dataset_dict, temp_dict)
+        if len(args) == 3 and args and not isinstance(args[0], dict):
+            # Δεν κάνουμε κάτι επιπλέον για το harvest case
+            return
+
+        # Κλήση από IPackageController (context, pkg_dict)
+        if len(args) == 2 and isinstance(args[0], dict) and isinstance(args[1], dict):
+            context, pkg_dict = args
+            try:
+                if pkg_dict.get('type') == 'decision':
+                    if not self._is_sysadmin(context):
+                        # Απαγόρευση αλλαγής σε public για μη-sysadmin
+                        pkg_dict['private'] = True
+            except Exception:
+                # Αγνοούμε σφάλματα για να μην σπάσει η ενημέρωση
+                pass
+            return pkg_dict
+
+        # Οποιαδήποτε άλλη κλήση την αγνοούμε σιωπηλά
+        return

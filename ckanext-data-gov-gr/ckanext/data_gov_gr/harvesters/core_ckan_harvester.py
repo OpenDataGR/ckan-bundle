@@ -11,6 +11,7 @@ from ckanext.harvest.harvesters.ckanharvester import CKANHarvester
 import ckan.plugins as plugins
 
 from ckanext.data_gov_gr.harvesters.base import DataGovGrHarvester
+from ckanext.data_gov_gr import helpers as data_gov_helpers
 
 log = logging.getLogger(__name__)
 
@@ -124,6 +125,8 @@ class CoreCkanHarvester(DataGovGrHarvester, CKANHarvester):
             self._add_harvest_metadata(package_dict, harvest_object)
             # Ensure access_rights is always set to PUBLIC for CKAN-harvested datasets
             self._set_default_access_rights_public(package_dict)
+            # Ensure applicable_legislation is set for PUBLIC datasets
+            self._ensure_applicable_legislation(package_dict)
             
             # Remove original description when we have translated version
             if 'notes_translated-el' in package_dict:
@@ -441,6 +444,45 @@ class CoreCkanHarvester(DataGovGrHarvester, CKANHarvester):
             log.debug("Set access_rights to PUBLIC for harvested dataset")
         except Exception as e:
             log.error(f"Error setting access_rights to PUBLIC: {e}")
+
+    def _ensure_applicable_legislation(self, package_dict):
+        """
+        Ensure that the dataset has an ``applicable_legislation`` field set
+        when access_rights is PUBLIC.
+
+        Uses the same configuration keys as the manual UI:
+        - ``ckanext.data_gov_gr.dataset.legislation.open`` for open datasets.
+        """
+        try:
+            if not isinstance(package_dict, dict):
+                return
+
+            # Do not override an explicit value if it already exists
+            existing = package_dict.get('applicable_legislation')
+            if existing:
+                return
+
+            access_rights = package_dict.get('access_rights')
+            if not isinstance(access_rights, str):
+                return
+
+            lowered = access_rights.strip().lower()
+            if not (lowered.endswith('/public') or 'access-right/public' in lowered):
+                return
+
+            value = data_gov_helpers.get_config_value(
+                'ckanext.data_gov_gr.dataset.legislation.open', ''
+            )
+            if not isinstance(value, str):
+                return
+
+            value = value.strip()
+            if not value:
+                return
+
+            package_dict['applicable_legislation'] = [value]
+        except Exception as e:
+            log.error(f"Error ensuring applicable_legislation for CKAN dataset: {e}")
 
     def _fix_common_mime_types(self, package_dict, remote_package_dict):
         '''Convert mime types to IANA URIs by adding the IANA prefix'''
