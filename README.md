@@ -1,5 +1,5 @@
 # Public Export Bundle (manual)
-- Tag: v20251214.214402
-- Built: 2025-12-14T21:44:02Z (UTC)
+- Tag: v20251215.125839
+- Built: 2025-12-15T12:58:39Z (UTC)
 Each subfolder corresponds to a source repository from https://github.com/OpenDataGR .
 See MANIFEST.json for commit SHAs.
