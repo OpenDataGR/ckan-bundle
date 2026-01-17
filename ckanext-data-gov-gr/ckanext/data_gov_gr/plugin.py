@@ -1,3 +1,19 @@
+from __future__ import annotations
+
+from ckanext.spatial.interfaces import ISpatialHarvester
+from .logic.harvest_mapping import (
+    apply_theme_from_topiccategory,
+    apply_frequency_from_resource_maintenance,
+    ensure_applicable_legislation,
+    apply_temporal_coverage_from_iso19139,
+    apply_resource_rights_and_license_from_iso19139,
+    cleanup_package_tags,
+    apply_cityofathens_publisher,
+    apply_dcat_type_geospatial,
+    apply_download_url_for_direct_downloads,
+    apply_resource_format_from_iso19139
+)
+
 import logging
 from typing import Dict, Any
 
@@ -18,6 +34,8 @@ import json
 
 from ckanext.keycloak.helpers import enable_internal_login
 from ckanext.dcat.interfaces import IDCATRDFHarvester
+
+import ckan.logic as logic
 
 plugin_dir = os.path.dirname(sys.modules[__name__].__file__)
 import ckanext.data_gov_gr.helpers as helpers
@@ -728,3 +746,83 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
 
         # Οποιαδήποτε άλλη κλήση την αγνοούμε σιωπηλά
         return
+
+    def after_dataset_show(self, context, package_dict):
+        # Feature flag (default True): allow disabling via ckan.ini if ever needed
+        if not helpers.should_include_relationships_in_show():
+            return package_dict
+
+        # Ελέγχουμε αν η λίστα είναι κενή ή λείπει (συμβαίνει όταν το αποτέλεσμα έρχεται από Solr cache)
+        if not package_dict.get('relationships_as_subject'):
+            try:
+                # Καλούμε το action του relationships plugin που φέρνει και τα external URIs
+                relationships = logic.get_action('package_relationships_list')(
+                    context, {'id': package_dict['id']}
+                )
+
+                if relationships:
+                    package_dict['relationships_as_subject'] = relationships
+
+            except Exception as e:
+                log.warning("Error updating relationships in after_dataset_show: %s", str(e))
+
+        return package_dict
+
+class DataGovGrSpatialHarvesterPlugin(plugins.SingletonPlugin):
+    """
+    Separate plugin class for ckanext-spatial hooks.
+
+    Reason: both CKAN (IValidators) and ckanext-spatial (ISpatialHarvester) use a
+    method named `get_validators()`, but they expect different return types.
+    Keeping them in separate classes avoids runtime type conflicts.
+    """
+    plugins.implements(ISpatialHarvester, inherit=True)
+
+    def get_package_dict(self, context: dict[str, Any], data_dict: dict[str, Any]) -> dict[str, Any]:
+        """
+        Override hook για spatial harvesting (ckanext-spatial / ISpatialHarvester.get_package_dict).
+
+        Καλείται στο import των CSW/ISO19139 αφού έχει φτιαχτεί το ``package_dict``.
+        Εδώ χαρτογραφούμε το ISO19139 ``topicCategory`` σε DCAT-AP ``theme`` (EU URIs)
+        και το αποθηκεύουμε στο ``package_dict["theme"]``.
+        """
+        package_dict = data_dict.get("package_dict")
+        iso_values = data_dict.get("iso_values") or {}
+        xml_tree = data_dict.get("xml_tree")
+        harvest_object = data_dict.get("harvest_object")
+
+        if isinstance(package_dict, dict):
+            # Cleanup tags: remove "__", "--", etc (junk tags)
+            cleanup_package_tags(package_dict)
+
+            # Set dcat_type for geospatial datasets
+            apply_dcat_type_geospatial(package_dict, overwrite=False)
+
+            apply_theme_from_topiccategory(package_dict, iso_values, xml_tree)
+
+            apply_temporal_coverage_from_iso19139(package_dict, xml_tree)
+
+            # ISO resourceMaintenance/maintenanceAndUpdateFrequency -> DCAT frequency (EU URI)
+            apply_frequency_from_resource_maintenance(package_dict, iso_values, xml_tree)
+
+            # Default applicable legislation (only if missing)
+            ensure_applicable_legislation(package_dict, protected=False)
+
+            apply_resource_rights_and_license_from_iso19139(package_dict, xml_tree, overwrite=False)
+
+            apply_download_url_for_direct_downloads(package_dict, xml_tree, overwrite=False)
+            apply_resource_format_from_iso19139(package_dict, xml_tree, overwrite=True)
+
+            # Publisher rule(s)
+            apply_cityofathens_publisher(package_dict, harvest_object)
+
+        return package_dict
+
+    def get_validators(self):
+        """
+        Spatial harvesting validators hook (ckanext-spatial / ISpatialHarvester.get_validators).
+
+        Must return a list of Validator CLASSES (each with `.name` and `.is_valid()`).
+        If you don't add custom spatial validators, return an empty list.
+        """
+        return []
