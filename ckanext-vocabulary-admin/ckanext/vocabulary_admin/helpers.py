@@ -56,7 +56,12 @@ def vocabularyadmin_get_tags_for_scheming(field):
                     u"`form_choices_helper_kwargs`.".format(field.get('field_name')))
         return []
 
-    cache_key = str(vocabulary_id_or_name)
+    try:
+        current_lang = lang()
+    except Exception:
+        current_lang = 'el'
+
+    cache_key = f"{vocabulary_id_or_name}::{current_lang}"
     if cache_key in _VOCAB_CHOICES_CACHE:
         return _VOCAB_CHOICES_CACHE[cache_key]
 
