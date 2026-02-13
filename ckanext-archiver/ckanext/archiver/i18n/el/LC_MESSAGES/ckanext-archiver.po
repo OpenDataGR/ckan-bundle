@@ -249,3 +249,9 @@ msgstr "δεν έχει καταγραφεί"
 
 msgid "Max retries exceeded with url"
 msgstr "Έγιναν υπερβολικά πολλές προσπάθειες για το URL"
+
+msgid "No broken links were found for this organization."
+msgstr "Δεν βρέθηκαν μη λειτουργικοί σύνδεσμοι για αυτόν τον οργανισμό."
+
+msgid "No broken links were found."
+msgstr "Δεν βρέθηκαν μη λειτουργικοί σύνδεσμοι."

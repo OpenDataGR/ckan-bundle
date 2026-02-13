@@ -35,6 +35,7 @@ from .base import (
 config = toolkit.config
 
 DISTRIBUTION_LICENSE_FALLBACK_CONFIG = "ckanext.dcat.resource.inherit.license"
+INCLUDE_DOWNLOADALL_RESOURCE_CONFIG = "ckanext.dcat.include_downloadall_resource"
 
 
 class BaseEuropeanDCATAPProfile(RDFProfile):
@@ -597,7 +598,15 @@ class BaseEuropeanDCATAPProfile(RDFProfile):
         )
 
         # Resources
+        include_downloadall_resource = toolkit.asbool(
+            config.get(INCLUDE_DOWNLOADALL_RESOURCE_CONFIG, False)
+        )
         for resource_dict in dataset_dict.get("resources", []):
+            if (
+                not include_downloadall_resource
+                and "downloadall_metadata_modified" in resource_dict
+            ):
+                continue
 
             distribution = CleanedURIRef(resource_uri(resource_dict))
 

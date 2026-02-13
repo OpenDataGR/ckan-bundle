@@ -88,6 +88,7 @@ def update_zip(package_id, user, skip_if_no_changes=True):
 
             # Upload resource to CKAN as a new/updated resource
             # Use the authenticated user for the LocalCKAN instance if available
+            # Στο format το ZIP που καταχωρείται τελικά αφαιρείται πριν γίνει Ιndex οπότε και δεν φαίνεται στα φίλτρα
             local_ckan = ckanapi.LocalCKAN(username=user) if user else ckanapi.LocalCKAN()
             fp.seek(0)
             resource = dict(

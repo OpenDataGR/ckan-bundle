@@ -26,10 +26,40 @@ document.addEventListener('DOMContentLoaded', function () {
       map = L.map('map').setView([38.0, 23.7], 6);
     }
 
-    // Προσθήκη βασικού επιπέδου
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(map);
+    // Επιλογή basemap από server-side config (εκτεθειμένο στο DOM)
+    const basemapKey = (mapElement.dataset.basemap || 'carto_light_all').trim();
+
+    function addBasemapByKey(key) {
+      switch (key) {
+        case 'osm':
+          return L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+          }).addTo(map);
+
+        case 'carto_light_nolabels':
+          return L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+          }).addTo(map);
+
+        case 'carto_voyager_nolabels':
+          return L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+          }).addTo(map);
+
+        case 'esri_light_gray':
+          return L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri'
+          }).addTo(map);
+
+        case 'carto_light_all':
+        default:
+          return L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+          }).addTo(map);
+      }
+    }
+
+    addBasemapByKey(basemapKey);
 
     console.log('Map initialized successfully');
 

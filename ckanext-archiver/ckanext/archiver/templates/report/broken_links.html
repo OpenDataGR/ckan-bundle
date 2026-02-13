@@ -1,8 +1,24 @@
 {% if c.options['organization'] == None %}
   <div class="summary-list">
       <ul>
-          <li>{% trans %}Broken datasets{% endtrans %}: {{ c.data['num_broken_packages'] }} / {{ c.data['num_packages'] }} ({{ c.data.get('broken_package_percent') }}%)</li>
-          <li>{% trans %}Broken links{% endtrans %}: {{ c.data['num_broken_resources'] }} / {{ c.data['num_resources'] }} ({{ c.data.get('broken_resource_percent') }}%)</li>
+          <li>
+            {% trans %}Broken datasets{% endtrans %}: {{ c.data['num_broken_packages'] }}
+            {% if c.data['num_packages'] is not none %}
+              / {{ c.data['num_packages'] }}
+            {% endif %}
+            {% if c.data.get('broken_package_percent') is not none %}
+              ({{ c.data.get('broken_package_percent') }}%)
+            {% endif %}
+          </li>
+          <li>
+            {% trans %}Broken links{% endtrans %}: {{ c.data['num_broken_resources'] }}
+            {% if c.data['num_resources'] is not none %}
+              / {{ c.data['num_resources'] }}
+            {% endif %}
+            {% if c.data.get('broken_resource_percent') is not none %}
+              ({{ c.data.get('broken_resource_percent') }}%)
+            {% endif %}
+          </li>
       </ul>
   </div>
   <div class="report-table-wrapper">
@@ -36,8 +52,24 @@
 
   <div class="summary-list">
     <ul>
-      <li>{% trans %}Broken datasets{% endtrans %}: {{ c.data['num_broken_packages'] }} / {{ c.data['num_packages'] }} ({{ c.data.get('broken_package_percent') }}%)</li>
-      <li>{% trans %}Broken links{% endtrans %}: {{ c.data['num_broken_resources'] }} / {{ c.data['num_resources'] }} ({{ c.data.get('broken_resource_percent') }}%)</li>
+      <li>
+        {% trans %}Broken datasets{% endtrans %}: {{ c.data['num_broken_packages'] }}
+        {% if c.data['num_packages'] is not none %}
+          / {{ c.data['num_packages'] }}
+        {% endif %}
+        {% if c.data.get('broken_package_percent') is not none %}
+          ({{ c.data.get('broken_package_percent') }}%)
+        {% endif %}
+      </li>
+      <li>
+        {% trans %}Broken links{% endtrans %}: {{ c.data['num_broken_resources'] }}
+        {% if c.data['num_resources'] is not none %}
+          / {{ c.data['num_resources'] }}
+        {% endif %}
+        {% if c.data.get('broken_resource_percent') is not none %}
+          ({{ c.data.get('broken_resource_percent') }}%)
+        {% endif %}
+      </li>
     </ul>
   </div>
   <div class="report-table-wrapper">

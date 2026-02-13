@@ -153,6 +153,48 @@ def openness_report_combinations():
         yield {'organization': organization}
 
 
+def openness_post_access_filter(data, context):
+    table = data.get('table', [])
+    if not table:
+        data['score_counts'] = {}
+        data['num_packages_scored'] = 0
+        data['num_packages'] = 0
+        data['average_stars'] = 0.0
+        return data
+
+    # Index view rows are organization aggregates and do not reference
+    # individual datasets, so they cannot be safely recomputed here.
+    if 'dataset_name' not in table[0]:
+        return data
+
+    score_counts = {}
+    total_stars = 0.0
+    num_packages_scored = 0
+
+    for row in table:
+        score = row.get('openness_score')
+        try:
+            score = float(score) if score is not None else None
+        except (TypeError, ValueError):
+            score = None
+
+        if score is None:
+            key = 'null'
+        else:
+            key = str(int(score))
+            total_stars += score
+            num_packages_scored += 1
+
+        score_counts[key] = score_counts.get(key, 0) + 1
+
+    data['score_counts'] = score_counts
+    data['num_packages_scored'] = num_packages_scored
+    data['num_packages'] = len(table)
+    data['average_stars'] = round(float(total_stars) / num_packages_scored, 1) \
+        if num_packages_scored else 0.0
+    return data
+
+
 openness_report_info = {
     'name': 'openness',
     'title': p.toolkit._('Openness (Five Stars)'),
@@ -162,6 +204,7 @@ openness_report_info = {
                                     )),
     'option_combinations': openness_report_combinations,
     'generate': openness_report,
+    'post_access_filter': openness_post_access_filter,
     'template': 'report/openness.html',
     }
 
@@ -448,6 +491,33 @@ def metadata_quality_report_combinations():
         yield {'organization': organization}
 
 
+def metadata_quality_post_access_filter(data, context):
+    table = data.get('table', [])
+    if not table:
+        data['num_packages'] = 0
+        data['overall_score'] = None
+        return data
+
+    # Index view rows are organization aggregates and do not reference
+    # individual datasets, so they cannot be safely recomputed here.
+    if 'dataset_name' not in table[0]:
+        return data
+
+    scores = []
+    for row in table:
+        score = row.get('mqa_quality_score')
+        try:
+            score = float(score) if score is not None else None
+        except (TypeError, ValueError):
+            score = None
+        if score is not None:
+            scores.append(score)
+
+    data['num_packages'] = len(table)
+    data['overall_score'] = round(sum(scores) / len(scores), 1) if scores else None
+    return data
+
+
 metadata_quality_report_info = {
     'name': 'metadata-quality',
     'title': p.toolkit._('Metadata Quality'),
@@ -456,5 +526,6 @@ metadata_quality_report_info = {
                                   )),
     'option_combinations': metadata_quality_report_combinations,
     'generate': metadata_quality_report,
+    'post_access_filter': metadata_quality_post_access_filter,
     'template': 'report/metadata_quality.html',
 }

@@ -1,6 +1,7 @@
 {% set stats_destination_url = config.get('ckanext.data_gov_gr.stats.destination.url', '/') %}
 {% set footer_source_code_url = config.get('ckanext.data_gov_gr.footer.source_code_url') %}
 {% set user_survey_url = config.get('ckanext.data_gov_gr.user_survey.url') %}
+{% set terms_page = config.get('ckanext.data_gov_gr.pages.terms_of_use') %}
 
 <footer class="site-footer" role="contentinfo">
   <div class="container">
@@ -17,6 +18,13 @@
             {% if footer_source_code_url %}
               <li><a href="{{ footer_source_code_url }}">{{ _('Source Code') }}</a></li>
             {% endif %}
+            {% if terms_page %}
+              <li>
+                <a href="{{ h.url_for('/pages/' ~ terms_page) }}">
+                  {{ _('Terms of Use') }}
+                </a>
+              </li>
+            {% endif %}
           {% endblock %}
         </ul>
       </div>
@@ -27,7 +35,7 @@
           {% block footer_data %}
             <li><a href="{{ h.url_for('dataset.search') }}">{{ _('Datasets') }}</a></li>
             <li><a href="{{ h.url_for('/data-service') }}">{{ _('Data services') }}</a></li>
-            <li><a href="{{ h.url_for('/decision') }}">{{ _('Decisions') }}</a> </li>
+            <li><a href="{{ h.url_for('/decision') }}">{{ _('Data Release Decisions') }}</a> </li>
             <li><a href="{{ h.url_for('organization.index') }}">{{ _('Organizations') }}</a></li>
             <li><a href="{{ h.url_for('/showcases') }}">{{ _('Showcases') }}</a></li>
           {% endblock %}

@@ -117,6 +117,8 @@ class DownloadallPlugin(plugins.SingletonPlugin, DefaultTranslation):
         }
 
     # IPackageController
+    def before_dataset_index(self, data_dict):
+        return self.before_index(data_dict)
 
     def before_index(self, pkg_dict):
         try:

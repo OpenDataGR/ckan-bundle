@@ -5,7 +5,7 @@ from html import unescape as html_unescape
 from datetime import datetime
 import ckan.plugins.toolkit as toolkit
 from ckan import model
-from ckan.common import g
+from ckan.common import g, asbool
 from ckan.lib import helpers as core_helpers
 from ckan.lib.helpers import lang
 from ckan.plugins.toolkit import render_snippet, _ # Import για το σύστημα μετάφρασης
@@ -161,6 +161,16 @@ def _get_home_stats_catalog():
     ]
 
 log = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------------------
+
+def map_search_basemap_key() -> str:
+    return toolkit.config.get('ckanext.data_gov_gr.map_search.basemap', 'carto_light_all').strip()
+
+# ---------------------------------------------------------------------------------------
+
+def decisions_menu_enabled() -> bool:
+    return asbool(toolkit.config.get("ckanext.data_gov_gr.menu.decisions.enabled", False))
 
 # ---------------------------------------------------------------------------------------
 
@@ -1708,6 +1718,8 @@ def get_helpers():
         "vocabulary_facet_title": vocabulary_facet_title,
         "get_vocabulary_id_for_field": get_vocabulary_id_for_field,
         "google_analytics_snippet": google_analytics_snippet,
+        'data_gov_gr_map_search_basemap': map_search_basemap_key,
+        'decisions_menu_enabled': decisions_menu_enabled,
         "build_mqa_nav_icon": build_mqa_nav_icon,
         "fluent_language_is_required": fluent_language_is_required,
         "get_organizations_stats": get_organizations_stats,

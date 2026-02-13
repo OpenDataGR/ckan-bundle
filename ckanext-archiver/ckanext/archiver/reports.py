@@ -229,6 +229,42 @@ def broken_links_option_combinations():
         yield {'organization': organization}
 
 
+def broken_links_post_access_filter(data, context):
+    table = data.get('table', [])
+    if not table:
+        data['num_broken_packages'] = 0
+        data['num_broken_resources'] = 0
+        # Avoid leaking cached unfiltered totals when all rows were hidden.
+        data['num_packages'] = None
+        data['num_resources'] = None
+        data['broken_package_percent'] = None
+        data['broken_resource_percent'] = None
+        return data
+
+    # Organization index rows are pre-aggregated and do not reference
+    # individual datasets, so we cannot safely recompute them here.
+    if 'dataset_name' not in table[0]:
+        return data
+
+    dataset_names = set()
+    for row in table:
+        dataset_name = row.get('dataset_name')
+        if dataset_name:
+            dataset_names.add(dataset_name)
+
+    num_broken_packages = len(dataset_names)
+    num_broken_resources = len(table)
+    data['num_broken_packages'] = num_broken_packages
+    data['num_broken_resources'] = num_broken_resources
+    # Denominators are unknown after access filtering without extra privileged
+    # queries; leave them unset in the summary.
+    data['num_packages'] = None
+    data['num_resources'] = None
+    data['broken_package_percent'] = None
+    data['broken_resource_percent'] = None
+    return data
+
+
 broken_links_report_info = {
     'name': 'broken-links',
     'title': _('Broken links'),
@@ -237,6 +273,7 @@ broken_links_report_info = {
                                     )),
     'option_combinations': broken_links_option_combinations,
     'generate': broken_links,
+    'post_access_filter': broken_links_post_access_filter,
     'template': 'report/broken_links.html',
     }
 

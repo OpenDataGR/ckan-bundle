@@ -371,6 +371,9 @@ msgstr "Όχι"
 msgid "Decisions"
 msgstr "Αποφάσεις"
 
+msgid "Data Release Decisions"
+msgstr "Αποφάσεις Διάθεσης Δεδομένων"
+
 msgid "Decision"
 msgstr "Απόφαση"
 
@@ -826,3 +829,6 @@ msgstr "Σύνολα δεδομένων (σύνολο)"
 
 msgid "Source Code"
 msgstr "Πηγαίος κώδικας"
+
+msgid "Terms of Use"
+msgstr "Όροι χρήσης"

@@ -73,7 +73,9 @@
 
         <div class="module-content module-content--search">
           <!-- Περιοχή εμφάνισης του Leaflet χάρτη -->
-          <div id="map"></div>
+          <div id="map"
+               data-basemap="{{ h.data_gov_gr_map_search_basemap() }}">
+          </div>
 
           <!-- Κουμπί ενεργοποίησης χωρικής αναζήτησης -->
           <div class="map-search-controls">

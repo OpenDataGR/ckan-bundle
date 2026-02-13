@@ -140,6 +140,7 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         home = root.home
         config_ui = root.config_ui
         contact = root.contact
+        data_service = root.data_service
 
         declaration.declare(root.powerbi_embed_url, "").set_description(
             "Power BI embed URL (used on /stats/powerbi and home previews)."
@@ -212,6 +213,11 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         )
         declaration.declare(home.showcases.ids, "").set_description(
             "Selected showcases IDs (one per line, up to 3) for the home page."
+        )
+
+        declaration.annotate("Dataset / data-service view")
+        declaration.declare(data_service.hide_resources_section, "yes").set_description(
+            "Hide 'Data and Resources' section on data-service (API) pages."
         )
 
         declaration.annotate("Config UI visibility (ini-only feature flags)")
@@ -595,6 +601,8 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
             'check_user_org_permission': actions.check_user_org_permission,
             'organization_list_with_user_extras': actions.organization_list_with_user_extras,
             'user_organization_capacity': actions.user_organization_capacity,
+            'user_delete': actions.user_delete,
+            "organization_list": actions.organization_list,
             'geonames_search': self.geonames_search_action # Κλήση για ανάκτηση αποτελεσμάτων σε geoname
         }
 

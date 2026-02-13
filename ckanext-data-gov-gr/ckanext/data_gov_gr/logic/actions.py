@@ -1,3 +1,17 @@
+from __future__ import annotations
+
+from typing import (Container, Optional)
+
+from ckan.common import config, asbool, aslist
+import sqlalchemy
+
+import ckan
+import ckan.lib.dictization
+import ckan.logic as logic
+import ckan.logic.action
+import ckan.logic.schema
+import ckan.lib.navl.dictization_functions
+
 import ckan.plugins.toolkit as toolkit
 from typing import Any, Dict
 import logging
@@ -8,6 +22,8 @@ import ckan.lib.mailer as mailer
 import ckan.lib.dictization.model_dictize as model_dictize
 from socket import error as socket_error
 
+import uuid
+from ckan import model
 from ckan import authz
 from ckan.lib.api_token import get_user_from_token
 from ckan.lib.mailer import mail_recipient
@@ -17,6 +33,36 @@ from ckan.logic import _validate
 import ckan.lib.helpers as h
 
 log = logging.getLogger(__name__)
+
+@toolkit.chained_action
+def user_delete(original_action, context, data_dict):
+    """Αν ο χρήστης είναι pending, μετονομάζει το name σε
+    <name>_deleted_<uuid> πριν τη διαγραφή, ώστε να ελευθερωθεί
+    το αρχικό username."""
+
+    try:
+        user_id = data_dict.get("id")
+        user_obj = model.User.get(user_id) if user_id else None
+
+        if user_obj and user_obj.is_pending():
+            old_name = user_obj.name or "user"
+            suffix = f"_deleted_{uuid.uuid4()}"
+            max_len = 255
+            base = old_name
+            if len(base) + len(suffix) > max_len:
+                base = base[: max_len - len(suffix)]
+
+            user_obj.name = f"{base}{suffix}"
+            log.info(
+                "Renamed pending user %s -> %s before delete",
+                old_name, user_obj.name,
+            )
+    except Exception as e:
+        log.warning("Could not rename pending user before delete: %r", e)
+
+    return original_action(context, data_dict)
+
+# ----------------------------------------------------------------------------------------------
 
 # Define some shortcuts
 _get_action = logic.get_action
@@ -486,3 +532,213 @@ def check_user_org_permission(context: Dict[str, Any], data_dict: Dict[str, Any]
         'username': user.name,
         'organization_id': organization_id
     }
+
+# ----------------------------------------------------------------------------------------------
+
+# Define some shortcuts
+
+_select = sqlalchemy.sql.select
+_or_ = sqlalchemy.or_
+_and_ = sqlalchemy.and_
+_func = sqlalchemy.func
+_case = sqlalchemy.case
+_null = sqlalchemy.null
+
+def organization_list(context: Context,
+                      data_dict: DataDict) -> ActionResult.OrganizationList:
+    _check_access('organization_list', context, data_dict)
+    data_dict['groups'] = data_dict.pop('organizations', [])
+    data_dict.setdefault('type', 'organization')
+    return _group_or_org_list(context, data_dict, is_org=True)
+
+def _group_or_org_list(
+        context: Context, data_dict: DataDict, is_org: bool = False):
+    model = context['model']
+    api = context.get('api_version')
+    groups = data_dict.get('groups')
+    group_type = data_dict.get('type', 'group')
+    ref_group_by = 'id' if api == 2 else 'name'
+    pagination_dict = {}
+    limit = data_dict.get('limit')
+    if limit:
+        pagination_dict['limit'] = data_dict['limit']
+    offset = data_dict.get('offset')
+    if offset:
+        pagination_dict['offset'] = data_dict['offset']
+    if pagination_dict:
+        pagination_dict, errors = _validate(
+            data_dict, ckan.logic.schema.default_pagination_schema(), context)
+        if errors:
+            raise ValidationError(errors)
+    sort = data_dict.get('sort') or config.get('ckan.default_group_sort')
+    q = data_dict.get('q', '').strip()
+
+    all_fields = asbool(data_dict.get('all_fields', None))
+
+    if all_fields:
+        # all_fields is really computationally expensive, so need a tight limit
+        try:
+            max_limit = config.get(
+                'ckan.group_and_organization_list_all_fields_max')
+        except ValueError:
+            max_limit = 25
+    else:
+        try:
+            max_limit = config.get('ckan.group_and_organization_list_max')
+        except ValueError:
+            max_limit = 1000
+
+    if limit is None or int(limit) > max_limit:
+        limit = max_limit
+
+    # order_by deprecated in ckan 1.8
+    # if it is supplied and sort isn't use order_by and raise a warning
+    order_by = data_dict.get('order_by', '')
+    if order_by:
+        log.warn('`order_by` deprecated please use `sort`')
+        if not data_dict.get('sort'):
+            sort = order_by
+
+    # if the sort is packages and no sort direction is supplied we want to do a
+    # reverse sort to maintain compatibility.
+    if sort.strip() in ('packages', 'package_count'):
+        sort = 'package_count desc'
+
+    sort_info = _unpick_search(sort,
+                               allowed_fields=['name', 'packages',
+                                               'package_count', 'title'],
+                               total=1)
+
+    if sort_info and sort_info[0][0] == 'package_count':
+        query = model.Session.query(model.Group.id,
+                                    model.Group.name,
+                                    sqlalchemy.func.count(model.Group.id))
+
+        query = query.filter(model.Member.group_id == model.Group.id) \
+            .filter(model.Member.table_id == model.Package.id) \
+            .filter(model.Member.table_name == 'package') \
+            .filter(model.Package.state == 'active')
+    else:
+        query = model.Session.query(model.Group.id,
+                                    model.Group.name)
+
+    query = query.filter(model.Group.state == 'active')
+
+    if groups:
+        groups = aslist(groups, sep=",")
+        query = query.filter(model.Group.name.in_(groups))
+
+    from sqlalchemy import func
+    import ckan.model.misc as misc
+
+    def _norm(expr):
+        return func.translate(func.unaccent(func.lower(expr)), 'ς', 'σ')
+
+    if q:
+        q_escaped = misc.escape_sql_like_special_characters(q, escape='\\')
+        like_term = '%{0}%'.format(q_escaped)
+        qn = q.strip()
+
+        base_like = _or_(
+            _norm(model.Group.name).like(_norm(like_term), escape='\\'),
+            _norm(model.Group.title).like(_norm(like_term), escape='\\'),
+            _norm(model.Group.description).like(_norm(like_term), escape='\\'),
+        )
+
+        score_name = func.word_similarity(_norm(model.Group.name), _norm(qn))
+        score_title = func.word_similarity(_norm(model.Group.title), _norm(qn))
+        score_desc = func.word_similarity(_norm(model.Group.description), _norm(qn))
+
+        if len(qn) >= 3:
+            fuzzy_match = _or_(
+                score_name > 0.35,
+                score_title > 0.35,
+                score_desc > 0.35,
+            )
+            query = query.filter(_or_(base_like, fuzzy_match))
+
+            if not data_dict.get('sort') and is_org:
+                query = query.order_by(sqlalchemy.desc(
+                    func.greatest(
+                        score_title * 1.2,
+                        score_name * 1.0,
+                        score_desc * 0.8
+                    )
+                ))
+        else:
+            query = query.filter(base_like)
+
+    query = query.filter(model.Group.is_organization == is_org)
+    query = query.filter(model.Group.type == group_type)
+
+    if sort_info:
+        sort_field = sort_info[0][0]
+        sort_direction = sort_info[0][1]
+        sort_model_field: Any = sqlalchemy.func.count(model.Group.id)
+        if sort_field == 'package_count':
+            query = query.group_by(model.Group.id, model.Group.name)
+        elif sort_field == 'name':
+            sort_model_field = model.Group.name
+        elif sort_field == 'title':
+            sort_model_field = model.Group.title
+
+        if sort_direction == 'asc':
+            query = query.order_by(sqlalchemy.asc(sort_model_field))
+        else:
+            query = query.order_by(sqlalchemy.desc(sort_model_field))
+
+    if limit:
+        query = query.limit(limit)
+    if offset:
+        query = query.offset(offset)
+
+    groups = query.all()
+
+    if all_fields:
+        action = 'organization_show' if is_org else 'group_show'
+        group_list = []
+        for group in groups:
+            data_dict['id'] = group.id
+            for key in ('include_extras', 'include_tags', 'include_users',
+                        'include_groups', 'include_followers'):
+                if key not in data_dict:
+                    data_dict[key] = False
+
+            group_list.append(logic.get_action(action)(context, data_dict))
+    else:
+        group_list = [getattr(group, ref_group_by) for group in groups]
+
+    return group_list
+
+def _unpick_search(
+        sort: str,
+        allowed_fields: Optional['Container[str]'] = None,
+        total: Optional[int] = None) -> list[tuple[str, str]]:
+    ''' This is a helper function that takes a sort string
+    eg 'name asc, last_modified desc' and returns a list of
+    split field order eg [('name', 'asc'), ('last_modified', 'desc')]
+    allowed_fields can limit which field names are ok.
+    total controls how many sorts can be specifed '''
+    sorts: list[tuple[str, str]] = []
+    split_sort = sort.split(',')
+    for part in split_sort:
+        split_part = part.strip().split()
+        field = split_part[0]
+        if len(split_part) > 1:
+            order = split_part[1].lower()
+        else:
+            order = 'asc'
+        if allowed_fields:
+            if field not in allowed_fields:
+                raise ValidationError({
+                    'message': 'Cannot sort by field `%s`' % field})
+        if order not in ['asc', 'desc']:
+            raise ValidationError({
+                'message': 'Invalid sort direction `%s`' % order})
+        sorts.append((field, order))
+    if total and len(sorts) > total:
+        raise ValidationError(
+            'Too many sort criteria provided only %s allowed' % total)
+    return sorts
+
+# ----------------------------------------------------------------------------------------------

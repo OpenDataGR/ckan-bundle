@@ -124,3 +124,19 @@
     color: white;
     background-color: #00285c !important; /* Πιο σκούρο μπλε στο hover */
 }
+
+/* ----------------------------------------------------------------------- */
+/* Κρύβει το Leaflet link */
+.leaflet-control-attribution a[href*="leafletjs.com"] {
+  display: none !important;
+}
+
+/* Κρύβει και τη σημαία */
+.leaflet-attribution-flag {
+  display: none !important;
+}
+
+.leaflet-control-attribution span {
+  display: none !important;
+}
+/* ----------------------------------------------------------------------- */

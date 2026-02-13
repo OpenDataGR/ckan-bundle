@@ -41,7 +41,7 @@
               {% set group_type = h.default_group_type('group') %}
               {% set showcase_route = 'showcase_blueprint.index' %}
 
-              {% set more_label = 'Περισσότερα' if h.lang() == 'el' else _('More') %}
+              {% set more_label = 'Εργαλεία' if h.lang() == 'el' else _('Tools') %}
 
               {# Παραμετρικό dropdown για τα σύνολα δεδομένων (όπως στο header.html) #}
               {% set dataset_menu_items = h.get_dataset_menu_items() %}
@@ -64,12 +64,27 @@
                 </ul>
               </li>
 
+              {# --- API page (EL / EN) --- #}
+              {% set api_slug = 'api' if h.lang() == 'en' else 'api' %}
+              {% set api_active = request.path.startswith('/pages/api') %}
+
+              <li class="{% if api_active %}active{% endif %}">
+                <a href="{{ h.url_for('pages.show', page=api_slug) }}">API</a>
+              </li>
+
+              {% if h.decisions_menu_enabled() %}
+                {{ h.build_nav_main(
+                  ('decision' ~ '.search', _('Decisions'), ['decision'])
+                ) }}
+              {% endif %}
+
               {{ h.build_nav_main(
-                ('data-service' ~ '.search', _('APIs'), ["data-service"]),
-                ('decision' ~ '.search', _('Decisions'), ["decision"]),
                 (org_type ~ '.index',
-                  h.humanize_entity_type('organization', org_type, 'main nav') or _('Organizations'), ['organization']),
-                ('dataset_type.more_page', more_label, ['more']) ) }}
+                  h.humanize_entity_type('organization', org_type, 'main nav') or _('Organizations'),
+                  ['organization']),
+                ('dataset_type.more_page', more_label, ['more'])
+              ) }}
+
               {{ h.build_nav_main((showcase_route, _('Showcases'))) }}
             {% endblock %}
           </ul>
