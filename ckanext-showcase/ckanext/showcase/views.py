@@ -68,6 +68,9 @@ def search_showcases(package_type: str) -> str:
     extra_vars[u'remove_field'] = partial(dataset.remove_field, package_type)
 
     sort_by = request.args.get(u'sort', None)
+    if not sort_by:
+        # Align default sorting with organization index (Name Ascending)
+        sort_by = u'title_string asc'
     params_nosort = [(k, v) for k, v in params_nopage if k != u'sort']
 
     extra_vars[u'sort_by'] = partial(dataset._sort_by, params_nosort, package_type)

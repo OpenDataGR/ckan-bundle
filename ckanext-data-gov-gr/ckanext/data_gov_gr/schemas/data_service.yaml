@@ -42,7 +42,7 @@ dataset_fields:
   preset: dataset_organization
   help_text:
     en: The data.gov.gr organization the data service belongs to
-    el: Ο φορέας του data.gov.gr στον οποίο ανήκει η Υπηρεσία Δεδομένων
+    el: Ο οργανισμός του data.gov.gr στον οποίο ανήκει η Υπηρεσία Δεδομένων
 
 - field_name: publisher
   label:
@@ -85,7 +85,7 @@ dataset_fields:
         el: Μοναδικό αναγνωριστικό για τον εκδότη, όπως αναγνωριστικό ROR ID
   help_text:
     en: An entity (organisation) responsible for making the Data Service available
-    el: Οντότητα (Φορέας) υπεύθυνη για τη διάθεση της Υπηρεσίας Δεδομένων
+    el: Οντότητα (Οργανισμός) υπεύθυνη για τη διάθεση της Υπηρεσίας Δεδομένων
 
 # required in DCAT-AP-HVD
 - field_name: endpoint_description

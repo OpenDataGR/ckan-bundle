@@ -47,7 +47,7 @@ dataset_fields:
   form_snippet: scheming/form_snippets/organization_decision.html
   help_text:
     en: The data.gov.gr organization the decision belongs to
-    el: Ο φορέας του data.gov.gr στον οποίο ανήκει η Aπόφαση
+    el: Ο οργανισμός του data.gov.gr στον οποίο ανήκει η Aπόφαση
 
 resource_fields:
 

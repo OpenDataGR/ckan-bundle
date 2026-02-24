@@ -1,0 +1,56 @@
+{% set url = h.url_for(organization.type ~ '.read', id=organization.name) %}
+{% set title = organization.display_name or organization.title or organization.name %}
+{% set datasets_count = org_stats.get('datasets', 0) | int %}
+{% set apis_count = org_stats.get('apis', 0) | int %}
+{% set apps_count = org_stats.get('apps', 0) | int %}
+{% set description = organization.description if organization.description else '' %}
+
+<li class="organizations-index-item">
+  <a href="{{ url }}" title="{{ _('View {organization_name}').format(organization_name=title) }}" class="organizations-index-card">
+    <div class="organizations-index-card-top">
+      <div class="organizations-index-logo-wrap" aria-hidden="true">
+        {% if organization.image_display_url %}
+          <img
+            src="{{ organization.image_display_url }}"
+            alt=""
+            class="organizations-index-logo"
+            loading="lazy">
+        {% else %}
+          <span class="organizations-index-logo-fallback">{{ (title[:1] if title else '?') | upper }}</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="organizations-index-card-main">
+      <h2 class="organizations-index-title">{{ title }}</h2>
+
+      <div class="organizations-index-stats" aria-label="{{ _('Στατιστικά οργανισμού') }}">
+        <span class="organizations-index-stat"
+          aria-label="{{ _('{num} Σύνολα Δεδομένων').format(num=datasets_count) }}"
+          title="{{ _('{num} Σύνολα Δεδομένων').format(num=datasets_count) }}">
+          <i class="fa fa-database" aria-hidden="true" title="{{ _('{num} Σύνολα Δεδομένων').format(num=datasets_count) }}"></i>
+          <span class="organizations-index-stat-value">{{ '{:,}'.format(datasets_count) | replace(',', ' ') }}</span>
+          <span class="organizations-index-visually-hidden">{{ _('Σύνολα Δεδομένων') }}</span>
+        </span>
+        <span class="organizations-index-stat"
+          aria-label="{{ _('{num} APIs').format(num=apis_count) }}"
+          title="{{ _('{num} APIs').format(num=apis_count) }}">
+          <i class="fa fa-server" aria-hidden="true" title="{{ _('{num} APIs').format(num=apis_count) }}"></i>
+          <span class="organizations-index-stat-value">{{ '{:,}'.format(apis_count) | replace(',', ' ') }}</span>
+          <span class="organizations-index-visually-hidden">{{ _('APIs') }}</span>
+        </span>
+        <span class="organizations-index-stat"
+          aria-label="{{ _('{num} Εφαρμογές').format(num=apps_count) }}"
+          title="{{ _('{num} Εφαρμογές').format(num=apps_count) }}">
+          <i class="fa fa-area-chart" aria-hidden="true" title="{{ _('{num} Εφαρμογές').format(num=apps_count) }}"></i>
+          <span class="organizations-index-stat-value">{{ '{:,}'.format(apps_count) | replace(',', ' ') }}</span>
+          <span class="organizations-index-visually-hidden">{{ _('Εφαρμογές') }}</span>
+        </span>
+      </div>
+
+      {% if description %}
+        <p class="organizations-index-description">{{ h.markdown_extract(description, extract_length=170) }}</p>
+      {% endif %}
+    </div>
+  </a>
+</li>

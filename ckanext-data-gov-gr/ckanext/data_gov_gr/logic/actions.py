@@ -64,6 +64,127 @@ def user_delete(original_action, context, data_dict):
 
 # ----------------------------------------------------------------------------------------------
 
+def _is_blank(value: Any) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, str):
+        return not value.strip()
+    return False
+
+
+def _is_upload_or_tabledesigner_resource(data_dict: Dict[str, Any], current: Dict[str, Any] | None = None) -> bool:
+    """
+    Επιστρέφει True όταν ο πόρος είναι upload ή tabledesigner.
+
+    Σημείωση:
+    - Στο resource_create για upload, συχνά δεν έχει μπει ακόμα url_type=upload,
+      αλλά υπάρχει το πεδίο `upload`.
+    """
+    current = current or {}
+    if data_dict.get('upload'):
+        return True
+
+    for d in (data_dict, current):
+        url_type = d.get('url_type')
+        if isinstance(url_type, str) and url_type.strip().lower() in {'upload', 'tabledesigner'}:
+            return True
+        resource_type = d.get('resource_type')
+        if isinstance(resource_type, str) and resource_type.strip().lower() == 'tabledesigner':
+            return True
+
+    return False
+
+
+def _get_dataset_name_from_package_id(package_id_or_name: Any) -> str | None:
+    if _is_blank(package_id_or_name):
+        return None
+    try:
+        pkg = model.Package.get(package_id_or_name)
+        if pkg and pkg.name:
+            return pkg.name
+    except Exception:
+        pass
+    return str(package_id_or_name)
+
+
+def _build_dataset_url(dataset_name: str) -> str:
+    try:
+        return toolkit.url_for('dataset.read', id=dataset_name, qualified=True)
+    except Exception:
+        return f"/dataset/{dataset_name}"
+
+
+def _ensure_access_and_download_urls(data_dict: Dict[str, Any], current: Dict[str, Any] | None = None) -> None:
+    """
+    - Κατά την αποθήκευση πόρου, αν το access_url είναι κενό:
+      - Αν ο τύπος του resource είναι upload ή tabledesigner:
+        - παίρνει το url του πόρου (resource.url)
+        - ή το url του dataset (χτισμένο βάσει name), γιατί δεν θα υπάρχουν ids
+      - Σε διαφορετική περίπτωση: γεμίζει με το url του πόρου (resource.url)
+
+    - Κατά την αποθήκευση πόρου, αν το download_url είναι κενό:
+      - συμπληρώνεται με το access_url (όπως θα γεμίζει και αυτό)
+
+    Σημείωση για update:
+    - Αν δεν έρθει πεδίο στο payload, διατηρούμε την υπάρχουσα τιμή (για να μην «χαθεί»).
+    """
+    current = current or {}
+
+    if 'access_url' not in data_dict and not _is_blank(current.get('access_url')):
+        data_dict['access_url'] = current.get('access_url')
+    if 'download_url' not in data_dict and not _is_blank(current.get('download_url')):
+        data_dict['download_url'] = current.get('download_url')
+
+    access_url = data_dict.get('access_url')
+    if _is_blank(access_url):
+        candidate_resource_url = data_dict.get('url')
+        if _is_blank(candidate_resource_url):
+            candidate_resource_url = current.get('url')
+
+        if _is_upload_or_tabledesigner_resource(data_dict, current=current):
+            if not _is_blank(candidate_resource_url):
+                data_dict['access_url'] = candidate_resource_url
+            else:
+                dataset_name = _get_dataset_name_from_package_id(data_dict.get('package_id') or current.get('package_id'))
+                if dataset_name:
+                    data_dict['access_url'] = _build_dataset_url(dataset_name)
+        else:
+            if not _is_blank(candidate_resource_url):
+                data_dict['access_url'] = candidate_resource_url
+
+    download_url = data_dict.get('download_url')
+    if _is_blank(download_url):
+        final_access_url = data_dict.get('access_url')
+        if not _is_blank(final_access_url):
+            data_dict['download_url'] = final_access_url
+
+
+@toolkit.chained_action
+def resource_create(original_action, context, data_dict):
+    """
+    Προσυμπλήρωση access_url / download_url κατά το save (resource_create).
+    """
+    _ensure_access_and_download_urls(data_dict)
+    return original_action(context, data_dict)
+
+
+@toolkit.chained_action
+def resource_update(original_action, context, data_dict):
+    """
+    Προσυμπλήρωση access_url / download_url κατά το save (resource_update).
+    """
+    current = {}
+    resource_id = data_dict.get('id') or data_dict.get('resource_id')
+    if not _is_blank(resource_id):
+        try:
+            current = toolkit.get_action('resource_show')(context, {'id': resource_id})
+        except Exception:
+            current = {}
+
+    _ensure_access_and_download_urls(data_dict, current=current)
+    return original_action(context, data_dict)
+
+
 # Define some shortcuts
 _get_action = logic.get_action
 _check_access = logic.check_access

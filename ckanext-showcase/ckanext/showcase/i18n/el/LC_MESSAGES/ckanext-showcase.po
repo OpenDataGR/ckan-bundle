@@ -472,6 +472,14 @@ msgstr "Εξωτερικός σύνδεσμος"
 msgid "http://www.example.com"
 msgstr "http://www.example.com"
 
+#: ckanext/showcase/templates/showcase/new_package_form.html:91
+msgid "Organization"
+msgstr "Οργανισμός"
+
+#: ckanext/showcase/templates/showcase/new_package_form.html:91
+msgid "eg. OTS"
+msgstr "π.χ. OTS"
+
 #: ckanext/showcase/templates/showcase/new_package_form.html:83
 msgid "Submitted By"
 msgstr "Υποβλήθηκε από"
@@ -528,6 +536,10 @@ msgstr "Προσθήκη Εφαρμογής"
 #: ckanext/showcase/templates/showcase/search.html:41
 msgid "Search showcases..."
 msgstr "Αναζήτηση εφαρμογών..."
+
+#: ckanext/showcase/templates/showcase/search.html:48
+msgid "There are currently no showcases for this site"
+msgstr "Αυτή τη στιγμή δεν υπάρχουν εφαρμογές για αυτόν τον ιστότοπο"
 
 #: ckanext/showcase/templates/showcase/snippets/helper.html:6
 msgid "What are Showcases?"

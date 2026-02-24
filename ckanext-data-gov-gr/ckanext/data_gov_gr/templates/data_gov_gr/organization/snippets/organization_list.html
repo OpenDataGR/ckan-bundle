@@ -1,0 +1,10 @@
+{% block organization_index_list %}
+<ul class="organizations-index-grid">
+  {% for organization in organizations %}
+    {% set org_stats = organization_index_stats.get(organization.id, {'datasets': 0, 'apis': 0, 'apps': 0}) %}
+    {% snippet "data_gov_gr/organization/snippets/organization_item.html",
+      organization=organization,
+      org_stats=org_stats %}
+  {% endfor %}
+</ul>
+{% endblock %}

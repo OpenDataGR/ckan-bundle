@@ -32,7 +32,7 @@
 
                 {% if extended_fields and h.contact_organization_field_enabled() %}
                 <div class="form-group control-medium">
-                    <label for="field-organization">Φορέας / Οργανισμός (σε περίπτωση που ανήκετε σε κάποιον από τους ενταγμένους φορείς στο σύστημα)</label>
+                    <label for="field-organization">Οργανισμός (σε περίπτωση που ανήκετε σε κάποιον από τους ενταγμένους οργανισμούς στο σύστημα)</label>
                     <select id="field-organization" name="organization" class="form-control">
                         <option value="">{{ _('Select...') }}</option>
                         {% for org in h.data_gov_gr_get_organizations() %}

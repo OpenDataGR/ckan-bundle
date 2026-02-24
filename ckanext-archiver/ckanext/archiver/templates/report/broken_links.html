@@ -92,7 +92,7 @@
         {% for row_dict in c.data['table'] %}
           <tr>
             <td><a href="{{ h.url_for('dataset.read', id=row_dict['dataset_name']) }}">{{ row_dict['dataset_title'] }}</a></td>
-            <td><a href="/publisher/{{ row_dict['organization_name'] }}">{{ row_dict['organization_title'] }}</a></td>
+            <td><a href="/organization/{{ row_dict['organization_name'] }}">{{ row_dict['organization_title'] }}</a></td>
             <td class="resource-position"><a href="/dataset/{{ row_dict['dataset_name'] }}/resource/{{ row_dict['resource_id'] }}">{{ row_dict['resource_position'] }}</a></td>
             <td class="url-cell"><a href="{{ row_dict['resource_url'] }}" target="_blank">{{ row_dict['resource_url'] }}</a></td>
             <td class="{{ 'status-error' if row_dict.get('status', 'not recorded') != 'not recorded' else '' }}">{{ h.archiver_status_label(row_dict.get('status', 'not recorded')) }}</td>

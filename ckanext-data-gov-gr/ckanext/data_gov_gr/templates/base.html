@@ -52,9 +52,12 @@
           // Διαδικασία φόρτωσης των CSS και JS
           const path = window.location.pathname;
 
-          if (path.includes('/dataset/') || path.includes('/package/')) {
+          // Φόρτωση scripts σε σελίδες dataset/package αλλά και σε σελίδες πόρων
+          // (π.χ. edit resource) που μπορεί να μην ακολουθούν ακριβώς το ίδιο URL pattern.
+          if (path.includes('/dataset/') || path.includes('/package/') || path.includes('/resource')) {
             loadScripts([
               '/select-location.js',
+              '/resource-rights-from-license.js',
               '/dataset-view.js',
               '/ConfirmModal.js'
             ]);

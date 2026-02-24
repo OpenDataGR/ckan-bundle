@@ -38,6 +38,11 @@ def showcase_base_schema():
         'title': [if_empty_same_as("name"), unicode_safe],
         'author': [ignore_missing, unicode_safe],
         'author_email': [ignore_missing, unicode_safe],
+        'submitter_organization': [
+            ignore_missing,
+            unicode_safe,
+            toolkit.get_converter('convert_to_extras')
+        ],
         'notes': [ignore_missing, unicode_safe],
         'url': [ignore_missing, url_validator],
         'state': [ignore_not_package_admin, ignore_missing],
@@ -119,6 +124,10 @@ def showcase_show_schema():
             toolkit.get_converter('convert_from_extras'),
             toolkit.get_validator('ignore_missing')],
         'approval_status': [
+            toolkit.get_converter('convert_from_extras'),
+            toolkit.get_validator('ignore_missing')
+        ],
+        'submitter_organization': [
             toolkit.get_converter('convert_from_extras'),
             toolkit.get_validator('ignore_missing')
         ]

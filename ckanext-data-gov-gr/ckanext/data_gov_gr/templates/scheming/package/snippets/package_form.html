@@ -22,12 +22,26 @@
         {# Set the field default value before rendering but only if
         it doesn't already exist in data which would mean the form
         has been submitted. #}
-        {% if field.default_jinja2 %}
-          {% do data.__setitem__(
-            field.field_name,
-            h.scheming_render_from_string(field.default_jinja2)) %}
-        {% elif field.default %}
-          {% do data.__setitem__(field.field_name, field.default) %}
+        {% if field.field_name == 'spatial_coverage' %}
+          {% set default_spatial = h.get_dataset_spatial_coverage_default() %}
+          {% if default_spatial %}
+            {% do data.__setitem__(field.field_name, default_spatial) %}
+          {% endif %}
+        {% endif %}
+        {% if field.field_name == 'temporal_coverage' %}
+          {% set default_temporal = h.get_dataset_temporal_coverage_default() %}
+          {% if default_temporal %}
+            {% do data.__setitem__(field.field_name, default_temporal) %}
+          {% endif %}
+        {% endif %}
+        {% if field.field_name not in data %}
+          {% if field.default_jinja2 %}
+            {% do data.__setitem__(
+              field.field_name,
+              h.scheming_render_from_string(field.default_jinja2)) %}
+          {% elif field.default %}
+            {% do data.__setitem__(field.field_name, field.default) %}
+          {% endif %}
         {% endif %}
       {% endif -%}
       <div class="form-field-wrapper">

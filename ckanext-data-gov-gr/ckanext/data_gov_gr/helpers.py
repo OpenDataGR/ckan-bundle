@@ -1,20 +1,34 @@
 import logging
 import json
 import re
+import time
+import os
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from html import unescape as html_unescape
-from datetime import datetime
+from datetime import datetime, timedelta, date as date_cls
 import ckan.plugins.toolkit as toolkit
 from ckan import model
 from ckan.common import g, asbool
 from ckan.lib import helpers as core_helpers
 from ckan.lib.helpers import lang
-from ckan.plugins.toolkit import render_snippet, _ # Import για το σύστημα μετάφρασης
-from ckan.plugins.toolkit import _  # Import για το σύστημα μετάφρασης
+from ckan.plugins.toolkit import render_snippet, _  # Import για το σύστημα μετάφρασης
 from flask_login import current_user as _cu
 from typing import (cast, Union)
-from sqlalchemy import func
+from sqlalchemy import and_, func, or_
+from sqlalchemy.orm import aliased
 
 from ckanext.data_gov_gr.stats import DataGovStats
+try:
+    from ckanext.showcase.model import ShowcasePackageAssociation
+except Exception:
+    ShowcasePackageAssociation = None
+
+
+# Background refresh μηχανισμός (ώστε η αρχική να μην μπλοκάρει από Matomo calls).
+_HOME_REUSE_STATS_EXECUTOR = ThreadPoolExecutor(max_workers=1)
+_HOME_REUSE_STATS_IN_FLIGHT: set[str] = set()
+_HOME_REUSE_STATS_IN_FLIGHT_LOCK = threading.Lock()
 
 
 _MONTH_ABBREV_EN = {
@@ -52,6 +66,24 @@ def _month_abbrev(month: int, locale: str) -> str:
     locale_clean = (locale or '').lower()
     mapping = _MONTH_ABBREV_EL if locale_clean.startswith('el') else _MONTH_ABBREV_EN
     return mapping.get(int(month), str(month))
+
+def _month_start(d: date_cls) -> date_cls:
+    return date_cls(d.year, d.month, 1)
+
+
+def _add_months(d: date_cls, delta: int) -> date_cls:
+    """
+    Προσθέτει/αφαιρεί μήνες (πάντα επιστρέφει 1η του μήνα).
+    """
+    y, m = d.year, d.month
+    m += int(delta)
+    while m > 12:
+        y += 1
+        m -= 12
+    while m < 1:
+        y -= 1
+        m += 12
+    return date_cls(y, m, 1)
 
 
 def _get_home_stats_catalog():
@@ -496,6 +528,175 @@ def get_dataset_legislation_default():
     return ''
 
 
+def _normalize_config_string(value, default=""):
+    """
+    Κανονικοποιεί τιμές config (CKAN) που μπορεί να είναι string ή list, σε ασφαλές string.
+
+    Σε ορισμένες περιπτώσεις, τιμές από το /ckan-admin/config μπορεί να
+    αποθηκευτούν ως λίστες (π.χ. συνδυασμοί hidden+checkbox). Σε αυτή την
+    περίπτωση, χρησιμοποιούμε την τελευταία τιμή.
+    """
+    if value is None:
+        return default
+    if isinstance(value, list):
+        if not value:
+            return default
+        value = value[-1]
+    try:
+        value = str(value)
+    except Exception:
+        return default
+    value = value.strip()
+    return value if value else default
+
+
+def get_resource_license_default(package_id=None):
+    """
+    Επιστρέφει την προεπιλεγμένη τιμή για το πεδίο 'license' σε νέους πόρους.
+
+    - Από /ckan-admin/config: ckanext.data_gov_gr.resource.license.default
+    - Προεπιλογή (fallback): CC BY 4.0
+
+    Αν δοθεί package_id, προσπαθεί να εφαρμόσει το default μόνο για datasets
+    με access_rights = .../PUBLIC (δηλ. ανοικτά δεδομένα).
+    """
+    configured = _normalize_config_string(
+        toolkit.config.get('ckanext.data_gov_gr.resource.license.default'),
+        default='http://publications.europa.eu/resource/authority/licence/CC_BY_4_0',
+    )
+
+    # Δυνατότητα απενεργοποίησης του default: αν το key υπάρχει αλλά είναι κενό.
+    if toolkit.config.get('ckanext.data_gov_gr.resource.license.default') in ("", [], None):
+        if 'ckanext.data_gov_gr.resource.license.default' in toolkit.config:
+            return ''
+
+    if not package_id:
+        return configured
+
+    try:
+        pkg = toolkit.get_action('package_show')(
+            {'ignore_auth': True},
+            {'id': package_id},
+        )
+    except Exception:
+        # Αν δεν μπορούμε να διαβάσουμε το dataset, επιστρέφουμε το configured default.
+        return configured
+
+    access_rights_value = pkg.get('access_rights') or ''
+    if isinstance(access_rights_value, str) and access_rights_value.endswith('/PUBLIC'):
+        return configured
+
+    return ''
+
+
+def get_dataset_spatial_coverage_default():
+    """
+    Επιστρέφει προεπιλεγμένη τιμή για το πεδίο `spatial_coverage` σε νέα datasets.
+
+    Είναι repeating field, οπότε επιστρέφει λίστα από dicts με κλειδιά:
+      - uri, text, geom, bbox, centroid
+
+    Κλειδί ρύθμισης (admin) στο /ckan-admin/config:
+      - ckanext.data_gov_gr.dataset.spatial_coverage.default
+        (τιμές: ''=καμία, 'greece'=Ελλάδα)
+
+    Συμβατότητα προς τα πίσω (παλιό/advanced σχήμα):
+      - ckanext.data_gov_gr.dataset.spatial_coverage.default.geonames_id
+      - ckanext.data_gov_gr.dataset.spatial_coverage.default.text
+      - ckanext.data_gov_gr.dataset.spatial_coverage.default.lng
+      - ckanext.data_gov_gr.dataset.spatial_coverage.default.lat
+
+    Προεπιλογή (fallback): Ελλάδα (GeoNames 390903) με centroid/geom στο (22, 39).
+    """
+    selection_key = 'ckanext.data_gov_gr.dataset.spatial_coverage.default'
+    selection_raw = toolkit.config.get(selection_key)
+    selection = _normalize_config_string(selection_raw, default='')
+
+    # Αν το key υπάρχει αλλά είναι κενό -> απενεργοποίηση default.
+    if selection_raw in ("", [], None) and selection_key in toolkit.config:
+        return []
+
+    # Νέος (απλός) τρόπος ρύθμισης
+    if selection:
+        if selection.lower() in ('greece', 'ellada', 'ελλάδα', 'gr', 'greece (ellada)', 'greece (greece)'):
+            geonames_id = '390903'
+            label = 'Greece'
+            lng, lat = 22.0, 39.0
+        else:
+            # Δεχόμαστε GeoNames ID ή URI ως εναλλακτική τιμή (best-effort)
+            geonames_id = selection.strip().rstrip('/').split('/')[-1]
+            label = 'Greece' if geonames_id == '390903' else ''
+            lng, lat = (22.0, 39.0) if geonames_id == '390903' else (None, None)
+    else:
+        # Backward-compatible (advanced) τρόπος ρύθμισης
+        geonames_id = _normalize_config_string(
+            toolkit.config.get('ckanext.data_gov_gr.dataset.spatial_coverage.default.geonames_id'),
+            default='390903',
+        )
+
+        # Δυνατότητα απενεργοποίησης του default: αν το key υπάρχει αλλά είναι κενό.
+        if toolkit.config.get('ckanext.data_gov_gr.dataset.spatial_coverage.default.geonames_id') in ("", [], None):
+            if 'ckanext.data_gov_gr.dataset.spatial_coverage.default.geonames_id' in toolkit.config:
+                return []
+
+        label = _normalize_config_string(
+            toolkit.config.get('ckanext.data_gov_gr.dataset.spatial_coverage.default.text'),
+            default='Greece',
+        )
+
+        lng_raw = _normalize_config_string(
+            toolkit.config.get('ckanext.data_gov_gr.dataset.spatial_coverage.default.lng'),
+            default='22',
+        )
+        lat_raw = _normalize_config_string(
+            toolkit.config.get('ckanext.data_gov_gr.dataset.spatial_coverage.default.lat'),
+            default='39',
+        )
+
+        try:
+            lng = float(lng_raw)
+        except Exception:
+            lng = 22.0
+        try:
+            lat = float(lat_raw)
+        except Exception:
+            lat = 39.0
+
+    if lng is None or lat is None:
+        geom = ''
+    else:
+        point = {"type": "Point", "coordinates": [lng, lat]}
+        try:
+            geom = json.dumps(point, ensure_ascii=False)
+        except Exception:
+            geom = '{"type":"Point","coordinates":[22,39]}'
+
+    uri = f'http://sws.geonames.org/{geonames_id}/'
+
+    return [{
+        'uri': uri,
+        'text': label,
+        'geom': geom,
+        'bbox': '',
+        'centroid': geom,
+    }]
+
+
+def get_dataset_temporal_coverage_default():
+    """
+    Επιστρέφει προεπιλεγμένη τιμή για το πεδίο `temporal_coverage` σε νέα datasets.
+
+    Είναι repeating field, οπότε επιστρέφει λίστα από dicts με κλειδιά:
+      - start, end
+
+    Προεπιλογή (fallback): 1900-01-01 έως 2099-12-31.
+    """
+    return [{
+        'start': '1900-01-01',
+        'end': '2099-12-31',
+    }]
+
+
 def data_gov_gr_get_organizations():
     """
     Επιστρέφει λίστα οργανισμών για dropdown (id, name, title).
@@ -688,7 +889,7 @@ def _get_default_contact_gitbook_embed_items():
     return [
         {'title': 'Συχνές ερωτήσεις (Όλες)', 'url': faq_root},
         {'title': 'Γενικά', 'url': f'{faq_root}/genika'},
-        {'title': 'Φορείς Δημόσιου Τομέα', 'url': f'{faq_root}/foreis-dimosioy-tomea'},
+        {'title': 'Οργανισμοί Δημόσιου Τομέα', 'url': f'{faq_root}/foreis-dimosioy-tomea'},
         {'title': 'Πολίτες & Επιχειρήσεις', 'url': f'{faq_root}/polites-and-epixeiriseis'},
         {'title': 'Τεχνικά θέματα & API', 'url': f'{faq_root}/texnika-themata-and-api'},
         {'title': 'Dataspace, αλτρουιστές και διαμεσολαβητές', 'url': f'{faq_root}/dataspace-altroyistes-kai-diamesolavites'},
@@ -705,7 +906,7 @@ def get_contact_gitbook_embed_items():
 
       [
         {"title": "Γενικά", "url": "https://.../syxnes-erotiseis/genika"},
-        {"title": "Φορείς Δημόσιου Τομέα", "url": "https://.../syxnes-erotiseis/foreis-dimosioy-tomea"}
+        {"title": "Οργανισμοί Δημόσιου Τομέα", "url": "https://.../syxnes-erotiseis/foreis-dimosioy-tomea"}
       ]
 
     Υποστηρίζει και το κλειδί ``label`` αντί για ``title`` για συμβατότητα.
@@ -952,6 +1153,16 @@ def _safe_url_for(endpoint: str, **kwargs) -> str | None:
         return None
 
 
+def get_stats_url(default: str = '/stats') -> str:
+    """
+    Επιστρέφει URL για τη σελίδα στατιστικών.
+
+    Αν δεν υπάρχει route `stats.index` (π.χ. δεν είναι ενεργό το stats), κάνει
+    fallback σε στατικό path ώστε να μην “σπάει” η αρχική.
+    """
+    return _safe_url_for('stats.index') or default
+
+
 def get_home_stats_tiles():
     """
     Return configured stats tiles for the home page (up to 4).
@@ -1006,7 +1217,7 @@ def get_home_datasets_vs_services() -> dict:
         return {'datasets': 0, 'data_services': 0}
 
 
-def get_home_showcases(max_items=3):
+def get_home_showcases(max_items=4):
     """
     Return up to ``max_items`` selected showcases for the home page.
 
@@ -1016,7 +1227,7 @@ def get_home_showcases(max_items=3):
     try:
         limit = max(0, int(max_items))
     except Exception:
-        limit = 3
+        limit = 4
     if not limit:
         return []
 
@@ -1069,6 +1280,30 @@ def get_home_showcases(max_items=3):
         title = pkg.get('title') or pkg.get('name')
         notes = pkg.get('notes') or ''
 
+        org_title = ''
+        organization = pkg.get('organization')
+        if isinstance(organization, dict):
+            org_title = (organization.get('title') or organization.get('name') or '').strip()
+
+        submitter_organization = (pkg.get('submitter_organization') or '').strip()
+        submitter_author = (pkg.get('author') or '').strip()
+        submitter_parts = [part for part in (submitter_organization, submitter_author) if part]
+        submitter_label = ' | '.join(submitter_parts) if submitter_parts else ''
+
+        responsible = (pkg.get('maintainer') or submitter_author or '').strip()
+        owner_parts = [part for part in (responsible, org_title) if part]
+        owner_label = ' - '.join(owner_parts) if owner_parts else ''
+
+        views_total = None
+        views_display = None
+
+        tag_label = ''
+        tags = pkg.get('tags') or []
+        if isinstance(tags, list) and tags:
+            first = tags[0]
+            if isinstance(first, dict):
+                tag_label = (first.get('display_name') or first.get('name') or '').strip()
+
         image_display_url = pkg.get('image_display_url')
         image_url = pkg.get('image_url')
         if not image_display_url and image_url:
@@ -1087,6 +1322,14 @@ def get_home_showcases(max_items=3):
             'title': title,
             'notes': notes,
             'image_url': image_display_url,
+            'organization_title': org_title,
+            'submitter_organization': submitter_organization,
+            'submitter_author': submitter_author,
+            'submitter_label': submitter_label,
+            'owner_label': owner_label,
+            'views_total': views_total,
+            'views_display': views_display,
+            'tag': tag_label,
         })
 
     return showcases
@@ -1343,6 +1586,580 @@ def _format_counter(value: int) -> str:
         return str(value)
 
 
+def _home_reuse_to_int(value):
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, (int, float)):
+        return int(value)
+    if isinstance(value, str):
+        value = value.strip()
+        if value.isdigit():
+            return int(value)
+    return None
+
+
+def _home_reuse_spark_payload(series_name: str, points: list[list[object]]):
+    if not points:
+        return None
+    return {
+        'xAxisType': 'time',
+        'series': [
+            {'name': series_name, 'data': points},
+        ],
+    }
+
+
+def _home_reuse_normalize_date_key(value):
+    """
+    Κανονικοποιεί keys ημερομηνίας ώστε το ECharts time axis να τα διαβάζει.
+
+    Το Matomo μπορεί να επιστρέψει:
+      - YYYY-MM-DD (period=day)
+      - YYYY-MM (period=month)
+    """
+    s = str(value or '').strip()
+    if len(s) == 7 and s[4] == '-' and s[:4].isdigit() and s[5:7].isdigit():
+        return f'{s}-01'
+    return s
+
+
+def _home_reuse_extract_timeseries(payload, key=None):
+    """
+    Εξάγει time series από Matomo payload (dict(date -> value/row)).
+    Επιστρέφει list of [date_iso, value_int] ταξινομημένο.
+    """
+    if not isinstance(payload, dict) or not payload:
+        return []
+
+    points: list[list[object]] = []
+    for date_key, row in sorted(payload.items(), key=lambda kv: str(kv[0])):
+        value_int = None
+        if isinstance(row, dict):
+            if key and key in row:
+                value_int = _home_reuse_to_int(row.get(key))
+            elif 'value' in row:
+                value_int = _home_reuse_to_int(row.get('value'))
+        else:
+            value_int = _home_reuse_to_int(row)
+
+        if value_int is None:
+            continue
+
+        points.append([_home_reuse_normalize_date_key(date_key), value_int])
+    return points
+
+
+def _home_reuse_extract_download_timeseries(payload):
+    """
+    Εξάγει time series λήψεων από Actions.getDownloads payload.
+    Αναμένει dict(date -> list(rows)), όπου κάθε row έχει nb_hits.
+    """
+    if not isinstance(payload, dict) or not payload:
+        return []
+
+    points: list[list[object]] = []
+    for date_key, rows in sorted(payload.items(), key=lambda kv: str(kv[0])):
+        day_total = 0
+        found = False
+        if isinstance(rows, list):
+            for row in rows:
+                if not isinstance(row, dict):
+                    continue
+                value_int = _home_reuse_to_int(row.get('nb_hits'))
+                if value_int is not None:
+                    day_total += value_int
+                    found = True
+        if found:
+            points.append([_home_reuse_normalize_date_key(date_key), day_total])
+    return points
+
+
+def _home_reuse_extract_metric(payload, key=None, *, sum_time_series=True):
+    """
+    Best-effort εξαγωγή αριθμητικού metric από Matomo payloads.
+    """
+    if payload is None:
+        return None
+
+    if isinstance(payload, dict) and 'value' in payload:
+        value_int = _home_reuse_to_int(payload.get('value'))
+        if value_int is not None:
+            return value_int
+
+    if isinstance(payload, dict) and key and key in payload:
+        return _home_reuse_to_int(payload.get(key))
+
+    if isinstance(payload, dict):
+        if not sum_time_series:
+            if len(payload) == 1:
+                _date, row = next(iter(payload.items()))
+                if isinstance(row, dict):
+                    if key and key in row:
+                        return _home_reuse_to_int(row.get(key))
+                    if 'value' in row:
+                        return _home_reuse_to_int(row.get('value'))
+                return _home_reuse_to_int(row)
+            return None
+
+        total = 0
+        found = False
+        for _date, row in payload.items():
+            value_int = None
+            if isinstance(row, dict):
+                if key and key in row:
+                    value_int = _home_reuse_to_int(row.get(key))
+                elif 'value' in row:
+                    value_int = _home_reuse_to_int(row.get('value'))
+            else:
+                value_int = _home_reuse_to_int(row)
+            if value_int is not None:
+                total += value_int
+                found = True
+        return total if found else None
+
+    if isinstance(payload, list):
+        total = 0
+        found = False
+        for row in payload:
+            value_int = _home_reuse_to_int(row)
+            if value_int is not None:
+                total += value_int
+                found = True
+        return total if found else None
+
+    return _home_reuse_to_int(payload)
+
+
+def _home_reuse_sum_download_hits(rows) -> int:
+    if not rows:
+        return 0
+    total = 0
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        value_int = _home_reuse_to_int(row.get('nb_hits'))
+        if value_int is not None:
+            total += value_int
+    return total
+
+
+def _home_reuse_compute_apps_total() -> int:
+    """
+    Μετράει τις εγκεκριμένες εφαρμογές (showcases).
+
+    Σημείωση για deployments με approval workflow:
+    - Μετράμε μόνο τις εγκεκριμένες (``approval_status=approved``).
+    """
+    try:
+        showcase_pkg = aliased(model.Package)
+        showcase_extra = aliased(model.PackageExtra)
+
+        count_value = (
+            model.Session.query(func.count(func.distinct(showcase_pkg.id)))
+            .join(
+                showcase_extra,
+                and_(
+                    showcase_extra.package_id == showcase_pkg.id,
+                    showcase_extra.key == 'approval_status',
+                    func.lower(func.trim(showcase_extra.value)) == 'approved',
+                ),
+            )
+            .filter(showcase_pkg.type == 'showcase')
+            .filter(showcase_pkg.state == 'active')
+            .scalar()
+        )
+        return int(count_value or 0)
+    except Exception:
+        log.exception('Αποτυχία μέτρησης εφαρμογών (showcases) από τη βάση.')
+        return 0
+
+
+def _home_reuse_compute_apps_spark() -> dict | None:
+    """
+    Δημιουργεί sparkline (τελευταίοι 12 μήνες) για δημιουργίες εφαρμογών.
+    """
+    try:
+        showcase_pkg = aliased(model.Package)
+        showcase_extra = aliased(model.PackageExtra)
+
+        end_month = _month_start(datetime.utcnow().date())
+        start_month = _add_months(end_month, -11)
+
+        daily_rows = (
+            model.Session.query(
+                func.date(showcase_pkg.metadata_created).label('day'),
+                func.count(func.distinct(showcase_pkg.id)).label('count'),
+            )
+            .join(
+                showcase_extra,
+                and_(
+                    showcase_extra.package_id == showcase_pkg.id,
+                    showcase_extra.key == 'approval_status',
+                    func.lower(func.trim(showcase_extra.value)) == 'approved',
+                ),
+            )
+            .filter(showcase_pkg.type == 'showcase')
+            .filter(showcase_pkg.state == 'active')
+            .filter(showcase_pkg.metadata_created >= datetime.combine(start_month, datetime.min.time()))
+            .group_by('day')
+            .all()
+        )
+
+        per_month: dict[tuple[int, int], int] = {}
+        for day_value, count_value in daily_rows:
+            if isinstance(day_value, datetime):
+                day_key = day_value.date()
+            else:
+                day_key = day_value
+            if not isinstance(day_key, date_cls):
+                continue
+            mk = (day_key.year, day_key.month)
+            per_month[mk] = int(per_month.get(mk, 0)) + int(count_value or 0)
+
+        points: list[list[object]] = []
+        for i in range(12):
+            d = _add_months(start_month, i)
+            mk = (d.year, d.month)
+            points.append([d.isoformat(), int(per_month.get(mk, 0))])
+
+        return {
+            'xAxisType': 'time',
+            'series': [{'name': 'Apps', 'data': points}],
+        }
+    except Exception:
+        log.exception('Αποτυχία υπολογισμού sparkline εφαρμογών (showcases) από τη βάση.')
+        return None
+
+def get_home_reuse_stats() -> dict:
+    """
+    Στατιστικά “επαναχρησιμοποίησης” (δεξιά στήλη αρχικής).
+
+    Αν υπάρχει ρύθμιση Matomo, τα visits/downloads έρχονται από Matomo. Αν όχι,
+    επιστρέφουμε ``None`` στα αντίστοιχα πεδία.
+    """
+    now_ts = time.time()
+    lang_code = lang()
+    redis_enabled = get_config_as_bool('ckanext.data_gov_gr.home.reuse_stats.redis.enabled', True)
+    redis_key_override = (toolkit.config.get('ckanext.data_gov_gr.home.reuse_stats.redis.key') or '').strip()
+    async_refresh_enabled = get_config_as_bool('ckanext.data_gov_gr.home.reuse_stats.async_refresh_enabled', True)
+    refresh_after_raw = toolkit.config.get('ckanext.data_gov_gr.home.reuse_stats.redis.refresh_after_seconds')
+    try:
+        redis_refresh_after_seconds = max(0, int(refresh_after_raw or 60 * 60 * 6))
+    except Exception:
+        redis_refresh_after_seconds = 60 * 60 * 6
+    max_stale_raw = toolkit.config.get('ckanext.data_gov_gr.home.reuse_stats.redis.max_stale_seconds')
+    try:
+        redis_max_stale_seconds = max(0, int(max_stale_raw or 60 * 60 * 24 * 14))
+    except Exception:
+        redis_max_stale_seconds = 60 * 60 * 24 * 14
+
+    matomo_domain = (toolkit.config.get('ckanext.matomo.domain') or '').strip().rstrip('/')
+    matomo_api_url = (toolkit.config.get('ckanext.matomo.api_domain') or '').strip()
+    if not matomo_api_url and matomo_domain:
+        # Συνήθως το Matomo API σερβίρεται μέσω `/index.php`.
+        # Το tracking script χρησιμοποιεί base domain, αλλά για API κλήσεις
+        # στο CKAN θέλουμε `/index.php` ώστε να παίρνουμε JSON.
+        matomo_api_url = f'{matomo_domain}/index.php'
+    matomo_api_url = matomo_api_url.rstrip('/')
+    matomo_site_id = (toolkit.config.get('ckanext.matomo.site_id') or '').strip()
+    matomo_token = (toolkit.config.get('ckanext.matomo.token_auth') or '').strip()
+    matomo_enabled = bool(matomo_api_url and matomo_site_id and matomo_token)
+
+    matomo_period = (toolkit.config.get('ckanext.data_gov_gr.home.reuse_stats.matomo.period') or 'range').strip()
+    # Ρυθμίσεις ημερομηνιών (compat): κοινό date ή ξεχωριστά για visits/downloads.
+    matomo_date_common = (toolkit.config.get('ckanext.data_gov_gr.home.reuse_stats.matomo.date') or '').strip()
+    matomo_date_visitors = (
+        toolkit.config.get('ckanext.data_gov_gr.home.reuse_stats.matomo.visits_date')
+        or matomo_date_common
+        or 'last365'
+    ).strip()
+    matomo_date_downloads = (
+        toolkit.config.get('ckanext.data_gov_gr.home.reuse_stats.matomo.downloads_date')
+        or matomo_date_common
+        or 'last365'
+    ).strip()
+    default_matomo_start_date = '2025-02-01'
+    matomo_start_date = (toolkit.config.get('ckanext.data_gov_gr.home.reuse_stats.matomo.start_date') or '').strip()
+    if not matomo_start_date:
+        matomo_start_date = default_matomo_start_date
+
+    if matomo_start_date:
+        matomo_period = 'range'
+        range_date = f'{matomo_start_date},today'
+        matomo_date_visitors = range_date
+        matomo_date_downloads = range_date
+
+    spark_range_display = None
+    spark_range = None
+    # Προεπιλογή: γραμμή τάσης τελευταίων 12 μηνών.
+    spark_period = (toolkit.config.get('ckanext.data_gov_gr.home.reuse_stats.spark.period') or 'month').strip()
+    spark_date = (toolkit.config.get('ckanext.data_gov_gr.home.reuse_stats.spark.date') or 'last12').strip()
+
+    cache_key = (
+        f'home_reuse_stats|lang={lang_code}'
+        f'|matomo_api_url={matomo_api_url}'
+        f'|matomo_site_id={matomo_site_id}'
+        f'|matomo_period={matomo_period}'
+        f'|visits_date={matomo_date_visitors}'
+        f'|downloads_date={matomo_date_downloads}'
+        f'|spark_period={spark_period}'
+        f'|spark_date={spark_date}'
+        f'|start_date={matomo_start_date}'
+    )
+    redis_key = None
+    if redis_enabled and (toolkit.config.get('ckan.redis.url') or '').strip():
+        site_id = (toolkit.config.get('ckan.site_id') or 'default').strip()
+        redis_key = redis_key_override or f'ckan:{site_id}:ckanext:data_gov_gr:home_reuse_stats:{lang_code}'
+
+    try:
+        if spark_period == 'month' and spark_date.startswith('last') and spark_date[4:].isdigit():
+            months = int(spark_date[4:])
+            if months > 0:
+                end_month = date_cls(datetime.utcnow().year, datetime.utcnow().month, 1)
+
+                start_month = _add_months(end_month, -(months - 1))
+                spark_range = {
+                    'start': f'{start_month:%m/%y}',
+                    'end': f'{end_month:%m/%y}',
+                }
+                spark_range_display = f'{start_month:%m/%Y} – {end_month:%m/%Y}'
+        elif spark_period == 'day' and spark_date.startswith('last') and spark_date[4:].isdigit():
+            days = int(spark_date[4:])
+            if days > 0:
+                end_day = datetime.utcnow().date()
+                start_day = end_day - timedelta(days=days - 1)
+                spark_range = {
+                    'start': f'{start_day:%d/%m/%y}',
+                    'end': f'{end_day:%d/%m/%y}',
+                }
+                spark_range_display = f'{start_day:%d/%m/%Y} – {end_day:%d/%m/%Y}'
+    except Exception:
+        spark_range_display = None
+        spark_range = None
+
+    def _compute_result(*, include_matomo: bool = True) -> dict:
+        apps_total = _home_reuse_compute_apps_total()
+        apps_spark = _home_reuse_compute_apps_spark()
+
+        visitors_total = None
+        downloads_total = None
+        visitors_label = None
+        downloads_label = None
+        visitors_spark = None
+        downloads_spark = None
+
+        if include_matomo and matomo_enabled:
+            try:
+                from ckanext.matomo.matomo_api import MatomoAPI  # type: ignore
+            except Exception:
+                MatomoAPI = None  # type: ignore
+                log.debug('Δεν ήταν δυνατή η φόρτωση του MatomoAPI client.', exc_info=True)
+
+            if MatomoAPI:
+                api = MatomoAPI(matomo_api_url, matomo_site_id, matomo_token)
+
+                try:
+                    def _get_total_visits(period: str, date: str):
+                        try:
+                            summary_payload = api.get({
+                                'method': 'VisitsSummary.get',
+                                'period': period,
+                                'date': date,
+                            })
+                            value = _home_reuse_extract_metric(summary_payload, key='nb_visits', sum_time_series=False)
+                            if value is not None:
+                                return value
+                        except Exception:
+                            log.debug('Αποτυχία Matomo VisitsSummary.get (total).', exc_info=True)
+
+                        return None
+
+                    visitors_total = _get_total_visits(matomo_period, matomo_date_visitors)
+                    if visitors_total is not None:
+                        visitors_label = 'Total visits'
+                except Exception:
+                    log.warning(
+                        "Matomo visitors metric failed (url=%s site_id=%s period=%s date=%s).",
+                        matomo_api_url,
+                        matomo_site_id,
+                        matomo_period,
+                        matomo_date_visitors,
+                    )
+                    visitors_total = None
+
+                try:
+                    spark_visitors_payload = api.get({
+                        'method': 'VisitsSummary.get',
+                        'period': spark_period,
+                        'date': spark_date,
+                    })
+                    visitors_points = _home_reuse_extract_timeseries(spark_visitors_payload, key='nb_visits')
+                    visitors_spark = _home_reuse_spark_payload('Visits', visitors_points)
+                except Exception:
+                    visitors_spark = None
+                    log.debug('Αποτυχία Matomo VisitsSummary.get (spark).', exc_info=True)
+
+                try:
+                    downloads = api.get({
+                        'method': 'Actions.getDownloads',
+                        'period': matomo_period,
+                        'date': matomo_date_downloads,
+                        'flat': 1,
+                    })
+
+                    if isinstance(downloads, list):
+                        downloads_total = _home_reuse_sum_download_hits(downloads)
+                    elif isinstance(downloads, dict):
+                        downloads_total = sum(
+                            _home_reuse_sum_download_hits(v) for v in downloads.values() if isinstance(v, list)
+                        )
+
+                    if downloads_total is not None:
+                        downloads_label = 'Total downloads'
+                except Exception:
+                    log.warning(
+                        "Matomo downloads metric failed (url=%s site_id=%s period=%s date=%s).",
+                        matomo_api_url,
+                        matomo_site_id,
+                        matomo_period,
+                        matomo_date_downloads,
+                    )
+                    downloads_total = None
+
+                try:
+                    spark_downloads_payload = api.get({
+                        'method': 'Actions.getDownloads',
+                        'period': spark_period,
+                        'date': spark_date,
+                        'flat': 1,
+                    })
+                    downloads_points = _home_reuse_extract_download_timeseries(spark_downloads_payload)
+                    downloads_spark = _home_reuse_spark_payload('Downloads', downloads_points)
+                except Exception:
+                    downloads_spark = None
+                    log.debug('Αποτυχία Matomo Actions.getDownloads (spark).', exc_info=True)
+
+        return {
+            'fetched_at': int(time.time()),
+            'visitors_total': visitors_total,
+            'downloads_total': downloads_total,
+            'apps_total': apps_total,
+            'apps_display': _format_counter(apps_total),
+            'visitors_label': visitors_label,
+            'downloads_label': downloads_label,
+            'visitors_spark': visitors_spark,
+            'downloads_spark': downloads_spark,
+            'apps_spark': apps_spark,
+            'spark_range_display': spark_range_display,
+            'spark_range': spark_range,
+        }
+
+    def _store_redis(redis_conn, key: str, result: dict) -> None:
+        payload = {
+            'cache_key': cache_key,
+            'ts': time.time(),
+            'data': result,
+        }
+        raw_value = json.dumps(payload, ensure_ascii=False)
+        if redis_max_stale_seconds and redis_max_stale_seconds > 0:
+            redis_conn.setex(key, int(redis_max_stale_seconds), raw_value)
+        else:
+            redis_conn.set(key, raw_value)
+
+    def _submit_background_refresh(reason: str) -> None:
+        """
+        Ανανεώνει στο παρασκήνιο τη Redis cache (χωρίς να μπλοκάρουμε την απόκριση).
+
+        Χρησιμοποιεί:
+        - Φραγή ανά διεργασία (cache_key) για να μη γεμίζουμε τον executor
+        - Redis lock για να μη κάνουν πολλές διεργασίες refresh ταυτόχρονα
+        """
+        if not (redis_key and matomo_enabled and async_refresh_enabled):
+            return
+
+        with _HOME_REUSE_STATS_IN_FLIGHT_LOCK:
+            if cache_key in _HOME_REUSE_STATS_IN_FLIGHT:
+                return
+            _HOME_REUSE_STATS_IN_FLIGHT.add(cache_key)
+
+        def _run():
+            lock_acquired = False
+            lock_key = f'{redis_key}:refresh_lock'
+            lock_value = f'{os.getpid()}:{threading.get_ident()}:{time.time()}'
+            try:
+                from ckan.lib.redis import connect_to_redis  # type: ignore
+                redis_conn_bg = connect_to_redis()
+                lock_acquired = bool(redis_conn_bg.set(lock_key, lock_value, nx=True, ex=300))
+                if not lock_acquired:
+                    return
+                fresh = _compute_result(include_matomo=True)
+                _store_redis(redis_conn_bg, redis_key, fresh)
+            except Exception:
+                log.debug('Αποτυχία background refresh reuse stats (%s).', reason, exc_info=True)
+            finally:
+                try:
+                    model.Session.remove()
+                except Exception:
+                    pass
+                if lock_acquired:
+                    try:
+                        existing = redis_conn_bg.get(lock_key)
+                        if isinstance(existing, (bytes, bytearray)):
+                            existing = existing.decode('utf-8', errors='replace')
+                        if existing == lock_value:
+                            redis_conn_bg.delete(lock_key)
+                    except Exception:
+                        pass
+                with _HOME_REUSE_STATS_IN_FLIGHT_LOCK:
+                    _HOME_REUSE_STATS_IN_FLIGHT.discard(cache_key)
+
+        try:
+            _HOME_REUSE_STATS_EXECUTOR.submit(_run)
+        except Exception:
+            # Αν αποτύχει το submit, καθαρίζουμε το in-flight guard ώστε να μη μείνει "κολλημένο".
+            log.debug('Αποτυχία υποβολής εργασίας ανανέωσης reuse stats στο παρασκήνιο.', exc_info=True)
+            with _HOME_REUSE_STATS_IN_FLIGHT_LOCK:
+                _HOME_REUSE_STATS_IN_FLIGHT.discard(cache_key)
+
+    # Αν υπάρχει cache στο Redis και δεν είναι υπερβολικά παλιά, τη χρησιμοποιούμε.
+    if redis_key:
+        try:
+            from ckan.lib.redis import connect_to_redis  # type: ignore
+            redis_conn = connect_to_redis()
+            raw = redis_conn.get(redis_key)
+            if raw:
+                if isinstance(raw, (bytes, bytearray)):
+                    raw = raw.decode('utf-8', errors='replace')
+                payload = json.loads(raw)
+                if (
+                    isinstance(payload, dict)
+                    and payload.get('cache_key') == cache_key
+                    and isinstance(payload.get('ts'), (int, float))
+                    and isinstance(payload.get('data'), dict)
+                ):
+                    ts = float(payload.get('ts'))
+                    age = now_ts - ts
+                    if redis_max_stale_seconds <= 0 or age <= float(redis_max_stale_seconds):
+                        if redis_refresh_after_seconds and age >= float(redis_refresh_after_seconds):
+                            _submit_background_refresh('stale')
+                        return payload.get('data')
+        except Exception:
+            log.debug('Αποτυχία ανάγνωσης cache reuse stats από Redis (key=%r).', redis_key, exc_info=True)
+
+    # Cache miss: υπολογίζουμε σύγχρονα (δηλ. γίνεται κλήση στο Matomo όταν είναι ρυθμισμένο).
+    result = _compute_result(include_matomo=True)
+    if redis_key:
+        try:
+            from ckan.lib.redis import connect_to_redis  # type: ignore
+            redis_conn = connect_to_redis()
+            _store_redis(redis_conn, redis_key, result)
+        except Exception:
+            log.debug('Αποτυχία εγγραφής reuse stats στο Redis (key=%r).', redis_key, exc_info=True)
+    return result
+
+
 def get_home_portal_numbers():
     """
     Return EU-style counters for the home page.
@@ -1350,7 +2167,7 @@ def get_home_portal_numbers():
     Controlled by:
       - ckanext.data_gov_gr.home.portal_numbers.enabled
     """
-    if not get_config_as_bool('ckanext.data_gov_gr.home.portal_numbers.enabled', False):
+    if not get_config_as_bool('ckanext.data_gov_gr.home.portal_numbers.enabled', True):
         return []
 
     def _count_packages(fq: str) -> int:
@@ -1375,8 +2192,9 @@ def get_home_portal_numbers():
     except Exception:
         orgs_count = 0
 
-    # Count only approved showcases (what the public sees), even for admins.
-    showcases_count = _count_packages('+dataset_type:showcase +extras_approval_status:approved')
+    # Εφαρμογές: μετράμε μόνο τις εγκεκριμένες (approval_status=approved).
+    # Το κάνουμε από τη βάση (όχι Solr) για να μην εμφανίζεται 0 όταν υπάρχει θέμα indexing/field naming.
+    showcases_count = _home_reuse_compute_apps_total()
 
     try:
         blog_posts = toolkit.get_action('ckanext_pages_list')(
@@ -1395,7 +2213,7 @@ def get_home_portal_numbers():
         },
         {
             'value': _format_counter(apis_count),
-            'label': _('APIs'),
+            'label': _('Data Services'),
             'link': _safe_url_for('data-service.search') or f'/{lang()}/data-service',
         },
         {
@@ -1405,7 +2223,7 @@ def get_home_portal_numbers():
         },
         {
             'value': _format_counter(orgs_count),
-            'label': _('Φορείς'),
+            'label': _('Οργανισμοί'),
             'link': _safe_url_for('organization.index') or f'/{lang()}/organization',
         },
         {
@@ -1419,6 +2237,121 @@ def get_home_portal_numbers():
             'link': _safe_url_for('pages.blog_index') or f'/{lang()}/blog',
         },
     ]
+
+
+def _organization_index_facet_counts(org_ids, dataset_type):
+    counts = {org_id: 0 for org_id in org_ids}
+    if not org_ids:
+        return counts
+
+    owner_filter = ' OR '.join([f'"{org_id}"' for org_id in org_ids])
+    fq = (
+        f'+dataset_type:{dataset_type} '
+        '+state:active +private:false '
+        f'+owner_org:({owner_filter})'
+    )
+
+    try:
+        response = toolkit.get_action('package_search')(
+            {'ignore_auth': True},
+            {
+                'q': '*:*',
+                'fq': fq,
+                'rows': 0,
+                'facet': True,
+                'facet.field': ['owner_org'],
+                'facet.limit': -1,
+                'facet.mincount': 1,
+            },
+        )
+        facet_items = (((response.get('search_facets') or {}).get('owner_org') or {}).get('items') or [])
+        for item in facet_items:
+            org_id = item.get('name')
+            if org_id in counts:
+                counts[org_id] = int(item.get('count') or 0)
+    except Exception as e:
+        log.error('Error loading %s counts for organization index: %s', dataset_type, e)
+
+    return counts
+
+
+def _organization_index_apps_counts(org_ids):
+    counts = {org_id: 0 for org_id in org_ids}
+    if not org_ids or ShowcasePackageAssociation is None:
+        return counts
+
+    try:
+        dataset_pkg = aliased(model.Package)
+        showcase_pkg = aliased(model.Package)
+        showcase_extra = aliased(model.PackageExtra)
+
+        query = (
+            model.Session.query(
+                dataset_pkg.owner_org.label('org_id'),
+                func.count(func.distinct(showcase_pkg.id)).label('apps_count'),
+            )
+            .join(
+                ShowcasePackageAssociation,
+                ShowcasePackageAssociation.package_id == dataset_pkg.id,
+            )
+            .join(
+                showcase_pkg,
+                showcase_pkg.id == ShowcasePackageAssociation.showcase_id,
+            )
+            .join(
+                showcase_extra,
+                and_(
+                    showcase_extra.package_id == showcase_pkg.id,
+                    showcase_extra.key == 'approval_status',
+                    func.lower(func.trim(showcase_extra.value)) == 'approved',
+                ),
+            )
+            .filter(dataset_pkg.owner_org.in_(org_ids))
+            .filter(dataset_pkg.type == 'dataset')
+            .filter(dataset_pkg.state == 'active')
+            .filter(or_(dataset_pkg.private.is_(False), dataset_pkg.private.is_(None)))
+            .filter(showcase_pkg.type == 'showcase')
+            .filter(showcase_pkg.state == 'active')
+            .filter(or_(showcase_pkg.private.is_(False), showcase_pkg.private.is_(None)))
+            .group_by(dataset_pkg.owner_org)
+        )
+
+        for org_id, apps_count in query.all():
+            if org_id in counts:
+                counts[org_id] = int(apps_count or 0)
+    except Exception as e:
+        log.error('Error loading apps counts for organization index: %s', e)
+
+    return counts
+
+
+def organization_index_stats(org_ids):
+    normalized_org_ids = []
+    seen = set()
+    for org_id in org_ids or []:
+        normalized = str(org_id or '').strip()
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        normalized_org_ids.append(normalized)
+
+    stats = {
+        org_id: {'datasets': 0, 'apis': 0, 'apps': 0}
+        for org_id in normalized_org_ids
+    }
+    if not normalized_org_ids:
+        return stats
+
+    datasets_counts = _organization_index_facet_counts(normalized_org_ids, 'dataset')
+    apis_counts = _organization_index_facet_counts(normalized_org_ids, 'data-service')
+    apps_counts = _organization_index_apps_counts(normalized_org_ids)
+
+    for org_id in normalized_org_ids:
+        stats[org_id]['datasets'] = datasets_counts.get(org_id, 0)
+        stats[org_id]['apis'] = apis_counts.get(org_id, 0)
+        stats[org_id]['apps'] = apps_counts.get(org_id, 0)
+
+    return stats
 
 
 def get_stat_data(stat_id, raw_data=None, variant='full'):
@@ -1725,6 +2658,9 @@ def get_helpers():
         "get_organizations_stats": get_organizations_stats,
         'get_access_rights_type': get_access_rights_type,
         'get_dataset_legislation_default': get_dataset_legislation_default,
+        'get_resource_license_default': get_resource_license_default,
+        'get_dataset_spatial_coverage_default': get_dataset_spatial_coverage_default,
+        'get_dataset_temporal_coverage_default': get_dataset_temporal_coverage_default,
         'data_gov_gr_get_organizations': data_gov_gr_get_organizations,
         'get_data_service_guides_url': get_data_service_guides_url,
         'get_config_as_bool': get_config_as_bool,
@@ -1738,7 +2674,10 @@ def get_helpers():
         'get_home_featured_dataset_views': get_home_featured_dataset_views,
         'get_available_showcases': get_available_showcases,
         'get_home_news_items': get_home_news_items,
+        'get_home_reuse_stats': get_home_reuse_stats,
         'get_home_portal_numbers': get_home_portal_numbers,
+        'get_stats_url': get_stats_url,
+        'organization_index_stats': organization_index_stats,
         'has_gitbook_pdf_export': has_gitbook_pdf_export,
         'humanize_entity_type': humanize_entity_type,
         'should_hide_mqa_tab': should_hide_mqa_tab,

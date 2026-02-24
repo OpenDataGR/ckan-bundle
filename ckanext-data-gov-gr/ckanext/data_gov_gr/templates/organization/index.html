@@ -1,0 +1,27 @@
+{% ckan_extends %}
+
+{% block organizations_list %}
+  {% if page.items or request.args %}
+    {% if page.items %}
+      {% set ns = namespace(org_ids=[]) %}
+      {% for organization in page.items %}
+        {% if organization.id %}
+          {% set ns.org_ids = ns.org_ids + [organization.id] %}
+        {% endif %}
+      {% endfor %}
+      {% set organization_index_stats = h.organization_index_stats(ns.org_ids) %}
+      <div class="organizations-index">
+        {% snippet "data_gov_gr/organization/snippets/organization_list.html",
+          organizations=page.items,
+          organization_index_stats=organization_index_stats %}
+      </div>
+    {% endif %}
+  {% else %}
+    <p class="empty">
+      {{ _('There are currently no organizations for this site') }}.
+      {% if h.check_access('organization_create') %}
+        {% link_for _('How about creating one?'), named_route=group_type+'.new' %}.
+      {% endif %}
+    </p>
+  {% endif %}
+{% endblock %}

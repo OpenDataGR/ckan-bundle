@@ -23,7 +23,7 @@ msgstr ""
 #: ckanext/data_gov_gr/templates/ckanext/stats/index.html:10
 #: ckanext/data_gov_gr/templates/ckanext/stats/datasets_by_publisher_type.html:6
 msgid "Datasets Per Publisher Type"
-msgstr "Σύνολα δεδομένων ανά τύπο φορέα"
+msgstr "Σύνολα δεδομένων ανά τύπο οργανισμού"
 
 #: ckanext/data_gov_gr/templates/ckanext/stats/index.html:12
 #: ckanext/data_gov_gr/templates/ckanext/stats/datasets_by_organization.html:6
@@ -51,11 +51,6 @@ msgstr "Πλήθος"
 #: ckanext/data_gov_gr/templates/ckanext/stats/datasets_vs_services.html:34
 msgid "Datasets"
 msgstr "Σύνολα δεδομένων"
-
-#: ckanext/data_gov_gr/templates/ckanext/stats/datasets_vs_services.html:38
-#: ckanext/data_gov_gr/i18n/el/LC_MESSAGES/ckanext-data_gov_gr.po:518
-msgid "Data Services"
-msgstr "Υπηρεσίες δεδομένων"
 
 #: JS toggle labels used via data attributes
 msgid "Switch to Chart"
@@ -832,3 +827,199 @@ msgstr "Πηγαίος κώδικας"
 
 msgid "Terms of Use"
 msgstr "Όροι χρήσης"
+
+# Home page (data_gov_gr/templates/home/index.html)
+msgid "Data & Services Portal"
+msgstr "Πύλη Δεδομένων & Υπηρεσιών"
+
+msgid "Discover, use and improve public sector data!"
+msgstr "Ανακαλύψτε, Χρησιμοποιήστε και Βελτιώστε τα δεδομένα του δημοσίου!"
+
+msgid "Explore and access open data."
+msgstr "Εξερευνήστε και αποκτήστε πρόσβαση σε ανοικτά δεδομένα."
+
+msgid "Explore and access data."
+msgstr "Εξερευνήστε και αποκτήστε πρόσβαση σε δεδομένα."
+
+msgid "Discover APIs and data services."
+msgstr "Ανακαλύψτε APIs και υπηρεσίες δεδομένων."
+
+msgid "Platform statistics"
+msgstr "Στατιστικά πλατφόρμας"
+
+msgid "Thematic categories"
+msgstr "Θεματικές Κατηγορίες"
+
+msgid "Agriculture, fisheries, forestry and food"
+msgstr "Γεωργία, αλιεία, δασοκομία και τρόφιμα"
+
+msgid "Economy and finance"
+msgstr "Οικονομία και χρηματοοικονομικά θέματα"
+
+msgid "Education, culture and sport"
+msgstr "Παιδεία, πολιτισμός και αθλητισμός"
+
+msgid "Energy"
+msgstr "Ενέργεια"
+
+msgid "Environment"
+msgstr "Περιβάλλον"
+
+msgid "Government and public sector"
+msgstr "Κυβέρνηση και δημόσιος τομέας"
+
+msgid "Health"
+msgstr "Υγεία"
+
+msgid "International issues"
+msgstr "Διεθνή θέματα"
+
+msgid "Justice and public safety"
+msgstr "Δικαιοσύνη και δημόσια ασφάλεια"
+
+msgid "Regions and cities"
+msgstr "Περιφέρειες και πόλεις"
+
+msgid "Population and society"
+msgstr "Πληθυσμός και κοινωνία"
+
+msgid "Science and technology"
+msgstr "Επιστήμη και τεχνολογία"
+
+msgid "Transport"
+msgstr "Μεταφορές"
+
+msgid "Artificial Intelligence"
+msgstr "Τεχνητή Νοημοσύνη"
+
+msgid "coming soon..."
+msgstr "coming soon..."
+
+msgid "Selected applications"
+msgstr "Επιλεγμένες εφαρμογές"
+
+msgid "There are no selected applications yet."
+msgstr "Δεν υπάρχουν ακόμη επιλεγμένες εφαρμογές."
+
+msgid "All applications"
+msgstr "Όλες οι εφαρμογές"
+
+msgid "Reuse Statistics"
+msgstr "Στατιστικά Επανάχρησης"
+
+msgid "Total visits"
+msgstr "Συνολικές επισκέψεις"
+
+msgid "Total visits (last 30 days)"
+msgstr "Συνολικές επισκέψεις (τελευταίες 30 ημέρες)"
+
+msgid "Total visits (last 12 months)"
+msgstr "Συνολικές επισκέψεις (τελευταίοι 12 μήνες)"
+
+msgid "Total visits (all time)"
+msgstr "Συνολικές επισκέψεις (all time)"
+
+msgid "Total downloads"
+msgstr "Αριθμός Λήψεων"
+
+msgid "Total downloads (last 30 days)"
+msgstr "Αριθμός λήψεων (τελευταίες 30 ημέρες)"
+
+msgid "Total downloads (last 12 months)"
+msgstr "Αριθμός λήψεων (τελευταίοι 12 μήνες)"
+
+msgid "Total downloads (all time)"
+msgstr "Αριθμός λήψεων (all time)"
+
+msgid "Applications"
+msgstr "Εφαρμογές"
+
+msgid "View statistics"
+msgstr "Δείτε τα στατιστικά"
+
+msgid "The data.gov.gr mission"
+msgstr "Η αποστολή data.gov.gr"
+
+msgid "Simplify access to public data"
+msgstr "Απλοποιήστε την πρόσβαση στα δημόσια δεδομένα"
+
+msgid "Opening and sharing public data strengthens transparency, improves public action and enables new services."
+msgstr "Το άνοιγμα και η κυκλοφορία δημόσιων δεδομένων ενισχύει τη διαφάνεια, βελτιώνει τη δημόσια δράση και επιτρέπει τη δημιουργία νέων υπηρεσιών."
+
+msgid "data.gov.gr ensures the availability of this information by organizing its dissemination and reuse."
+msgstr "Το data.gov.gr διασφαλίζει τη διαθεσιμότητα αυτών των πληροφοριών με την οργάνωση της διάδοσης και της εκμετάλλευσής της."
+
+msgid "Our goals"
+msgstr "Οι στόχοι μας"
+
+msgid "Facilitate data discoverability"
+msgstr "Διευκολύνετε τη δυνατότητα ανακάλυψης των δεδομένων"
+
+msgid "Improve data quality"
+msgstr "Βελτιώστε την ποιότητα των δεδομένων"
+
+msgid "Encourage data reuse"
+msgstr "Ενθαρρύνετε την επαναχρησιμοποίηση των δεδομένων"
+
+msgid "Learn more about data.gov.gr"
+msgstr "Μάθετε περισσότερα για το data.gov.gr"
+
+msgid "Featured datasets"
+msgstr "Επιλεγμένα σύνολα δεδομένων"
+
+msgid "Open view: {0}"
+msgstr "Άνοιγμα προβολής: {0}"
+
+msgid "News & Announcements"
+msgstr "Νέα & Ανακοινώσεις"
+
+msgid "See all news"
+msgstr "Δείτε όλα τα νέα"
+
+msgid "There are no announcements yet."
+msgstr "Δεν υπάρχουν ακόμη ανακοινώσεις."
+
+msgid "Start creating with datasets"
+msgstr "Ξεκινήστε να δημιουργείτε με τα σύνολα δεδομένων"
+
+msgid "Access comprehensive user guides and learn how to publish and use datasets."
+msgstr "Αποκτήστε πρόσβαση σε εκτενείς οδηγούς χρήσης και μάθετε πώς να δημοσιεύετε και να χρησιμοποιείτε τα σύνολα δεδομένων σε εφαρμογές και αναλύσεις."
+
+msgid "Getting started"
+msgstr "Ξεκινώντας"
+
+msgid "Basic guide to using the platform"
+msgstr "Βασικός οδηγός χρήσης της πλατφόρμας"
+
+msgid "API user guide"
+msgstr "Οδηγός χρήσης του API"
+
+msgid "Data publishing"
+msgstr "Δημοσίευση Δεδομένων"
+
+msgid "How to publish your data"
+msgstr "Πώς να δημοσιεύσετε τα δεδομένα σας"
+
+msgid "Quality"
+msgstr "Ποιότητα"
+
+msgid "Data and metadata quality guides"
+msgstr "Οδηγοί ποιότητας δεδομένων και μεταδεδομένων"
+
+msgid "Submit an application for recognition under the Data Governance Act"
+msgstr "Υποβάλετε αίτηση για αναγνώριση σύμφωνα με τον Κανονισμό Διακυβέρνησης Δεδομένων"
+
+msgid "Data Intermediation Service"
+msgstr "Υπηρεσία Διαμεσολάβησης Δεδομένων"
+
+msgid "Apply for recognition as a data intermediation services provider."
+msgstr "Υποβάλετε αίτηση για αναγνώριση ως πάροχος υπηρεσιών διαμεσολάβησης δεδομένων."
+
+msgid "Submit application"
+msgstr "Υποβολή αίτησης"
+
+msgid "Data Altruism Organization"
+msgstr "Οργάνωση Αλτρουισμού Δεδομένων"
+
+msgid "Apply for recognition as a data altruism organization."
+msgstr "Υποβάλετε αίτηση για αναγνώριση ως οργάνωση αλτρουισμού δεδομένων."

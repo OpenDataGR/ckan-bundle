@@ -15,12 +15,20 @@
         {# Set the field default value before rendering but only if
         it doesn't already exist in data which would mean the form
         has been submitted. #}
-        {% if field.default_jinja2 %}
-          {% do data.__setitem__(
-            field.field_name,
-            h.scheming_render_from_string(field.default_jinja2)) %}
-        {% elif field.default %}
-          {% do data.__setitem__(field.field_name, field.default) %}
+        {% if field.field_name == 'license' %}
+          {% set default_license = h.get_resource_license_default(package_id=pkg_name) %}
+          {% if default_license %}
+            {% do data.__setitem__(field.field_name, default_license) %}
+          {% endif %}
+        {% endif %}
+        {% if field.field_name not in data %}
+          {% if field.default_jinja2 %}
+            {% do data.__setitem__(
+              field.field_name,
+              h.scheming_render_from_string(field.default_jinja2)) %}
+          {% elif field.default %}
+            {% do data.__setitem__(field.field_name, field.default) %}
+          {% endif %}
         {% endif %}
       {% endif -%}
       {# We pass pkg_name as the package_id because that's the only

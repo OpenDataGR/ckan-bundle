@@ -48,6 +48,7 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IConfigDeclaration)
     plugins.implements(plugins.ITemplateHelpers)
     plugins.implements(plugins.IPackageController, inherit=True)
+    plugins.implements(plugins.IResourceController, inherit=True)
     plugins.implements(plugins.ITranslation)
     plugins.implements(plugins.IActions)
     plugins.implements(plugins.IAuthFunctions)
@@ -91,6 +92,9 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         - ``ckanext.data_gov_gr.showcase.disclaimer`` (apps/showcases disclaimer)
         - ``ckanext.data_gov_gr.dataset.legislation.open`` (default applicable legislation for open datasets)
         - ``ckanext.data_gov_gr.dataset.legislation.protected`` (default applicable legislation for protected datasets)
+        - ``ckanext.data_gov_gr.resource.license.default`` (default license URI for new resources on open datasets)
+        - ``ckanext.data_gov_gr.dataset.spatial_coverage.default.*`` (προεπιλεγμένη χωρική κάλυψη για νέα datasets - παλιό/advanced σχήμα)
+        - ``ckanext.data_gov_gr.dataset.spatial_coverage.default`` (απλή επιλογή προεπιλεγμένης χωρικής κάλυψης)
         - ``guides_base_url`` (external guides base URL)
         - ``ckanext.data_gov_gr.contact.gitbook_embed_items`` (contact page GitBook dropdown items as JSON)
         which are independent from their fallback values in the ini file.
@@ -109,7 +113,17 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
             'ckanext.data_gov_gr.showcase.disclaimer': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.dataset.legislation.open': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.dataset.legislation.protected': [ignore_missing, unicode_safe],
+            'ckanext.data_gov_gr.resource.license.default': [ignore_missing, unicode_safe],
+            'ckanext.data_gov_gr.dataset.spatial_coverage.default': [ignore_missing, unicode_safe],
+            'ckanext.data_gov_gr.dataset.spatial_coverage.default.geonames_id': [ignore_missing, unicode_safe],
+            'ckanext.data_gov_gr.dataset.spatial_coverage.default.text': [ignore_missing, unicode_safe],
+            'ckanext.data_gov_gr.dataset.spatial_coverage.default.lng': [ignore_missing, unicode_safe],
+            'ckanext.data_gov_gr.dataset.spatial_coverage.default.lat': [ignore_missing, unicode_safe],
             'guides_base_url': [ignore_missing, unicode_safe],
+            'ckanext.data_gov_gr.getting_started.url': [ignore_missing, unicode_safe],
+            'ckanext.data_gov_gr.api_guide.url': [ignore_missing, unicode_safe],
+            'ckanext.data_gov_gr.data_publishing_guide.url': [ignore_missing, unicode_safe],
+            'ckanext.data_gov_gr.quality_guide.url': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.contact.gitbook_embed_items': [ignore_missing, unicode_safe],
             # Νέα, JSON παραμετρικές επιλογές για dropdown συνόλων δεδομένων
             'ckanext.data_gov_gr.menu.dataset.items': [ignore_missing, unicode_safe],
@@ -120,6 +134,7 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
             'ckanext.data_gov_gr.home.stats.item4': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.home.featured_dataset_views.ids': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.home.portal_numbers.enabled': [ignore_missing, boolean_validator],
+            'ckanext.data_gov_gr.home.reuse_stats.enabled': [ignore_missing, boolean_validator],
             'ckanext.data_gov_gr.home.showcases.ids': [ignore_missing, unicode_safe],
         })
 
@@ -141,6 +156,8 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         config_ui = root.config_ui
         contact = root.contact
         data_service = root.data_service
+        resource = root.resource
+        dataset = root.dataset
 
         declaration.declare(root.powerbi_embed_url, "").set_description(
             "Power BI embed URL (used on /stats/powerbi and home previews)."
@@ -157,11 +174,41 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         declaration.declare(root.dataset.legislation.protected, "").set_description(
             "Default applicable legislation URL for protected datasets."
         )
+        declaration.declare(resource.license.default, "").set_description(
+            "Προεπιλεγμένο URI άδειας για νέους πόρους σε ανοικτά datasets (access_rights που καταλήγει σε /PUBLIC)."
+        )
+        declaration.declare(dataset.spatial_coverage.default, "").set_description(
+            "Προεπιλεγμένη χωρική κάλυψη για νέα datasets. Τιμές: 'greece' ή κενό (απενεργοποίηση)."
+        )
+        declaration.declare(dataset.spatial_coverage.default.geonames_id, "").set_description(
+            "Προεπιλεγμένο GeoNames ID για spatial_coverage (π.χ. 390903 για Ελλάδα). Κενό = απενεργοποίηση."
+        )
+        declaration.declare(dataset.spatial_coverage.default.text, "").set_description(
+            "Προεπιλεγμένη ετικέτα (label) για spatial_coverage (π.χ. Greece)."
+        )
+        declaration.declare(dataset.spatial_coverage.default.lng, "").set_description(
+            "Προεπιλεγμένο longitude (lng) για centroid/geom στο spatial_coverage (π.χ. 22)."
+        )
+        declaration.declare(dataset.spatial_coverage.default.lat, "").set_description(
+            "Προεπιλεγμένο latitude (lat) για centroid/geom στο spatial_coverage (π.χ. 39)."
+        )
         declaration.declare(root.menu.dataset.items, "").set_description(
             "JSON list for the dataset dropdown menu items."
         )
         declaration.declare(key.guides_base_url, "").set_description(
             "External guides base URL (e.g. GitBook /guides)."
+        )
+        declaration.declare(root.getting_started.url, "https://data-gov-gr.gitbook.io/guides/eisagogika").set_description(
+            "Home page: getting started guide URL."
+        )
+        declaration.declare(root.api_guide.url, "https://data-gov-gr.gitbook.io/guides/texnika-egxeiridia").set_description(
+            "Home page: API documentation guide URL."
+        )
+        declaration.declare(root.data_publishing_guide.url, "https://data-gov-gr.gitbook.io/guides/diaxeirisi-dedomenon/synola-dedomenon/dimioyrgia-synoloy-dedomenon").set_description(
+            "Home page: data publishing guide URL."
+        )
+        declaration.declare(root.quality_guide.url, "https://data-gov-gr.gitbook.io/guides/xrisi-dedomenon/synola-dedomenon/aksiologisi-poiotitas-metadedomenon").set_description(
+            "Home page: data quality guide URL."
         )
         declaration.declare(contact.gitbook_embed_items, json.dumps([
             {
@@ -173,7 +220,7 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
                 "url": "https://data-gov-gr.gitbook.io/guides/syxnes-erotiseis/genika",
             },
             {
-                "title": "Φορείς Δημόσιου Τομέα",
+                "title": "Οργανισμοί Δημόσιου Τομέα",
                 "url": "https://data-gov-gr.gitbook.io/guides/syxnes-erotiseis/foreis-dimosioy-tomea",
             },
             {
@@ -193,8 +240,11 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         )
 
         declaration.annotate("Home page configuration")
-        declaration.declare(home.portal_numbers.enabled, "no").set_description(
+        declaration.declare(home.portal_numbers.enabled, "yes").set_description(
             "Show the 'Portal in numbers' counters on the home page."
+        )
+        declaration.declare(home.reuse_stats.enabled, "yes").set_description(
+            "Show the 'Reuse statistics' section (Matomo visitors/downloads + apps count) on the home page."
         )
         declaration.declare(home.stats.item1, "").set_description(
             "Home stats tile 1 (stats id)."
@@ -212,7 +262,7 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
             "Selected dataset resource view IDs (one per line, up to 6) for the home page."
         )
         declaration.declare(home.showcases.ids, "").set_description(
-            "Selected showcases IDs (one per line, up to 3) for the home page."
+            "Selected showcases IDs (one per line, up to 4) for the home page."
         )
 
         declaration.annotate("Dataset / data-service view")
@@ -342,6 +392,68 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
                 pass  # Αγνοούμε τυχόν σφάλματα για να μην σπάσει το indexing
 
         return pkg_dict
+
+    # IResourceController
+
+    def _should_skip_size_default(self, resource_dict: Dict[str, Any]) -> bool:
+        """
+        Επιστρέφει True όταν *δεν* πρέπει να μπει default μέγεθος.
+
+        Στόχος: να μην «πατήσουμε» το πραγματικό μέγεθος κατά την ανάρτηση αρχείου
+        (upload), όπου το CKAN συμπληρώνει αυτόματα το size.
+        """
+        if resource_dict.get('upload'):
+            return True
+        url_type = resource_dict.get('url_type')
+        if isinstance(url_type, str) and url_type.strip().lower() == 'upload':
+            return True
+        return False
+
+    def _ensure_resource_size(self, resource_dict: Dict[str, Any]) -> None:
+        """
+        Αν ο πόρος δεν έχει size, τότε θέτει size=1.
+
+        Χρησιμοποιείται μόνο για πόρους χωρίς ανάρτηση αρχείου, όπου διαφορετικά
+        το size μένει κενό/None.
+        """
+        if self._should_skip_size_default(resource_dict):
+            return
+
+        size = resource_dict.get('size', None)
+        if size in (None, '', [], {}):
+            resource_dict['size'] = 1
+            return
+
+        try:
+            # Σε μερικές ροές το size μπορεί να έρθει ως string.
+            size_int = int(size)
+        except Exception:
+            resource_dict['size'] = 1
+            return
+
+        if size_int <= 0:
+            resource_dict['size'] = 1
+
+    def before_resource_create(self, context: Dict[str, Any], resource_dict: Dict[str, Any]) -> None:
+        self._ensure_resource_size(resource_dict)
+
+    def before_resource_update(
+        self,
+        context: Dict[str, Any],
+        current: Dict[str, Any],
+        resource_dict: Dict[str, Any],
+    ) -> None:
+        # Στο resource_update, αν λείπει το `size`, κινδυνεύει να «χαθεί» η
+        # υπάρχουσα τιμή, επειδή το action αντικαθιστά ολόκληρο το resource dict.
+        # Άρα:
+        # - αν υπάρχει ήδη size, το διατηρούμε
+        # - αν δεν υπάρχει, αφήνουμε τον μηχανισμό default να βάλει 1
+        if 'size' not in resource_dict:
+            current_size = current.get('size', None)
+            if current_size not in (None, '', [], {}):
+                resource_dict['size'] = current_size
+
+        self._ensure_resource_size(resource_dict)
 
     def before_dataset_search(self, data_dict):
 
@@ -596,14 +708,16 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
 
     # IActions
     def get_actions(self):
-
         exposed_actions = {
             'check_user_org_permission': actions.check_user_org_permission,
             'organization_list_with_user_extras': actions.organization_list_with_user_extras,
             'user_organization_capacity': actions.user_organization_capacity,
             'user_delete': actions.user_delete,
             "organization_list": actions.organization_list,
-            'geonames_search': self.geonames_search_action # Κλήση για ανάκτηση αποτελεσμάτων σε geoname
+            'geonames_search': self.geonames_search_action,  # Κλήση για ανάκτηση αποτελεσμάτων σε geoname
+            # Προσυμπλήρωση access_url / download_url κατά το save πόρου (chained actions)
+            'resource_create': actions.resource_create,
+            'resource_update': actions.resource_update,
         }
 
         if not enable_internal_login():

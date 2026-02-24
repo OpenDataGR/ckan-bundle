@@ -194,7 +194,7 @@ msgstr "Καμία διεύθυνση ηλεκτρονικού ταχυδρομ�
 
 #: ckan/lib/mailer.py:237
 msgid "organization"
-msgstr "φορέας"
+msgstr "οργανισμός"
 
 #: ckan/lib/mailer.py:238
 msgid "group"
@@ -296,7 +296,7 @@ msgstr "Δεν ήταν δυνατή η ανάλυση ως έγκυρου αρ�
 
 #: ckan/logic/validators.py:51 ckan/logic/validators.py:61
 msgid "An organization must be provided"
-msgstr "Πρέπει να δώσετε το όνομα ενός φορέα"
+msgstr "Πρέπει να δώσετε το όνομα ενός οργανισμού"
 
 #: ckan/logic/validators.py:78
 msgid "You cannot move this dataset to another organization"
@@ -304,11 +304,11 @@ msgstr ""
 
 #: ckan/logic/validators.py:82
 msgid "Organization does not exist"
-msgstr "Ο φορέας δεν υπάρχει"
+msgstr "Ο οργανισμός δεν υπάρχει"
 
 #: ckan/logic/validators.py:90
 msgid "You cannot add a dataset to this organization"
-msgstr "Δεν είναι δυνατή η προσθήκη συνόλου δεδομένων σε αυτόν το φορέα."
+msgstr "Δεν είναι δυνατή η προσθήκη συνόλου δεδομένων σε αυτόν τον οργανισμό."
 
 #: ckan/logic/validators.py:133
 msgid "Invalid integer"
@@ -515,7 +515,7 @@ msgstr "ο ρόλος δεν υπάρχει."
 #: ckan/logic/validators.py:892
 msgid "Datasets with no organization can't be private."
 msgstr ""
-"Τα σύνολα δεδομένων που δεν ανήκουν σε φορέα δε μπορούν να είναι ιδιωτικά."
+ "Τα σύνολα δεδομένων που δεν ανήκουν σε οργανισμό δεν μπορούν να είναι ιδιωτικά."
 
 #: ckan/logic/validators.py:901
 msgid "Not a list"
@@ -610,7 +610,7 @@ msgstr ""
 
 #: ckan/logic/action/create.py:862
 msgid "Trying to create an organization as a group"
-msgstr "Προσπάθεια να δημιουργηθεί ένας φορέας ως ομάδα"
+msgstr "Προσπάθεια να δημιουργηθεί ένας οργανισμός ως ομάδα"
 
 #: ckan/logic/action/create.py:1120
 msgid "Error sending the invite email, the user was not created: {0}"
@@ -637,7 +637,7 @@ msgstr ""
 #: ckan/logic/action/create.py:1351 ckan/views/feed.py:220
 #: ckan/views/group.py:583
 msgid "Organization not found"
-msgstr "Ο Φορέας δε βρέθηκε"
+msgstr "Ο οργανισμός δεν βρέθηκε"
 
 #: ckan/logic/action/create.py:1351 ckan/views/dataset.py:1028
 #: ckan/views/dataset.py:1045 ckan/views/feed.py:203 ckan/views/group.py:406
@@ -726,7 +726,7 @@ msgstr "Το TaskStatus δε βρέθηκε."
 
 #: ckan/logic/action/update.py:1074
 msgid "Organization was not found."
-msgstr "Ο φορέας δεν βρέθηκε."
+msgstr "Ο οργανισμός δεν βρέθηκε."
 
 #: ckan/logic/auth/create.py:31 ckan/logic/auth/create.py:54
 #, python-format
@@ -742,8 +742,8 @@ msgstr "Ο χρήστης %s δεν έχει δικαίωμα επεξεργασ
 #, python-format
 msgid "User %s not authorized to add dataset to this organization"
 msgstr ""
-"Ο χρήστης %s δεν έχει εξουσιοδότηση να προσθέσει σύνολο δεδομένων σε αυτόν "
-"το φορέα"
+ "Ο χρήστης %s δεν έχει εξουσιοδότηση να προσθέσει σύνολο δεδομένων σε αυτόν "
+ "τον οργανισμό"
 
 #: ckan/logic/auth/create.py:71
 msgid "No dataset id provided, cannot check auth."
@@ -778,7 +778,7 @@ msgstr "Ο χρήστης %s δεν έχει εξουσιοδότηση για �
 #: ckan/logic/auth/create.py:150
 #, python-format
 msgid "User %s not authorized to create organizations"
-msgstr "Ο χρήστης %s δεν έχει εξουσιοδότηση για τη δημιουργία φορέων"
+msgstr "Ο χρήστης %s δεν έχει εξουσιοδότηση για τη δημιουργία οργανισμών"
 
 #: ckan/logic/auth/create.py:163
 msgid "User {user} not authorized to create users via the API"
@@ -838,12 +838,12 @@ msgstr "Ο χρήστης %s δεν έχει εξουσιοδότηση για �
 #: ckan/logic/auth/delete.py:109
 #, python-format
 msgid "User %s not authorized to delete organizations"
-msgstr "Ο χρήστης %s δεν έχει εξουσιοδότηση για τη διαγραφή φορέων"
+msgstr "Ο χρήστης %s δεν έχει εξουσιοδότηση για τη διαγραφή οργανισμών"
 
 #: ckan/logic/auth/delete.py:113
 #, python-format
 msgid "User %s not authorized to delete organization %s"
-msgstr "Ο χρήστης %s δεν έχει εξουσιοδότηση για τη διαγραφή του φορέα %s"
+msgstr "Ο χρήστης %s δεν έχει εξουσιοδότηση για τη διαγραφή του οργανισμού %s"
 
 #: ckan/logic/auth/delete.py:163
 #, python-format
@@ -1325,7 +1325,7 @@ msgstr "Σύνολα Δεδομένων"
 #: ckan/templates/user/snippets/info.html:48 ckan/views/dataset.py:279
 #: ckan/views/group.py:301 ckan/views/home.py:48
 msgid "Organizations"
-msgstr "Φορείς"
+msgstr "Οργανισμοί"
 
 #: ckan/templates/group/edit.html:4 ckan/templates/group/edit_base.html:4
 #: ckan/templates/group/index.html:4 ckan/templates/group/index.html:7
@@ -1560,7 +1560,7 @@ msgstr "Διεγραμμένα σύνολα δεδομένων"
 
 #: ckan/templates/admin/snippets/data_type.html:13
 msgid "Deleted organizations"
-msgstr "Διεγραμμένοι φορείς"
+msgstr "Διεγραμμένοι οργανισμοί"
 
 #: ckan/templates/admin/snippets/data_type.html:15
 msgid "Deleted groups"
@@ -1880,7 +1880,7 @@ msgid ""
 "datasets from groups</p>"
 msgstr ""
 "<p><strong>Διαχειριστής:</strong> Μπορεί να τροποποιήσει τις πληροφορίες "
-"ομάδας, καθώς και να διαχειριστεί τα μέλη ενός φορέα</p> "
+ "ομάδας, καθώς και να διαχειριστεί τα μέλη ενός οργανισμού</p> "
 "<p><strong>Μέλος:</strong> Μπορεί να προσθέσει/αφαιρέσει σύνολα δεδομένων "
 "από ομάδες</p>"
 
@@ -2133,7 +2133,7 @@ msgstr "Απαιτούμενο πεδίο"
 
 #: ckan/templates/organization/base_form_page.html:5
 msgid "Organization Form"
-msgstr "Φόρμα Φορέα"
+msgstr "Φόρμα Οργανισμού"
 
 #: ckan/templates/organization/bulk_process.html:5
 #: ckan/templates/organization/bulk_process.html:13
@@ -2173,28 +2173,28 @@ msgstr "Ιδιωτικό"
 
 #: ckan/templates/organization/bulk_process.html:101
 msgid "This organization has no datasets associated to it"
-msgstr "Ο Φορέας δεν έχει σύνολα δεδομένων που να σχετίζονται με αυτόν"
+msgstr "Ο οργανισμός δεν έχει σύνολα δεδομένων που να σχετίζονται με αυτόν"
 
 #: ckan/templates/organization/confirm_delete.html:11
 msgid "Are you sure you want to delete organization - {name}?"
-msgstr "Είστε σίγουροι ότι θέλετε να διαγράψετε τον Φορέα - {name} ;"
+msgstr "Είστε σίγουροι ότι θέλετε να διαγράψετε τον οργανισμό - {name};"
 
 #: ckan/templates/organization/edit.html:14
 msgid "Edit Organization"
-msgstr "Επεξεργασία Φορέα"
+msgstr "Επεξεργασία οργανισμού"
 
 #: ckan/templates/organization/index.html:13
 #: ckan/templates/user/dashboard_organizations.html:7
 msgid "Add Organization"
-msgstr "Προσθήκη Φορέα"
+msgstr "Προσθήκη οργανισμού"
 
 #: ckan/templates/organization/index.html:20
 msgid "Search organizations..."
-msgstr "Αναζήτηση φορέων..."
+msgstr "Αναζήτηση οργανισμών..."
 
 #: ckan/templates/organization/index.html:29
 msgid "There are currently no organizations for this site"
-msgstr "Δεν έχουν οριστεί ακόμη Φορείς για αυτόν τον Ιστότοπο"
+msgstr "Δεν έχουν οριστεί ακόμη οργανισμοί για αυτόν τον ιστότοπο"
 
 #: ckan/templates/organization/manage_members.html:15
 #: ckan/templates/organization/members.html:10
@@ -2231,15 +2231,15 @@ msgid ""
 "but not add new datasets.</p>"
 msgstr ""
 " <p><strong>Διαχειριστής:</strong> Μπορεί να προσθέσει/επεξεργαστεί σύνολα "
-"δεδομένων καθώς και να διαχειριστεί τα μέλη του φορέα.</p> "
+ "δεδομένων καθώς και να διαχειριστεί τα μέλη του οργανισμού.</p> "
 "<p><strong>Συντάκτης:</strong> Μπορεί να προσθέσει/επεξεργαστεί σύνολα "
-"δεδομένων αλλά όχι και να διαχειριστεί τα μέλη του φορέα.</p> "
+ "δεδομένων αλλά όχι και να διαχειριστεί τα μέλη του οργανισμού.</p> "
 "<p><strong>Μέλος:</strong> Μπορεί να δεί τα ιδιωτικά σύνολα δεδομένων του "
-"φορέα που ανήκει , αλλά όχι να προσθέσει νέα.</p> "
+ "οργανισμού στον οποίο ανήκει, αλλά όχι να προσθέσει νέα.</p> "
 
 #: ckan/templates/organization/new.html:3
 msgid "Create an Organization"
-msgstr "Προσθέστε ένα Φορέα"
+msgstr "Προσθέστε έναν οργανισμό"
 
 #: ckan/templates/organization/new_organization_form.html:19
 msgid "Update Organization"
@@ -2247,15 +2247,15 @@ msgstr "Ενημέρωση Οργανισμού"
 
 #: ckan/templates/organization/new_organization_form.html:21
 msgid "Create Organization"
-msgstr "Δημιουργία Φορέα"
+msgstr "Δημιουργία οργανισμού"
 
 #: ckan/templates/organization/snippets/feeds.html:2
 msgid "Datasets in organization: {group}"
-msgstr "Σύνολα δεδομένων στο φορέα: {group}"
+msgstr "Σύνολα δεδομένων στον οργανισμό: {group}"
 
 #: ckan/templates/organization/snippets/helper.html:16
 msgid "What are Organizations?"
-msgstr "Τι είναι οι φορείς;"
+msgstr "Τι είναι οι οργανισμοί;"
 
 #: ckan/templates/organization/snippets/helper.html:20
 msgid ""
@@ -2263,23 +2263,23 @@ msgid ""
 "datasets. Users can have different roles within an Organization, depending "
 "on their level of authorisation to create, edit and publish."
 msgstr ""
-" Οι Φορείς του CKAN χρησιμοποιούνται για τη δημιουργία, διαχείριση και "
+ " Οι οργανισμοί του CKAN χρησιμοποιούνται για τη δημιουργία, διαχείριση και "
 "δημοσίευση συλλογών συνόλων δεδομένων. Οι χρήστες μπορούν να έχουν "
-"διαφορετικούς ρόλους μέσα σε έναν Φορέα, αναλόγως με το επίπεδο "
+ "διαφορετικούς ρόλους μέσα σε έναν οργανισμό, αναλόγως με το επίπεδο "
 "εξουσιοδότησης που έχουν αναφορικά με τη δημιουργία, επεξεργασία και "
 "δημοσίευση. "
 
 #: ckan/templates/organization/snippets/info.html:41
 msgid "There is no description for this organization"
-msgstr "Δεν υπάρχει περιγραφή για τον Φορέα"
+msgstr "Δεν υπάρχει περιγραφή για τον οργανισμό"
 
 #: ckan/templates/organization/snippets/organization_form.html:12
 msgid "My Organization"
-msgstr "Ο Φορέας μου"
+msgstr "Ο οργανισμός μου"
 
 #: ckan/templates/organization/snippets/organization_form.html:22
 msgid "A little information about my organization..."
-msgstr "Λίγες πληροφορίες σχετικά με τον φορέα...."
+msgstr "Λίγες πληροφορίες σχετικά με τον οργανισμό...."
 
 #: ckan/templates/organization/snippets/organization_form.html:40
 msgid ""
@@ -2292,7 +2292,7 @@ msgstr ""
 
 #: ckan/templates/organization/snippets/organization_form.html:43
 msgid "Save Organization"
-msgstr "Αποθήκευση Φορέα"
+msgstr "Αποθήκευση οργανισμού"
 
 #: ckan/templates/organization/snippets/organization_item.html:49
 #: ckan/templates/organization/snippets/organization_item.html:50
@@ -2683,27 +2683,23 @@ msgstr "Τελευταία ενημέρωση"
 
 #: ckan/templates/package/snippets/cannot_create_package.html:10
 msgid "Before you can create a dataset you need to create an organization."
-msgstr ""
-"πρέπει να δημιουργήσετε ένα φόρέα πριν από τη δημιουργία ενός συνόλου "
-"δεδομένων"
+msgstr "Πρέπει να δημιουργήσετε έναν οργανισμό πριν από τη δημιουργία ενός συνόλου δεδομένων."
 
 #: ckan/templates/package/snippets/cannot_create_package.html:13
 msgid "Create a new organization"
-msgstr "Δημιουργία νέου φορέα"
+msgstr "Δημιουργία νέου οργανισμού"
 
 #: ckan/templates/package/snippets/cannot_create_package.html:18
 msgid "There are no organizations to which you can assign this dataset."
-msgstr ""
-"Δεν υπάρχουν φορείς στους οποίους μπορείτε να αναθέσετε αυτό το σύνολο "
-"δεδομένων"
+msgstr "Δεν υπάρχουν οργανισμοί στους οποίους μπορείτε να αναθέσετε αυτό το σύνολο δεδομένων"
 
 #: ckan/templates/package/snippets/cannot_create_package.html:19
 msgid ""
 "Ask a system administrator to create an organization before you can "
 "continue."
 msgstr ""
-"Ζητήστε από το διαχειριστή να δημιουργήσει ένα φορέα προκειμένου να "
-"συνεχίσετε."
+ "Ζητήστε από το διαχειριστή να δημιουργήσει έναν οργανισμό προκειμένου να "
+ "συνεχίσετε."
 
 #: ckan/templates/package/snippets/package_basic_fields.html:6
 #: ckan/templates/package/snippets/view_form.html:8
@@ -2740,11 +2736,11 @@ msgstr ""
 
 #: ckan/templates/package/snippets/package_basic_fields.html:75
 msgid "Organization"
-msgstr "Φορέας"
+msgstr "Οργανισμός"
 
-#: ckan/templates/package/snippets/package_basic_fields.html:79
+ #: ckan/templates/package/snippets/package_basic_fields.html:79
 msgid "No Organization"
-msgstr ""
+msgstr "Χωρίς οργανισμό"
 
 #: ckan/templates/package/snippets/package_basic_fields.html:94
 msgid "Visibility"
@@ -3126,22 +3122,22 @@ msgstr "Δεν βρέθηκαν ομάδες"
 #: ckan/templates/snippets/search_result_text.html:32
 msgid "{number} organization found for \"{query}\""
 msgid_plural "{number} organizations found for \"{query}\""
-msgstr[0] "ένας φορέας βρέθηκε για \"{query}\""
-msgstr[1] "{number} φορείς βρέθηκαν για \"{query}\""
+msgstr[0] "ένας οργανισμός βρέθηκε για \"{query}\""
+msgstr[1] "{number} οργανισμοί βρέθηκαν για \"{query}\""
 
 #: ckan/templates/snippets/search_result_text.html:33
 msgid "No organizations found for \"{query}\""
-msgstr "Δεν βρέθηκαν φορείς για \"{query}\""
+msgstr "Δεν βρέθηκαν οργανισμοί για \"{query}\""
 
 #: ckan/templates/snippets/search_result_text.html:34
 msgid "{number} organization found"
 msgid_plural "{number} organizations found"
-msgstr[0] "Βρέθηκε ένας φορέας"
-msgstr[1] "Βρέθηκαν {number} φορείς"
+msgstr[0] "Βρέθηκε ένας οργανισμός"
+msgstr[1] "Βρέθηκαν {number} οργανισμοί"
 
 #: ckan/templates/snippets/search_result_text.html:35
 msgid "No organizations found"
-msgstr "Δεν βρέθηκαν φορείς"
+msgstr "Δεν βρέθηκαν οργανισμοί"
 
 #: ckan/templates/snippets/social.html:5
 msgid "Social"
@@ -3184,7 +3180,7 @@ msgstr "Τα σύνολα δεδομένων μου"
 #: ckan/templates/user/dashboard.html:26
 #: ckan/templates/user/dashboard_organizations.html:12
 msgid "My Organizations"
-msgstr "Οι Φορείς μου"
+msgstr "Οι οργανισμοί μου"
 
 #: ckan/templates/user/dashboard.html:27
 #: ckan/templates/user/dashboard_groups.html:12
@@ -3211,7 +3207,7 @@ msgstr "Δεν είστε μέλος καμίας ομάδας."
 #: ckan/templates/user/dashboard_organizations.html:22
 #: ckan/templates/user/read_organizations.html:14
 msgid "You are not a member of any organizations."
-msgstr "Δεν είστε μέλος κάποιου φορέα."
+msgstr "Δεν είστε μέλος κανενός οργανισμού."
 
 #: ckan/templates/user/edit.html:6 ckan/templates/user/edit_base.html:3
 #: ckan/templates/user/list.html:6 ckan/templates/user/list.html:13
@@ -3547,7 +3543,7 @@ msgstr "Είστε βέβαιοι ότι θέλετε να διαγράψετε 
 
 #: ckan/views/admin.py:133
 msgid "Are you sure you want to purge organizations?"
-msgstr "Είστε βέβαιοι ότι θέλετε να διαγράψετε οριστικά τους φορείς;"
+msgstr "Είστε βέβαιοι ότι θέλετε να διαγράψετε οριστικά τους οργανισμούς;"
 
 #: ckan/views/admin.py:134
 msgid "Are you sure you want to purge groups?"
@@ -3559,7 +3555,7 @@ msgstr "Οριστική διαγραφή {number} συνόλου(-ων) δεδ�
 
 #: ckan/views/admin.py:138
 msgid "{number} organizations have been purged"
-msgstr "Οριστική διαγραφή {number} φορέα(-ων)"
+msgstr "Οριστική διαγραφή {number} οργανισμού(-ών)"
 
 #: ckan/views/admin.py:139
 msgid "{number} groups have been purged"
@@ -3571,7 +3567,7 @@ msgstr "Δεν υπάρχουν σύνολα δεδομένων για ορισ�
 
 #: ckan/views/admin.py:143
 msgid "There are no organizations to purge"
-msgstr "Δεν υπάρχουν φορείς για οριστική διαγραφή"
+msgstr "Δεν υπάρχουν οργανισμοί για οριστική διαγραφή"
 
 #: ckan/views/admin.py:144
 msgid "There are no groups to purge"
@@ -4148,7 +4144,7 @@ msgstr "{actor} ενημέρωσε την ομάδα {group}"
 
 #: ckanext/activity/templates/snippets/activities/changed_organization.html:6
 msgid "{actor} updated the organization {organization}"
-msgstr "ο {actor} ενημέρωσε το φορέα {organization}"
+msgstr "ο {actor} ενημέρωσε τον οργανισμό {organization}"
 
 #: ckanext/activity/templates/snippets/activities/changed_package.html:7
 msgid "{actor} updated the {dataset_type} {dataset}"
@@ -4179,7 +4175,7 @@ msgstr "{actor} διέγραψε την ομάδα {group}"
 
 #: ckanext/activity/templates/snippets/activities/deleted_organization.html:6
 msgid "{actor} deleted the organization {organization}"
-msgstr "ο {actor} διέγραψε το φορέα {organization}"
+msgstr "ο {actor} διέγραψε τον οργανισμό {organization}"
 
 #: ckanext/activity/templates/snippets/activities/deleted_package.html:8
 msgid "{actor} deleted the {dataset_type} {dataset}"
@@ -4212,7 +4208,7 @@ msgstr "{actor} δημιούργησε την ομάδα {group}"
 
 #: ckanext/activity/templates/snippets/activities/new_organization.html:6
 msgid "{actor} created the organization {organization}"
-msgstr "{actor} δημιούργησε το φορέα {organization}"
+msgstr "{actor} δημιούργησε τον οργανισμό {organization}"
 
 #: ckanext/activity/templates/snippets/activities/new_package.html:7
 msgid "{actor} created the {dataset_type} {dataset}"
@@ -5709,7 +5705,3 @@ msgstr "Αν έχετε ερωτήσεις ή χρειάζεστε βοήθει�
 
 msgid "Do you know of a useful tool that should be included in this list? Please let us know by contacting us at"
 msgstr "Γνωρίζετε κάποια χρήσιμο εργαλείο που θα έπρεπε να συμπεριληφθεί σε αυτή τη λίστα; Ενημερώστε μας επικοινωνώντας μαζί μας στο"
-
-
-
-

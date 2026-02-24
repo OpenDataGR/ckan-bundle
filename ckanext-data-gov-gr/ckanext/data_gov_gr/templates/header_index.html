@@ -65,8 +65,9 @@
               </li>
 
               {# --- API page (EL / EN) --- #}
-              {% set api_slug = 'api' if h.lang() == 'en' else 'api' %}
-              {% set api_active = request.path.startswith('/pages/api') %}
+              {% set api_info_page_url = config.get('ckanext.data_gov_gr.menu.api_info_page.url', 'api-services') %}
+              {% set api_slug = api_info_page_url if h.lang() == 'en' else api_info_page_url %}
+              {% set api_active = request.path.startswith('/pages/' ~ api_slug) %}
 
               <li class="{% if api_active %}active{% endif %}">
                 <a href="{{ h.url_for('pages.show', page=api_slug) }}">API</a>

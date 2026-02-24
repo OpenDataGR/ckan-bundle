@@ -10,12 +10,57 @@ class MatomoException(RuntimeError):
     pass
 
 
+def _parse_timeout(value, default=(5, 15)):
+    """
+    Parse timeout configuration.
+
+    Υποστηρίζει:
+      - None / empty -> default
+      - "15" -> (5, 15)
+      - "5,15" -> (5, 15)
+      - [..] (CKAN config UI μπορεί να επιστρέψει list) -> παίρνουμε το τελευταίο
+    """
+    if value is None:
+        return default
+    if isinstance(value, list):
+        if not value:
+            return default
+        value = value[-1]
+    try:
+        s = str(value).strip()
+    except Exception:
+        return default
+    if not s:
+        return default
+
+    try:
+        if ',' in s:
+            parts = [p.strip() for p in s.split(',', 1)]
+            connect = max(0, int(parts[0]))
+            read = max(0, int(parts[1]))
+            return (connect, read)
+        read = max(0, int(s))
+        return (default[0], read)
+    except Exception:
+        return default
+
+
 class MatomoAPI(object):
     def __init__(self, matomo_url, id_site, token_auth):
         self.matomo_url = matomo_url
         self.tracking_url = '{}/matomo.php'.format(matomo_url)
         self.id_site = id_site
         self.token_auth = token_auth
+        # Timeouts για να μη “κολλάνε” οι κλήσεις επ' αόριστον.
+        # (connect timeout, read timeout)
+        default_timeout = (5, 15)
+        timeout_value = None
+        try:
+            import ckan.plugins.toolkit as toolkit  # type: ignore
+            timeout_value = toolkit.config.get('ckanext.matomo.api_timeout')
+        except Exception:
+            timeout_value = None
+        self.request_timeout = _parse_timeout(timeout_value, default=default_timeout)
         self.default_params = {'idSite': self.id_site,
                                'token_auth': self.token_auth,
                                'module': 'API',
@@ -32,7 +77,7 @@ class MatomoAPI(object):
         params.update(extra_params)
 
         try:
-            response = requests.post(self.matomo_url, data=params)
+            response = requests.post(self.matomo_url, data=params, timeout=self.request_timeout)
             result = response.json()
         except Exception as e:
             raise MatomoException(f"Error communicating with Matomo: {e}")

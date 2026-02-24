@@ -8,7 +8,6 @@
 {% set show_home_featured_datasets_section = h.get_config_as_bool('ckanext.data_gov_gr.config_ui.home_featured_datasets.enabled', False) %}
 {% set show_home_showcases_section = h.get_config_as_bool('ckanext.data_gov_gr.config_ui.home_showcases.enabled', False) %}
 {% set show_dataset_menu_section = h.get_config_as_bool('ckanext.data_gov_gr.config_ui.dataset_menu.enabled', False) %}
-{% set show_guides_section = h.get_config_as_bool('ckanext.data_gov_gr.config_ui.guides.enabled', False) %}
 {% set contact_gitbook_embed_items_raw = config.get('ckanext.data_gov_gr.contact.gitbook_embed_items') %}
 {% set contact_gitbook_embed_has_value = contact_gitbook_embed_items_raw is not none %}
 
@@ -47,28 +46,88 @@
         ) }}
       </section>
 
-      <section id="dg-config-home" class="dg-config-section" data-dg-section="dg-config-home">
-        <h3>{{ _('Αρχική') }}</h3>
+	      <section id="dg-config-home" class="dg-config-section" data-dg-section="dg-config-home">
+	        <h3>{{ _('Αρχική') }}</h3>
 
-        {% if show_home_stats_section %}
-          <h4>{{ _('Στατιστικά αρχικής σελίδας') }}</h4>
+	        <h4>{{ _('Οδηγοί στην αρχική σελίδα') }}</h4>
 
-          {% call form.checkbox(
-            'ckanext.data_gov_gr.home.portal_numbers.enabled',
-            id='field-ckanext.data_gov_gr.home.portal_numbers.enabled',
-            label=_('Εμφάνιση ενότητας «Η πύλη σε αριθμούς» στην αρχική'),
-            value='true',
-            checked=h.get_config_as_bool('ckanext.data_gov_gr.home.portal_numbers.enabled', False)
-          ) %}
-            <p class="help-block">
-              {{ _('Εμφανίζει συνοπτικούς μετρητές (σύνολα δεδομένων, APIs, αποφάσεις, φορείς, εφαρμογές, δημοσιεύσεις).') }}
-            </p>
-          {% endcall %}
+		        {{ form.input(
+		          'ckanext.data_gov_gr.getting_started.url',
+		          id='field-ckanext.data_gov_gr.getting_started.url',
+		          label=_('Οδηγός «Ξεκινώντας» (URL)'),
+		          value=(config.get('ckanext.data_gov_gr.getting_started.url') if config.get('ckanext.data_gov_gr.getting_started.url') is not none else 'https://data-gov-gr.gitbook.io/guides/eisagogika'),
+		          error=errors.get('ckanext.data_gov_gr.getting_started.url'),
+		          placeholder='https://data-gov-gr.gitbook.io/guides/eisagogika'
+		        ) }}
 
-          {% set stats_items = [
-            {'value': '', 'text': _('— Καμία επιλογή —')},
-            {'value': 'datasets_by_theme', 'text': _('Σύνολα δεδομένων ανά θεματική κατηγορία')},
-            {'value': 'datasets_by_publisher_type', 'text': _('Σύνολα δεδομένων ανά τύπο εκδότη')},
+		        {{ form.input(
+		          'ckanext.data_gov_gr.api_guide.url',
+		          id='field-ckanext.data_gov_gr.api_guide.url',
+		          label=_('Οδηγός «API Documentation» (URL)'),
+		          value=(config.get('ckanext.data_gov_gr.api_guide.url') if config.get('ckanext.data_gov_gr.api_guide.url') is not none else 'https://data-gov-gr.gitbook.io/guides/texnika-egxeiridia'),
+		          error=errors.get('ckanext.data_gov_gr.api_guide.url'),
+		          placeholder='https://data-gov-gr.gitbook.io/guides/texnika-egxeiridia'
+		        ) }}
+
+		        {{ form.input(
+		          'ckanext.data_gov_gr.data_publishing_guide.url',
+		          id='field-ckanext.data_gov_gr.data_publishing_guide.url',
+		          label=_('Οδηγός «Δημοσίευση Δεδομένων» (URL)'),
+		          value=(config.get('ckanext.data_gov_gr.data_publishing_guide.url') if config.get('ckanext.data_gov_gr.data_publishing_guide.url') is not none else 'https://data-gov-gr.gitbook.io/guides/diaxeirisi-dedomenon/synola-dedomenon/dimioyrgia-synoloy-dedomenon'),
+		          error=errors.get('ckanext.data_gov_gr.data_publishing_guide.url'),
+		          placeholder='https://data-gov-gr.gitbook.io/guides/diaxeirisi-dedomenon/synola-dedomenon/dimioyrgia-synoloy-dedomenon'
+		        ) }}
+
+			        {{ form.input(
+			          'ckanext.data_gov_gr.quality_guide.url',
+			          id='field-ckanext.data_gov_gr.quality_guide.url',
+			          label=_('Οδηγός «Ποιότητα» (URL)'),
+			          value=(config.get('ckanext.data_gov_gr.quality_guide.url') if config.get('ckanext.data_gov_gr.quality_guide.url') is not none else 'https://data-gov-gr.gitbook.io/guides/xrisi-dedomenon/synola-dedomenon/aksiologisi-poiotitas-metadedomenon'),
+			          error=errors.get('ckanext.data_gov_gr.quality_guide.url'),
+			          placeholder='https://data-gov-gr.gitbook.io/guides/xrisi-dedomenon/synola-dedomenon/aksiologisi-poiotitas-metadedomenon'
+			        ) }}
+
+	          {% set reuse_stats_checked = h.get_config_as_bool('ckanext.data_gov_gr.home.reuse_stats.enabled', True) %}
+	          <input
+	            type="hidden"
+	            id="field-ckanext.data_gov_gr.home.reuse_stats.enabled-hidden"
+	            name="ckanext.data_gov_gr.home.reuse_stats.enabled"
+	            value="false"
+	            {% if reuse_stats_checked %}disabled="disabled"{% endif %}
+	          />
+	          {% call form.checkbox(
+	            'ckanext.data_gov_gr.home.reuse_stats.enabled',
+	            id='field-ckanext.data_gov_gr.home.reuse_stats.enabled',
+	            label=_('Εμφάνιση ενότητας «Στατιστικά Επανάχρησης» στην αρχική'),
+	            value='true',
+	            checked=reuse_stats_checked
+	          ) %}
+	            <p class="help-block">
+	              {{ _('Εμφανίζει τα στατιστικά επανάχρησης (επισκέπτες, λήψεις, εφαρμογές) στην αρχική σελίδα.') }}
+	            </p>
+	          {% endcall %}
+	          <script>
+	            document.addEventListener('DOMContentLoaded', function () {
+	              var checkbox = document.getElementById('field-ckanext.data_gov_gr.home.reuse_stats.enabled');
+	              var hidden = document.getElementById('field-ckanext.data_gov_gr.home.reuse_stats.enabled-hidden');
+	              if (!checkbox || !hidden) {
+	                return;
+	              }
+	              function syncHidden() {
+	                hidden.disabled = !!checkbox.checked;
+	              }
+	              checkbox.addEventListener('change', syncHidden);
+	              syncHidden();
+	            });
+	          </script>
+
+			        {% if show_home_stats_section %}
+			          <h4>{{ _('Στατιστικά αρχικής σελίδας') }}</h4>
+
+	          {% set stats_items = [
+	            {'value': '', 'text': _('— Καμία επιλογή —')},
+	            {'value': 'datasets_by_theme', 'text': _('Σύνολα δεδομένων ανά θεματική κατηγορία')},
+	            {'value': 'datasets_by_publisher_type', 'text': _('Σύνολα δεδομένων ανά τύπο εκδότη')},
             {'value': 'datasets_by_organization', 'text': _('Σύνολα δεδομένων ανά οργανισμό')},
             {'value': 'datasets_vs_services', 'text': _('Σύνολα δεδομένων vs Υπηρεσίες δεδομένων')},
             {'value': 'datasets_by_hvd_category', 'text': _('Σύνολα δεδομένων ανά κατηγορία HVD')},
@@ -123,34 +182,34 @@
           ) }}
         {% endif %}
 
-        {% if show_home_featured_datasets_section %}
-          <h4>{{ _('Επιλεγμένα datasets στην αρχική σελίδα') }}</h4>
+	        {% if show_home_featured_datasets_section %}
+	          <h4>{{ _('Επιλεγμένα datasets στην αρχική σελίδα') }}</h4>
 
-          {# Επιλεγμένες προβολές (resource views) από datasets: έως 6 IDs (ένα ανά γραμμή) #}
-          {% set raw_featured_dataset_views = h.get_config_value('ckanext.data_gov_gr.home.featured_dataset_views.ids', '') %}
-          {% if raw_featured_dataset_views is not string and raw_featured_dataset_views %}
-            {% set raw_featured_dataset_views = raw_featured_dataset_views[-1] %}
+	          {# Επιλεγμένες προβολές (resource views) από datasets: έως 6 IDs (ένα ανά γραμμή) #}
+	          {% set raw_featured_dataset_views = h.get_config_value('ckanext.data_gov_gr.home.featured_dataset_views.ids', '') %}
+	          {% if raw_featured_dataset_views is not string and raw_featured_dataset_views %}
+	            {% set raw_featured_dataset_views = raw_featured_dataset_views[-1] %}
           {% endif %}
           {% if raw_featured_dataset_views %}
             {% set raw_featured_dataset_views = raw_featured_dataset_views.replace('\\n', '\n') %}
           {% endif %}
 
-          {{ form.textarea(
-            'ckanext.data_gov_gr.home.featured_dataset_views.ids',
-            id='field-ckanext.data_gov_gr.home.featured_dataset_views.ids',
-            label=_('Resource view IDs για την αρχική (ένα ανά γραμμή, έως 6)'),
-            value=raw_featured_dataset_views,
-            error=errors['ckanext.data_gov_gr.home.featured_dataset_views.ids'],
-            placeholder='a1b2c3d4-....\ne5f6g7h8-....\n...'
-          ) }}
-          <p class="help-block">
-            {{ _('Εισάγετε τα IDs των προβολών (views) από datasets που θέλετε να εμφανίζονται στην αρχική. ') }}
-            {{ _('Θα βρείτε το view ID στο URL της προβολής (…/resource/<RESOURCE_ID>?view_id=<VIEW_ID> ή …/resource/<RESOURCE_ID>/view/<VIEW_ID>).') }}
-          </p>
-        {% endif %}
+	          {{ form.textarea(
+	            'ckanext.data_gov_gr.home.featured_dataset_views.ids',
+	            id='field-ckanext.data_gov_gr.home.featured_dataset_views.ids',
+	            label=_('Resource view IDs για την αρχική (ένα ανά γραμμή, έως 6)'),
+	            value=raw_featured_dataset_views,
+	            error=errors['ckanext.data_gov_gr.home.featured_dataset_views.ids'],
+	            placeholder='a1b2c3d4-....\ne5f6g7h8-....\n...'
+	          ) }}
+		          <p class="help-block">
+		            {{ _('Εισάγετε τα IDs των προβολών (views) από datasets που θέλετε να εμφανίζονται στην αρχική. ') }}
+		            {{ _('Θα βρείτε το view ID στο URL της προβολής (…/resource/<RESOURCE_ID>?view_id=<VIEW_ID> ή …/resource/<RESOURCE_ID>/view/<VIEW_ID>).') }}
+		          </p>
+	        {% endif %}
 
-        {% if show_home_showcases_section %}
-          <h4>{{ _('Εφαρμογές στην αρχική σελίδα (Showcases)') }}</h4>
+		        {% if show_home_showcases_section %}
+	          <h4>{{ _('Εφαρμογές στην αρχική σελίδα (Showcases)') }}</h4>
 
           {# Δυναμική λίστα διαθέσιμων showcases για εύκολη επιλογή #}
           {# Χρησιμοποιούμε απευθείας το config για να εμφανίζεται πάντα η αποθηκευμένη τιμή #}
@@ -178,21 +237,21 @@
                     </option>
                   {% endfor %}
                 </select>
-                <p class="help-block">
-                  {{ _('Επιλέξτε έως 3 εφαρμογές για την αρχική σελίδα. Η επιλογή ενημερώνει αυτόματα τα IDs παρακάτω.') }}
-                </p>
-              </div>
-            </div>
-          {% endif %}
+	                <p class="help-block">
+	                  {{ _('Επιλέξτε έως 4 εφαρμογές για την αρχική σελίδα. Η επιλογή ενημερώνει αυτόματα τα IDs παρακάτω.') }}
+	                </p>
+	              </div>
+	            </div>
+	          {% endif %}
 
-          {{ form.textarea(
-            'ckanext.data_gov_gr.home.showcases.ids',
-            id='field-ckanext.data_gov_gr.home.showcases.ids',
-            label=_('Showcase IDs ή ονόματα για την αρχική (ένα ανά γραμμή, έως 3)'),
-            value=raw_home_showcases,
-            error=errors['ckanext.data_gov_gr.home.showcases.ids'],
-            placeholder='showcase-1\nshowcase-2\nshowcase-3'
-          ) }}
+	          {{ form.textarea(
+	            'ckanext.data_gov_gr.home.showcases.ids',
+	            id='field-ckanext.data_gov_gr.home.showcases.ids',
+	            label=_('Showcase IDs ή ονόματα για την αρχική (ένα ανά γραμμή, έως 4)'),
+	            value=raw_home_showcases,
+	            error=errors['ckanext.data_gov_gr.home.showcases.ids'],
+	            placeholder='showcase-1\nshowcase-2\nshowcase-3\nshowcase-4'
+	          ) }}
 
           <script>
             document.addEventListener('DOMContentLoaded', function () {
@@ -218,27 +277,27 @@
                 Array.prototype.forEach.call(select.options, function (opt) {
                   opt.selected = ids.indexOf(opt.value) !== -1;
                 });
-                // Enforce max 3 when restoring.
-                var selected = Array.prototype.slice.call(select.selectedOptions || []);
-                if (selected.length > 3) {
-                  selected.slice(3).forEach(function (opt) { opt.selected = false; });
-                }
-              }
+	                // Enforce max 4 when restoring.
+	                var selected = Array.prototype.slice.call(select.selectedOptions || []);
+	                if (selected.length > 4) {
+	                  selected.slice(4).forEach(function (opt) { opt.selected = false; });
+	                }
+	              }
 
-              function syncToTextarea() {
-                var selected = Array.prototype.slice.call(select.selectedOptions || []);
-                var values = selected.map(function (opt) { return opt.value; }).slice(0, 3);
-                textarea.value = values.join('\\n');
-              }
+	              function syncToTextarea() {
+	                var selected = Array.prototype.slice.call(select.selectedOptions || []);
+	                var values = selected.map(function (opt) { return opt.value; }).slice(0, 4);
+	                textarea.value = values.join('\\n');
+	              }
 
-              select.addEventListener('change', function () {
-                // Enforce max 3 selections visually.
-                var selected = Array.prototype.slice.call(select.selectedOptions || []);
-                if (selected.length > 3) {
-                  selected.slice(3).forEach(function (opt) { opt.selected = false; });
-                }
-                syncToTextarea();
-              });
+	              select.addEventListener('change', function () {
+	                // Enforce max 4 selections visually.
+	                var selected = Array.prototype.slice.call(select.selectedOptions || []);
+	                if (selected.length > 4) {
+	                  selected.slice(4).forEach(function (opt) { opt.selected = false; });
+	                }
+	                syncToTextarea();
+	              });
 
               // Restore selection from saved textarea value (if any) and sync.
               applySelectionFromTextarea();
@@ -249,10 +308,7 @@
           </script>
         {% endif %}
 
-	        {% if not show_home_stats_section and not show_home_featured_datasets_section and not show_home_showcases_section %}
-	          <p class="help-block">{{ _('Δεν υπάρχουν ενεργές ρυθμίσεις για την αρχική σελίδα σε αυτό το περιβάλλον.') }}</p>
-	        {% endif %}
-      </section>
+	      </section>
 
       <section id="dg-config-metadata-defaults" class="dg-config-section" data-dg-section="dg-config-metadata-defaults">
         <h3>{{ _('Προεπιλογές πεδίων μεταδεδομένων') }}</h3>
@@ -277,6 +333,43 @@
             placeholder='https://... (π.χ. κανονισμός 2022/868)'
           ) }}
         {% endif %}
+
+        <h4 class="mt-4">{{ _('Προεπιλεγμένη Άδεια Πόρου') }}</h4>
+        <p class="help-block">
+          {{ _('Προεπιλεγμένη τιμή για το πεδίο «Άδεια» στους νέους πόρους (resources) όταν προσθέτετε δεδομένα.') }}
+          {{ _('Εφαρμόζεται μόνο σε σύνολα δεδομένων με access_rights που καταλήγει σε /PUBLIC (Ανοικτά Δεδομένα).') }}
+          {{ _('Αφήστε το κενό για να μην προσυμπληρώνεται τιμή.') }}
+        </p>
+
+        {{ form.input(
+          'ckanext.data_gov_gr.resource.license.default',
+          id='field-ckanext.data_gov_gr.resource.license.default',
+          label=_('Προεπιλεγμένη άδεια (URI)'),
+          value=data['ckanext.data_gov_gr.resource.license.default'],
+          error=errors['ckanext.data_gov_gr.resource.license.default'],
+          placeholder='http://publications.europa.eu/resource/authority/licence/CC_BY_4_0'
+        ) }}
+
+        <h4 class="mt-4">{{ _('Προεπιλεγμένη Χωρική Κάλυψη') }}</h4>
+        <p class="help-block">
+          {{ _('Προεπιλεγμένη τιμή για το πεδίο «Χωρική Κάλυψη» σε νέα σύνολα δεδομένων.') }}
+          {{ _('Επιλέξτε «Ελλάδα» για να προσυμπληρώνεται ολόκληρη η ελληνική επικράτεια.') }}
+        </p>
+
+        {% set spatial_default_options = [
+          {'value': '', 'text': _('— Καμία επιλογή —')},
+          {'value': 'greece', 'text': _('Ελλάδα (Greece)')}
+        ] %}
+
+        {{ form.select(
+          'ckanext.data_gov_gr.dataset.spatial_coverage.default',
+          id='field-ckanext.data_gov_gr.dataset.spatial_coverage.default',
+          label=_('Προεπιλογή Χωρικής Κάλυψης'),
+          options=spatial_default_options,
+          selected=data['ckanext.data_gov_gr.dataset.spatial_coverage.default'],
+          error=errors['ckanext.data_gov_gr.dataset.spatial_coverage.default'],
+          classes=['control-medium']
+        ) }}
       </section>
 
       <section id="dg-config-menu" class="dg-config-section" data-dg-section="dg-config-menu">
@@ -444,22 +537,21 @@
         {% endif %}
       </section>
 
-      {% if show_guides_section %}
-      <section id="dg-config-guides" class="dg-config-section" data-dg-section="dg-config-guides">
-        <h3>{{ _('Οδηγοί (GitBook)') }}</h3>
+	      <section id="dg-config-guides" class="dg-config-section" data-dg-section="dg-config-guides">
+	        <h3>{{ _('Οδηγοί (GitBook)') }}</h3>
 
-        {{ form.input(
-          'guides_base_url',
-          id='field-guides_base_url',
-          label=_('Σύνδεσμος οδηγών (base URL)'),
-          value=data['guides_base_url'],
-          error=errors['guides_base_url'],
-          placeholder='https://data-gov-gr.gitbook.io/guides'
-        ) }}
+	        {{ form.input(
+	          'guides_base_url',
+	          id='field-guides_base_url',
+	          label=_('Σύνδεσμος οδηγών (base URL)'),
+	          value=data['guides_base_url'],
+	          error=errors['guides_base_url'],
+	          placeholder='https://data-gov-gr.gitbook.io/guides'
+	        ) }}
 
-        <p class="help-block">
-          {{ _('Ορίστε λίστα επιλογών (dropdown) για το embedded περιεχόμενο στη σελίδα επικοινωνίας. ') }}
-          {{ _('Κάθε γραμμή αντιστοιχεί σε μία επιλογή (Τίτλος + URL).') }}
+	        <p class="help-block">
+	          {{ _('Ορίστε λίστα επιλογών (dropdown) για το embedded περιεχόμενο στη σελίδα επικοινωνίας. ') }}
+	          {{ _('Κάθε γραμμή αντιστοιχεί σε μία επιλογή (Τίτλος + URL).') }}
         </p>
 
         {# Κρυφό textarea που αποθηκεύει τη JSON αναπαράσταση των επιλογών #}
@@ -522,7 +614,7 @@
               return [
                 {title: 'Συχνές ερωτήσεις (Όλες)', url: faqRoot},
                 {title: 'Γενικά', url: faqRoot + '/genika'},
-                {title: 'Φορείς Δημόσιου Τομέα', url: faqRoot + '/foreis-dimosioy-tomea'},
+                {title: 'Οργανισμοί Δημόσιου Τομέα', url: faqRoot + '/foreis-dimosioy-tomea'},
                 {title: 'Πολίτες & Επιχειρήσεις', url: faqRoot + '/polites-and-epixeiriseis'},
                 {title: 'Τεχνικά θέματα & API', url: faqRoot + '/texnika-themata-and-api'},
                 {title: 'Dataspace, αλτρουιστές και διαμεσολαβητές', url: faqRoot + '/dataspace-altroyistes-kai-diamesolavites'}
@@ -654,13 +746,12 @@
               initEditor();
             }
           })();
-        </script>
-      </section>
-      {% endif %}
+	        </script>
+	      </section>
 
-      {% if show_stats_powerbi_section %}
-      <section id="dg-config-powerbi" class="dg-config-section" data-dg-section="dg-config-powerbi">
-        <h3>{{ _('Power BI') }}</h3>
+	      {% if show_stats_powerbi_section %}
+	      <section id="dg-config-powerbi" class="dg-config-section" data-dg-section="dg-config-powerbi">
+	        <h3>{{ _('Power BI') }}</h3>
 
         {{ form.input(
           'ckanext.data_gov_gr.powerbi_embed_url',
@@ -840,19 +931,19 @@
 {% endblock %}
 
 {% block admin_form_help %}
-  <div class="dg-config-nav" aria-label="{{ _('Ρυθμίσεις') }}">
-    <ul class="list-unstyled nav nav-simple dg-config-nav-list">
-      <li><a href="#dg-config-all">{{ _('Όλα') }}</a></li>
-      <li><a href="#dg-config-general">{{ _('Γενικά') }}</a></li>
-      <li><a href="#dg-config-home">{{ _('Αρχική') }}</a></li>
-      <li><a href="#dg-config-metadata-defaults">{{ _('Προεπιλογές πεδίων μεταδεδομένων') }}</a></li>
-      <li><a href="#dg-config-menu">{{ _('Μενού / Αναζήτηση') }}</a></li>
-      {% if show_guides_section %}<li><a href="#dg-config-guides">{{ _('Οδηγοί (GitBook)') }}</a></li>{% endif %}
-      {% if show_stats_powerbi_section %}<li><a href="#dg-config-powerbi">{{ _('Power BI') }}</a></li>{% endif %}
-      <li><a href="#dg-config-survey">{{ _('Έρευνα') }}</a></li>
-      <li><a href="#dg-config-showcases">{{ _('Showcases') }}</a></li>
-    </ul>
-  </div>
+	  <div class="dg-config-nav" aria-label="{{ _('Ρυθμίσεις') }}">
+	    <ul class="list-unstyled nav nav-simple dg-config-nav-list">
+	      <li><a href="#dg-config-all">{{ _('Όλα') }}</a></li>
+	      <li><a href="#dg-config-general">{{ _('Γενικά') }}</a></li>
+	      <li><a href="#dg-config-home">{{ _('Αρχική') }}</a></li>
+	      <li><a href="#dg-config-metadata-defaults">{{ _('Προεπιλογές πεδίων μεταδεδομένων') }}</a></li>
+	      <li><a href="#dg-config-menu">{{ _('Μενού / Αναζήτηση') }}</a></li>
+	      <li><a href="#dg-config-guides">{{ _('Οδηγοί (GitBook)') }}</a></li>
+	      {% if show_stats_powerbi_section %}<li><a href="#dg-config-powerbi">{{ _('Power BI') }}</a></li>{% endif %}
+	      <li><a href="#dg-config-survey">{{ _('Έρευνα') }}</a></li>
+	      <li><a href="#dg-config-showcases">{{ _('Showcases') }}</a></li>
+	    </ul>
+	  </div>
 
   <hr/>
 
@@ -875,21 +966,22 @@
       </ul>
     </div>
 
-    <div class="dg-help-section" data-dg-help="dg-config-home">
-      <h4>{{ _('Αρχική') }}</h4>
-      <ul>
-        {% if show_home_stats_section %}
-          <li><strong>{{ _('Στατιστικά αρχικής σελίδας') }}:</strong> {{ _('Επιλέξτε μέχρι τέσσερα πλακίδια στατιστικών για την αρχική σελίδα.') }}</li>
-          <li><strong>{{ _('Η πύλη σε αριθμούς') }}:</strong> {{ _('Ενεργοποιεί/απενεργοποιεί τους συνοπτικούς μετρητές στην αρχική.') }}</li>
-        {% endif %}
-        {% if show_home_featured_datasets_section %}
-          <li><strong>{{ _('Επιλεγμένα datasets') }}:</strong> {{ _('Δώστε μέχρι έξι resource view IDs (ένα ανά γραμμή) για να εμφανιστούν ως επιλεγμένες προβολές.') }}</li>
-        {% endif %}
-        {% if show_home_showcases_section %}
-          <li><strong>{{ _('Showcases στην αρχική') }}:</strong> {{ _('Δώστε μέχρι τρία IDs/ονόματα showcase (ένα ανά γραμμή) για να εμφανιστούν ως ενδεικτικές εφαρμογές.') }}</li>
-        {% endif %}
-      </ul>
-    </div>
+		    <div class="dg-help-section" data-dg-help="dg-config-home">
+		      <h4>{{ _('Αρχική') }}</h4>
+		      <ul>
+		        <li><strong>{{ _('Οδηγοί στην αρχική σελίδα') }}:</strong> {{ _('Ορίστε τα URLs που εμφανίζονται στην ενότητα οδηγών στην αρχική σελίδα.') }}</li>
+		        <li><strong>{{ _('Στατιστικά Επανάχρησης') }}:</strong> {{ _('Εμφανίζει/αποκρύπτει τα στατιστικά επανάχρησης στην αρχική σελίδα.') }}</li>
+			        {% if show_home_stats_section %}
+			          <li><strong>{{ _('Στατιστικά αρχικής σελίδας') }}:</strong> {{ _('Επιλέξτε μέχρι τέσσερα πλακίδια στατιστικών για την αρχική σελίδα.') }}</li>
+			        {% endif %}
+			        {% if show_home_featured_datasets_section %}
+			          <li><strong>{{ _('Επιλεγμένα datasets') }}:</strong> {{ _('Δώστε μέχρι έξι resource view IDs (ένα ανά γραμμή) για να εμφανιστούν ως επιλεγμένες προβολές.') }}</li>
+			        {% endif %}
+		        {% if show_home_showcases_section %}
+		          <li><strong>{{ _('Showcases στην αρχική') }}:</strong> {{ _('Δώστε μέχρι τέσσερα IDs/ονόματα showcase (ένα ανά γραμμή) για να εμφανιστούν ως ενδεικτικές εφαρμογές.') }}</li>
+		        {% endif %}
+		      </ul>
+		    </div>
 
     <div class="dg-help-section" data-dg-help="dg-config-metadata-defaults">
       <h4>{{ _('Προεπιλογές πεδίων μεταδεδομένων') }}</h4>
@@ -908,15 +1000,13 @@
       </ul>
     </div>
 
-    {% if show_guides_section %}
-      <div class="dg-help-section" data-dg-help="dg-config-guides">
-        <h4>{{ _('Οδηγοί (GitBook)') }}</h4>
-        <ul>
-          <li><strong>{{ _('Σύνδεσμος οδηγών (base URL)') }}:</strong> {{ _('Ο βασικός σύνδεσμος προς τους οδηγούς (GitBook).') }}</li>
-          <li><strong>{{ _('Επιλογές embed στη σελίδα επικοινωνίας') }}:</strong> {{ _('Η λίστα καθορίζει τις κατηγορίες που εμφανίζονται στο dropdown. Αν μείνει κενή, δεν θα εμφανιστεί dropdown.') }}</li>
-        </ul>
-      </div>
-    {% endif %}
+	    <div class="dg-help-section" data-dg-help="dg-config-guides">
+	      <h4>{{ _('Οδηγοί (GitBook)') }}</h4>
+	      <ul>
+	        <li><strong>{{ _('Σύνδεσμος οδηγών (base URL)') }}:</strong> {{ _('Ο βασικός σύνδεσμος προς τους οδηγούς (GitBook).') }}</li>
+	        <li><strong>{{ _('Επιλογές embed στη σελίδα επικοινωνίας') }}:</strong> {{ _('Η λίστα καθορίζει τις κατηγορίες που εμφανίζονται στο dropdown. Αν μείνει κενή, δεν θα εμφανιστεί dropdown.') }}</li>
+	      </ul>
+	    </div>
 
     {% if show_stats_powerbi_section %}
       <div class="dg-help-section" data-dg-help="dg-config-powerbi">

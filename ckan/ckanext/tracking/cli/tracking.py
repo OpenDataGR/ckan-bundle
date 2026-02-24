@@ -140,7 +140,6 @@ def update_tracking(summary_date: datetime.datetime):
     '''
     Update the tracking_summary table with data from tracking_raw
     '''
-    package_url = "/dataset/"
     rp = config.get('ckan.root_path', '')
     root_path = re.sub('/{{LANG}}', '', rp) if rp else ''
     url = (
@@ -183,7 +182,9 @@ def update_tracking(summary_date: datetime.datetime):
         )
         session.add(summary_row)
     session.commit()
-    update_tracking_summary_with_package_id(package_url)
+    # Map tracked page URLs to CKAN package ids (datasets + showcases/apps)
+    update_tracking_summary_with_package_id("/dataset/")
+    update_tracking_summary_with_package_id("/showcase/")
 
 
 def update_tracking_summary_with_package_id(package_url: str):
@@ -203,11 +204,25 @@ def update_tracking_summary_with_package_id(package_url: str):
         .scalar_subquery()
     )
 
+    # Περιορίζουμε το update μόνο στα URLs που μπορούν να ταιριάξουν με το τρέχον
+    # prefix (/dataset/ ή /showcase/), αλλιώς θα “ξανα-επεξεργαζόμαστε” άσχετα
+    # page URLs (π.χ. /about) σε κάθε run/backfill, με σημαντικό κόστος.
+    url_filter = sa.or_(
+        ts.url.like(f"{package_url}%"),
+        ts.url.like(f"/__{package_url}%"),
+    )
+
     session.query(ts).filter(
-        ts.package_id.is_(None),  # type: ignore
+        sa.or_(
+            ts.package_id.is_(None),  # type: ignore
+            ts.package_id == "~~not~found~~",
+        ),
         ts.tracking_type == "page",
+        url_filter,
     ).update(
-        {ts.package_id: func.coalesce(subquery, "~~not~found~~")},
+        # Κρατάμε τα άγνωστα URLs ως NULL, ώστε άλλα patterns (π.χ. /showcase/)
+        # να μπορούν αργότερα να τα αντιστοιχίσουν χωρίς να μπλοκάρονται από "~~not~found~~".
+        {ts.package_id: subquery},
         synchronize_session=False,
     )
 

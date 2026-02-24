@@ -17,9 +17,17 @@ Example:
                         {% block heading %}
                             <h1 class="heading">{{ pkg.title or pkg.name }}</h1>
                         {% endblock %}
-                        {% if pkg.author %}
+                        {% set submitter_organization = pkg.submitter_organization %}
+                        {% set submitter_author = pkg.author %}
+                        {% if submitter_organization or submitter_author %}
                             <span class="smallest">{{_('Submitted by')}}</span>
-                            <p>{{ pkg.author }}</p>
+                            <p>
+                              {% if submitter_organization and submitter_author %}
+                                {{ submitter_organization }} | {{ submitter_author }}
+                              {% else %}
+                                {{ submitter_organization or submitter_author }}
+                              {% endif %}
+                            </p>
                         {% endif %}
                         {% if pkg.url %}
                             <div class="info">
