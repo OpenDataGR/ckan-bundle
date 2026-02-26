@@ -532,15 +532,31 @@ def _send_invite_email_waiting_keycloak_user(user, group_dict, role):
 
     subject = f"Έχετε προσκληθεί στον {org_type} {org_name} - {site_name}"
 
-    # Render το template
-    body = toolkit.render('emails/user_invite_waiting_keycloak.txt', extra_vars)
-
-    mail_recipient(
-        recipient_name=user.display_name or user.fullname or user.name,
-        recipient_email=user.email,
-        subject=subject,
-        body=body
+    use_html_links = toolkit.asbool(
+        toolkit.config.get(
+            'ckanext.data_gov_gr.user_invite.waiting_keycloak.html_links',
+            False
+        )
     )
+
+    if use_html_links:
+        body_text = toolkit.render('emails/user_invite_waiting_keycloak.txt', extra_vars)
+        body_html = toolkit.render('emails/user_invite_waiting_keycloak.html', extra_vars)
+        mail_recipient(
+            recipient_name=user.display_name or user.fullname or user.name,
+            recipient_email=user.email,
+            subject=subject,
+            body=body_text,
+            body_html=body_html
+        )
+    else:
+        body = toolkit.render('emails/user_invite_waiting_keycloak.txt', extra_vars)
+        mail_recipient(
+            recipient_name=user.display_name or user.fullname or user.name,
+            recipient_email=user.email,
+            subject=subject,
+            body=body
+        )
 
 def _send_registration_notification_email(recipient_email, group_dict, role):
     '''Στέλνει το email ειδοποίησης'''

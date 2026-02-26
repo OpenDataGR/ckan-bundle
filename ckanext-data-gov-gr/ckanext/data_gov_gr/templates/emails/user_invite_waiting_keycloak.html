@@ -1,0 +1,29 @@
+<!-- ckanext/data_gov_gr/templates/emails/user_invite_waiting_keycloak.html -->
+<p>Γεια σας,</p>
+
+<p>
+  Σας ενημερώνουμε ότι έχετε προσκληθεί να συμμετάσχετε στον
+  <strong>{{ org_type }}</strong> "<strong>{{ org_name }}</strong>"
+  στην πλατφόρμα <strong>{{ site_name }}</strong> με ρόλο: <strong>{{ role_gr }}</strong>.
+</p>
+
+<p>Για να ολοκληρώσετε τη διαδικασία:</p>
+
+<p>
+  Μπορείτε να εγγραφείτε/συνδεθείτε στην πλατφόρμα με το email σας
+  (<strong>{{ user_email }}</strong>),
+  επισκεπτόμενοι
+  <a href="{{ login_url }}">τη σελίδα σύνδεσης {{ login_url }}</a>
+  και αυτομάτως θα έχετε τον ρόλο "<strong>{{ role_gr }}</strong>" με τον οποίο προσκληθήκατε.
+</p>
+
+<p><strong>Στοιχεία επικοινωνίας οργανισμού:</strong></p>
+<ul>
+  <li>Όνομα οργανισμού: {{ org_name }}</li>
+  <li>Email επικοινωνίας: {{ contact_email or 'Δεν έχει καταχωρηθεί email επικοινωνίας' }}</li>
+  {% if org_url %}<li>Σελίδα οργανισμού εντός του {{ site_name }}: <a href="{{ org_url }}">{{ org_url }}</a></li>{% endif %}
+</ul>
+
+<p>Περισσότερες πληροφορίες για τον οργανισμό μπορείτε να βρείτε στην πλατφόρμα {{ site_name }}.</p>
+
+<p>Με εκτίμηση,<br/>Η ομάδα του {{ site_name }}</p>

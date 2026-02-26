@@ -6,7 +6,7 @@
   border-radius: 4px;
   overflow: hidden;
   max-width: 320px;
-  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  font-family: var(--bs-font-sans-serif, "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif);
 }
 
 .gov-inputgroup input.locked-or-not {
@@ -138,7 +138,7 @@ tr.selected {
   border-radius: 4px;
   overflow: hidden;
   max-width: 320px;
-  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  font-family: var(--bs-font-sans-serif, "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif);
 }
 
 .gov-inputgroup input.locked-or-not {

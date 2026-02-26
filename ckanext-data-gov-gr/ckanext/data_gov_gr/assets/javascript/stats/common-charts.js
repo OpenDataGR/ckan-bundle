@@ -194,11 +194,13 @@
         }
         return point;
       });
+      var hasSinglePoint = seriesData.length === 1;
       return {
         name: s.name || '',
         type: 'line',
         smooth: true,
-        showSymbol: false,
+        showSymbol: hasSinglePoint,
+        symbolSize: hasSinglePoint ? (variant === 'preview' ? 7 : 9) : undefined,
         data: seriesData,
         areaStyle: idx === 0 ? { opacity: 0.15 } : undefined
       };

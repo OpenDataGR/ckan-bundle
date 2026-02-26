@@ -13,15 +13,12 @@
 {% block content %}
 <div class="homepage homepage-proposal">
   {% set home_showcases = h.get_home_showcases(4) %}
-  {% set show_reuse_stats = h.get_config_as_bool('ckanext.data_gov_gr.home.reuse_stats.enabled', True) %}
+  {% set show_reuse_stats = h.get_config_as_bool('ckanext.data_gov_gr.home.reuse_stats.enabled', False) %}
   {% set reuse_stats = h.get_home_reuse_stats() if show_reuse_stats else {} %}
   {% set news_items = h.get_home_news_items(3) %}
   {% set portal_numbers = h.get_home_portal_numbers() %}
   {% set featured_dataset_views = h.get_home_featured_dataset_views(6) %}
   {% set home_stats_tiles = h.get_home_stats_tiles() %}
-  {% set organizations_stats = h.get_organizations_stats() %}
-  {% set datasets_vs_services = h.get_home_datasets_vs_services() %}
-  {% set total_datasets = h.get_home_total_datasets() %}
   {% set hvd_page_url = config.get('ckanext.data_gov_gr.home.hvd_page.url', '/pages/hvd') %}
   {% set vision_page_url = config.get('ckanext.data_gov_gr.home.vision_page.url', '/pages/vision') %}
   {% set guides_root = (config.get('guides_base_url') or 'https://data-gov-gr.gitbook.io/guides')|trim %}
@@ -58,8 +55,8 @@
 
   {% if portal_numbers %}
   {% set pn_datasets = portal_numbers[0] if portal_numbers|length > 0 else None %}
-  {% set pn_apis = portal_numbers[1] if portal_numbers|length > 1 else None %}
-  {% set pn_orgs = portal_numbers[3] if portal_numbers|length > 3 else None %}
+  {% set pn_orgs = portal_numbers[1] if portal_numbers|length > 1 else None %}
+  {% set pn_apis = portal_numbers[2] if portal_numbers|length > 2 else None %}
   <section class="proposal-key-stats" aria-label="{{ _('Platform statistics') }}">
     <div class="container">
       <div class="proposal-key-stats-grid">

@@ -2179,7 +2179,6 @@ def get_home_portal_numbers():
 
     datasets_count = get_home_total_datasets()
     apis_count = _count_packages('dataset_type:data-service')
-    decisions_count = _count_packages('dataset_type:decision')
 
     try:
         orgs_count = int(
@@ -2192,19 +2191,6 @@ def get_home_portal_numbers():
     except Exception:
         orgs_count = 0
 
-    # Εφαρμογές: μετράμε μόνο τις εγκεκριμένες (approval_status=approved).
-    # Το κάνουμε από τη βάση (όχι Solr) για να μην εμφανίζεται 0 όταν υπάρχει θέμα indexing/field naming.
-    showcases_count = _home_reuse_compute_apps_total()
-
-    try:
-        blog_posts = toolkit.get_action('ckanext_pages_list')(
-            {'ignore_auth': True},
-            {'page_type': 'blog', 'private': False},
-        )
-        publications_count = len(blog_posts or [])
-    except Exception:
-        publications_count = 0
-
     return [
         {
             'value': _format_counter(datasets_count),
@@ -2212,29 +2198,14 @@ def get_home_portal_numbers():
             'link': _safe_url_for('dataset.search') or f'/{lang()}/dataset',
         },
         {
-            'value': _format_counter(apis_count),
-            'label': _('Data Services'),
-            'link': _safe_url_for('data-service.search') or f'/{lang()}/data-service',
-        },
-        {
-            'value': _format_counter(decisions_count),
-            'label': _('Αποφάσεις'),
-            'link': _safe_url_for('decision.search') or f'/{lang()}/decision',
-        },
-        {
             'value': _format_counter(orgs_count),
             'label': _('Οργανισμοί'),
             'link': _safe_url_for('organization.index') or f'/{lang()}/organization',
         },
         {
-            'value': _format_counter(showcases_count),
-            'label': _('Εφαρμογές'),
-            'link': _safe_url_for('showcase_blueprint.index') or f'/{lang()}/showcase',
-        },
-        {
-            'value': _format_counter(publications_count),
-            'label': _('Δημοσιεύσεις'),
-            'link': _safe_url_for('pages.blog_index') or f'/{lang()}/blog',
+            'value': _format_counter(apis_count),
+            'label': _('Data Services'),
+            'link': _safe_url_for('data-service.search') or f'/{lang()}/data-service',
         },
     ]
 

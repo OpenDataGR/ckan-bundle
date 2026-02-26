@@ -87,10 +87,44 @@
 			          placeholder='https://data-gov-gr.gitbook.io/guides/xrisi-dedomenon/synola-dedomenon/aksiologisi-poiotitas-metadedomenon'
 			        ) }}
 
-	          {% set reuse_stats_checked = h.get_config_as_bool('ckanext.data_gov_gr.home.reuse_stats.enabled', True) %}
-	          <input
-	            type="hidden"
-	            id="field-ckanext.data_gov_gr.home.reuse_stats.enabled-hidden"
+		          {% set portal_numbers_checked = h.get_config_as_bool('ckanext.data_gov_gr.home.portal_numbers.enabled', True) %}
+		          <input
+		            type="hidden"
+		            id="field-ckanext.data_gov_gr.home.portal_numbers.enabled-hidden"
+		            name="ckanext.data_gov_gr.home.portal_numbers.enabled"
+		            value="false"
+		            {% if portal_numbers_checked %}disabled="disabled"{% endif %}
+		          />
+		          {% call form.checkbox(
+		            'ckanext.data_gov_gr.home.portal_numbers.enabled',
+		            id='field-ckanext.data_gov_gr.home.portal_numbers.enabled',
+		            label=_('Εμφάνιση ενότητας «Η Πύλη με αριθμούς» στην αρχική'),
+		            value='true',
+		            checked=portal_numbers_checked
+		          ) %}
+		            <p class="help-block">
+		              {{ _('Εμφανίζει τις 3 κάρτες με αριθμούς (Σύνολα δεδομένων, Οργανισμοί, Υπηρεσίες Δεδομένων) στην αρχική σελίδα.') }}
+		            </p>
+		          {% endcall %}
+		          <script>
+		            document.addEventListener('DOMContentLoaded', function () {
+		              var checkbox = document.getElementById('field-ckanext.data_gov_gr.home.portal_numbers.enabled');
+		              var hidden = document.getElementById('field-ckanext.data_gov_gr.home.portal_numbers.enabled-hidden');
+		              if (!checkbox || !hidden) {
+		                return;
+		              }
+		              function syncHidden() {
+		                hidden.disabled = !!checkbox.checked;
+		              }
+		              checkbox.addEventListener('change', syncHidden);
+		              syncHidden();
+		            });
+		          </script>
+
+		          {% set reuse_stats_checked = h.get_config_as_bool('ckanext.data_gov_gr.home.reuse_stats.enabled', True) %}
+		          <input
+		            type="hidden"
+		            id="field-ckanext.data_gov_gr.home.reuse_stats.enabled-hidden"
 	            name="ckanext.data_gov_gr.home.reuse_stats.enabled"
 	            value="false"
 	            {% if reuse_stats_checked %}disabled="disabled"{% endif %}
