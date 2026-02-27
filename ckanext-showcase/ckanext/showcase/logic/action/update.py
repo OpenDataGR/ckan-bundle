@@ -4,8 +4,6 @@ import ckan.lib.uploader as uploader
 import ckan.plugins.toolkit as toolkit
 from ckan.lib.mailer import mail_recipient
 
-from ckanext.showcase.views import send_approved_showcase_email
-
 log = logging.getLogger(__name__)
 
 
@@ -60,15 +58,29 @@ def showcase_update(context, data_dict):
 
             receive_dataset_showcase_emails = org.get('receive_dataset_email_updates', '')
 
-            if receive_dataset_showcase_emails == True:
-                org_email = org.get('email', '')
+            if receive_dataset_showcase_emails is True:
+                org_email = (org.get('email') or '').strip()
+                if not org_email:
+                    log.warning(
+                        "Skipping showcase approval email for organization %s: empty email",
+                        org_id
+                    )
+                    continue
 
                 from ckan.common import config
                 site_url = config.get('ckan.site_url', 'http://localhost:5000')
                 showcase_url = f"{site_url}/showcase/{pkg['name']}"
 
                 dataset_name = pkg.get('title', '')
-                send_approved_showcase_dataset_email(context, org_email, data_dict, showcase_url, dataset_name)
+                try:
+                    send_approved_showcase_dataset_email(
+                        context, org_email, data_dict, showcase_url, dataset_name
+                    )
+                except Exception:
+                    log.exception(
+                        "Failed to send showcase approval email for organization %s",
+                        org_id
+                    )
 
     # Κάνουμε skip τους ελέγχους για την αποθήκευση των πακέτων
     context['ignore_auth'] = True
