@@ -136,6 +136,7 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
             'ckanext.data_gov_gr.home.portal_numbers.enabled': [ignore_missing, boolean_validator],
             'ckanext.data_gov_gr.home.reuse_stats.enabled': [ignore_missing, boolean_validator],
             'ckanext.data_gov_gr.home.showcases.ids': [ignore_missing, unicode_safe],
+            'ckanext.data_gov_gr.botakis.enabled': [ignore_missing, boolean_validator],
         })
 
         return schema
@@ -263,6 +264,10 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         )
         declaration.declare(home.showcases.ids, "").set_description(
             "Selected showcases IDs (one per line, up to 4) for the home page."
+        )
+
+        declaration.declare(root.botakis.enabled, "no").set_description(
+            "Enable/disable the Botakis webchat widget."
         )
 
         declaration.annotate("Dataset / data-service view")

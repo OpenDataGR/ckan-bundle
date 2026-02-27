@@ -80,9 +80,6 @@
           <a href="https://www.gov.gr">
             <img src="{{ h.url_for_static('/images/government/government-logo2.svg') }}" alt="government-logo" height="30">
           </a>
-          <a href="http://www.opendefinition.org/okd/" class="ms-3">
-            <img src="{{ h.url_for_static('/base/images/od_80x15_blue.png') }}" alt="Open Data">
-          </a>
         </div>
       </div>
       <div class="col-md-4 attribution text-end">
@@ -95,7 +92,7 @@
   </div>
 
   <!-- botakis script -->
-  {% if config.get('botakis.webchat.url') %}
+  {% if h.get_config_as_bool('ckanext.data_gov_gr.botakis.enabled', False) and config.get('botakis.webchat.url') %}
     <script src="{{ config['botakis.webchat.url'] }}"></script>
   {% endif %}
 

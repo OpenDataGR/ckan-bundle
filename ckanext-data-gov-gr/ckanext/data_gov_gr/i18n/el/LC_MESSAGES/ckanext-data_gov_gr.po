@@ -1023,3 +1023,7 @@ msgstr "Οργάνωση Αλτρουισμού Δεδομένων"
 
 msgid "Apply for recognition as a data altruism organization."
 msgstr "Υποβάλετε αίτηση για αναγνώριση ως οργάνωση αλτρουισμού δεδομένων."
+
+#: ckanext/data_gov_gr/templates/header.html:57
+msgid "Log in / Register"
+msgstr "Σύνδεση / Εγγραφή"

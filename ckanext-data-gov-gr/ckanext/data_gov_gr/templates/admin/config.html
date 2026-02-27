@@ -44,6 +44,40 @@
           field_upload='logo_upload',
           field_clear='clear_logo_upload'
         ) }}
+
+          {% set botakis_enabled = h.get_config_as_bool('ckanext.data_gov_gr.botakis.enabled', False) %}
+            <input
+              type="hidden"
+              id="field-ckanext.data_gov_gr.botakis.enabled-hidden"
+              name="ckanext.data_gov_gr.botakis.enabled"
+              value="false"
+              {% if botakis_enabled %}disabled="disabled"{% endif %}
+            />
+            {% call form.checkbox(
+              'ckanext.data_gov_gr.botakis.enabled',
+              id='field-ckanext.data_gov_gr.botakis.enabled',
+              label=_('Εμφάνιση Botaki (webchat)'),
+              value='true',
+              checked=botakis_enabled
+            ) %}
+              <p class="help-block">
+                {{ _('Ενεργοποιεί/απενεργοποιεί την εμφάνιση του Botaki στο site.') }}
+              </p>
+            {% endcall %}
+            <script>
+              document.addEventListener('DOMContentLoaded', function () {
+                var checkbox = document.getElementById('field-ckanext.data_gov_gr.botakis.enabled');
+                var hidden = document.getElementById('field-ckanext.data_gov_gr.botakis.enabled-hidden');
+                if (!checkbox || !hidden) {
+                  return;
+                }
+                function syncHidden() {
+                  hidden.disabled = !!checkbox.checked;
+                }
+                checkbox.addEventListener('change', syncHidden);
+                syncHidden();
+              });
+            </script>
       </section>
 
 	      <section id="dg-config-home" class="dg-config-section" data-dg-section="dg-config-home">
@@ -997,6 +1031,7 @@
       <ul>
         <li><strong>{{ _('Site Title') }}:</strong> {{ _('Ο τίτλος της πύλης, όπως εμφανίζεται στην κεφαλίδα και σε διάφορα σημεία του CKAN.') }}</li>
         <li><strong>{{ _('Site logo') }}:</strong> {{ _('Το λογότυπο που εμφανίζεται στην κεφαλίδα όλων των σελίδων της πύλης (μπορεί να δοθεί ως URL ή να ανέβει ως εικόνα).') }}</li>
+        <li><strong>{{ _('Εμφάνιση Botaki (webchat)') }}:</strong> {{ _('Ενεργοποιεί/απενεργοποιεί την εμφάνιση του Botaki στο site.') }}</li>
       </ul>
     </div>
 

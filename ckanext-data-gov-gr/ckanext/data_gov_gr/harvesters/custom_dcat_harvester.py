@@ -2,6 +2,7 @@
 
 import logging
 import json
+from urllib.parse import urlparse
 from typing import Optional
 from ckan import model
 from ckanext.dcat.harvesters.rdf import DCATRDFHarvester
@@ -194,6 +195,9 @@ class CustomDcatHarvester(DCATRDFHarvester, IHarvester):
             # Extract source data from harvest object for metadata preservation
             source_data = self._extract_source_data_from_harvest_object(harvest_object)
 
+            # Συγχρονισμός landing page με το system πεδίο Πηγή (url)
+            self._sync_landing_page_with_system_source(package_dict, source_data)
+
             # Preserve key metadata that might be lost during mapping
             self._preserve_license_information(package_dict, source_data)
             self._preserve_contact_details(package_dict, source_data)
@@ -294,25 +298,115 @@ class CustomDcatHarvester(DCATRDFHarvester, IHarvester):
                 # Some JSON-LD feeds use @graph instead of dataset[]
                 datasets = raw.get('@graph')
 
-            if datasets and guid:
-                for candidate in datasets:
-                    if not isinstance(candidate, dict):
-                        continue
-                    ident = candidate.get('identifier') or candidate.get('id') or candidate.get('@id')
+            if datasets:
+                if guid:
+                    for candidate in datasets:
+                        if not isinstance(candidate, dict):
+                            continue
+                        ident = candidate.get('identifier') or candidate.get('id') or candidate.get('@id')
 
-                    identifiers = []
-                    if isinstance(ident, list):
-                        identifiers = [str(v) for v in ident]
-                    elif ident is not None:
-                        identifiers = [str(ident)]
+                        identifiers = []
+                        if isinstance(ident, list):
+                            identifiers = [str(v) for v in ident]
+                        elif ident is not None:
+                            identifiers = [str(ident)]
 
-                    for value in identifiers:
-                        # Match exact identifier or URIs that end with it
-                        if value == guid or (value.endswith(guid) and guid):
-                            return candidate
+                        for value in identifiers:
+                            # Match exact identifier or URIs that end with it
+                            if value == guid or (value.endswith(guid) and guid):
+                                return candidate
+
+                    # αν δεν βρέθηκε dataset-level match,
+                    # ΜΗΝ επιστρέψεις catalog-level payload.
+                    log.debug("No dataset-level match found for guid '%s'; returning empty source_data", guid)
+                    return {}
+
+                # Αν είναι catalog payload χωρίς guid, το θεωρούμε μη ασφαλές
+                # για dataset-level αντιστοίχιση.
+                log.debug("Catalog-level JSON without guid; returning empty source_data")
+                return {}
 
         # Fallback: return the raw JSON (may still be useful for helpers)
         return raw
+
+    def _extract_url_candidate(self, value):
+        """
+        Επιστρέφει το πρώτο έγκυρο http/https URL από scalar/list/dict.
+        """
+        if isinstance(value, str):
+            candidate = value.strip()
+            parsed = urlparse(candidate)
+            if (
+                candidate
+                and parsed.scheme
+                and parsed.scheme.lower() in ('http', 'https')
+                and parsed.netloc
+            ):
+                return candidate
+            return None
+
+        if isinstance(value, list):
+            for item in value:
+                candidate = self._extract_url_candidate(item)
+                if candidate:
+                    return candidate
+            return None
+
+        if isinstance(value, dict):
+            for key in ('@id', 'id', 'url', '@value', 'value'):
+                candidate = self._extract_url_candidate(value.get(key))
+                if candidate:
+                    return candidate
+            return None
+
+        return None
+
+    def _sync_landing_page_with_system_source(self, dataset_dict, source_data):
+        """
+        Απλή πολιτική:
+        1) Παίρνουμε landing_page από source payload (`landing_page` / `landingPage`)
+           και, αν λείπει, από το ήδη parsed dataset (`landing_page` / `url`)
+        2) Το γράφουμε στο dataset `landing_page` (ως λίστα για multiple_text schema)
+           και αφαιρούμε τυχόν duplicate `landing_page` από extras
+        3) Αν λείπει το system `url` (Πηγή), το συμπληρώνουμε από landing_page
+        """
+        try:
+            if not isinstance(dataset_dict, dict):
+                return
+
+            landing_page = None
+            if isinstance(source_data, dict):
+                landing_page = (
+                    self._extract_url_candidate(source_data.get('landing_page'))
+                    or self._extract_url_candidate(source_data.get('landingPage'))
+                )
+
+            if not landing_page:
+                landing_page = (
+                    self._extract_url_candidate(dataset_dict.get('landing_page'))
+                    or self._extract_url_candidate(dataset_dict.get('url'))
+                )
+
+            if not landing_page:
+                return
+
+            # Το landing_page στο scheming ορίζεται ως multiple_text.
+            dataset_dict['landing_page'] = [landing_page]
+
+            # Αποφυγή schema σύγκρουσης: αν υπάρχει ίδιο key στα extras, το αφαιρούμε.
+            extras = dataset_dict.get('extras')
+            if isinstance(extras, list):
+                dataset_dict['extras'] = [
+                    e for e in extras
+                    if not (isinstance(e, dict) and (e.get('key') or '').strip().lower() == 'landing_page')
+                ]
+
+            # Απαίτηση: το landing page να καταχωρείται και στο system πεδίο Πηγή
+            if not self._extract_url_candidate(dataset_dict.get('url')):
+                dataset_dict['url'] = landing_page
+                log.debug("[DATA.GOV.GR HARVESTER] Set dataset source(url) from landing_page: %s", landing_page)
+        except Exception as e:
+            log.error(f"Error syncing landing_page with system source(url): {e}", exc_info=True)
 
     def _ensure_access_rights_and_legislation(self, dataset_dict, source_data):
         """

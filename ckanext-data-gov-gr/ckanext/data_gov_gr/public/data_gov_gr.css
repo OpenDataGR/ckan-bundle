@@ -363,11 +363,24 @@ li#simple-tab:hover, li#advanced-tab:hover {
 
 .masthead {
     background-color: var(--color-primary);
-    border-bottom: 6px solid var(--color-secondary)
+    border-bottom: 3px solid var(--color-secondary);
 }
 
 .account-masthead {
-    background-color: var(--color-primary-light);
+    background-color: var(--color-primary);
+}
+
+.account-masthead .account.not-authed .account-login-register {
+    white-space: nowrap;
+}
+
+.account-masthead .account.not-authed .account-login-register a {
+    display: inline-block;
+}
+
+.masthead .navbar {
+    padding-top: 0;
+    padding-bottom: 0;
 }
 
 .account-masthead .fa {
@@ -478,16 +491,6 @@ li#simple-tab:hover, li#advanced-tab:hover {
 
 .site-footer .attribution .ckan-footer-logo {
   display: inline-block;
-}
-
-/* ---------------------------------------------------------------------------- */
-
-a.service-name {
-    padding: 0.6rem 0.9rem;
-    color: #fff;
-    text-decoration: none;
-    font-weight: 700;
-    font-size: 20px;
 }
 
 /* ---------------------------------------------------------------------------- */
@@ -713,28 +716,14 @@ a.service-name {
 
 /* ---------------------------------------------------------------------------- */
 
-/* sticky */
+/* masthead */
 
 .masthead {
   background-color: var(--color-primary);
-  border-bottom: 6px solid var(--color-secondary);
-  position: sticky;
-  top: 0;
-  z-index: 1000;
-  width: 100%;
+  border-bottom: 3px solid var(--color-secondary);
+  position: relative;
+  top: auto;
   transition: all 0.3s ease;
-}
-
-/* Απενεργοποίηση sticky σε μικρές οθόνες */
-@media (max-width: 768px) {
-  .masthead {
-    position: relative; /* Επαναφορά σε κανονική ροή */
-    top: auto;
-  }
-
-  .masthead.scrolled {
-    box-shadow: none;
-  }
 }
 
 /* ---------------------------------------------------------------------------- */
@@ -2254,21 +2243,37 @@ a.service-name {
   display: inline-block;
 }
 
-/* Ευθυγράμμιση site-name δίπλα στο λογότυπο */
+/* Λογότυπο header */
 .navbar-left {
   display: flex;
-  align-items: center; /* κάθετη στοίχιση στο κέντρο */
+  align-items: center;
+  position: relative;
+}
+
+.navbar-left .logo {
+  display: block;
+  position: relative;
+  z-index: 2;
 }
 
 .navbar-left .logo img {
-  height: 40px; /* ή ό,τι ταιριάζει */
+  width: auto;
+  display: block;
+  transition: transform 0.2s ease;
 }
 
-.navbar-left .service-name {
-  margin-left: 8px;
-  line-height: 1;
-  display: flex;
-  align-items: center;
+@media (min-width: 992px) {
+  /* Let the logo visually span account-masthead + masthead without increasing navbar height */
+  .masthead .navbar-left .logo img {
+    transform-origin: left center;
+    transform: translateY(2px) scale(1.8);
+  }
+}
+
+@media (max-width: 991px) {
+  .navbar-left .logo img {
+    height: 56px;
+  }
 }
 
 /* ---------------------------------------------------------------------------- */
@@ -3902,3 +3907,7 @@ table.harvest-error-list tr td div.error {
 }
 
 /* ============================================================ */
+
+.masthead .navbar .logo img {
+  max-height: 40px;
+}
