@@ -127,7 +127,9 @@ dataset_fields:
         el: Περιγραφή
         en: Description
       form_snippet: markdown.html
-      form_placeholder: A little information about this organization.
+      form_placeholder:
+        el: Λίγες πληροφορίες για αυτόν τον εκδότη
+        en: A little information about this publisher
 
     - field_name: email
       label:

@@ -3911,3 +3911,11 @@ table.harvest-error-list tr td div.error {
 .masthead .navbar .logo img {
   max-height: 40px;
 }
+
+
+.masthead .logo img {
+  position: relative;
+  top: -10px; /* αρνητικό top για να ανέβει πάνω στο account-masthead */
+}
+
+/* ============================================================ */

@@ -96,6 +96,10 @@ def update_zip(package_id, user, skip_if_no_changes=True):
                 url='dummy-value',
                 upload=fp,
                 name=u'All resource data',
+                name_translated={
+                    'en': u'All resource data',
+                    'el': u'Όλα τα δεδομένα πόρων',
+                },
                 format=u'ZIP',
                 downloadall_metadata_modified=dataset['metadata_modified'],
                 downloadall_datapackage_hash=hash_datapackage(datapackage)
