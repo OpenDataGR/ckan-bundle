@@ -110,9 +110,20 @@ class BaseEuropeanDCATAPProfile(RDFProfile):
         ):
 
             multilingual = key in multilingual_fields
-            value = self._object_value(
-                dataset_ref, predicate, multilingual=multilingual
-            )
+            if key == "frequency":
+                # Προτιμάμε το URI (rdf:about) όταν υπάρχει. Αν το Frequency έχει
+                # rdfs:label, το _object_value() θα γυρίσει το label αντί για το URI.
+                freq_obj = self._object(dataset_ref, predicate)
+                if freq_obj and isinstance(freq_obj, URIRef):
+                    value = str(freq_obj)
+                else:
+                    value = self._object_value(
+                        dataset_ref, predicate, multilingual=multilingual
+                    )
+            else:
+                value = self._object_value(
+                    dataset_ref, predicate, multilingual=multilingual
+                )
             if value:
                 dataset_dict["extras"].append({"key": key, "value": value})
 
@@ -225,7 +236,6 @@ class BaseEuropeanDCATAPProfile(RDFProfile):
                 ("issued", DCT.issued),
                 ("modified", DCT.modified),
                 ("status", ADMS.status),
-                ("license", DCT.license),
                 ("rights", DCT.rights),
             ):
                 multilingual = key in multilingual_fields
@@ -234,6 +244,20 @@ class BaseEuropeanDCATAPProfile(RDFProfile):
                 )
                 if value:
                     resource_dict[key] = value
+
+            # License
+            #
+            # Προτιμάμε το URI (rdf:about) όταν υπάρχει. Σε αρκετές πηγές το
+            # LicenseDocument έχει rdfs:label, και το _object_value() θα
+            # επιστρέψει το label αντί για το URI.
+            license_obj = self._object(distribution, DCT.license)
+            if license_obj:
+                if isinstance(license_obj, URIRef):
+                    resource_dict["license"] = str(license_obj)
+                else:
+                    value = self._object_value(distribution, DCT.license)
+                    if value:
+                        resource_dict["license"] = value
 
             # Multilingual core fields
             for key, predicate in (

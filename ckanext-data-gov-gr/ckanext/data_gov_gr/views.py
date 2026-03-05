@@ -25,6 +25,21 @@ GITBOOK_PDF_ENDPOINT = 'https://api.gitbook.com/v1/spaces/{space_id}/pdf'
 GITBOOK_PDF_TIMEOUT = 60
 
 
+def _require_sysadmin_for_stats():
+    if not current_user.is_authenticated:
+        return redirect(toolkit.url_for('user.login', came_from=request.full_path))
+
+    context = {
+        'user': current_user.name,
+        'auth_user_obj': current_user,
+    }
+    try:
+        toolkit.check_access('sysadmin', context, {})
+    except NotAuthorized:
+        abort(403, toolkit._('User not authorized to view page'))
+    return None
+
+
 @blueprint.route('/guides/pdf')
 def download_guides_pdf():
     space_id = config.get('ckanext.data_gov_gr.gitbook.space_id')
@@ -386,6 +401,9 @@ def stats_top_tags():
 
 @blueprint.route('/stats/top-creators')
 def stats_top_creators():
+    auth_response = _require_sysadmin_for_stats()
+    if auth_response:
+        return auth_response
     stats = DataGovStats()
     extra_vars = {
         'top_package_creators': stats.top_package_creators()

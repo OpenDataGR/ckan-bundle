@@ -9,7 +9,7 @@
  */
 
 (function () {
-  var RIGHTS_PREFIX = "Τα δεδομένα διατίθενται κάτω από την άδεια : ";
+  var RIGHTS_PREFIX = "Τα δεδομένα διατίθενται υπό την άδεια : ";
 
   function getEl(id) {
     return document.getElementById(id);

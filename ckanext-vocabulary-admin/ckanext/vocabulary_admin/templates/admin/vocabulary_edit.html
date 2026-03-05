@@ -9,7 +9,7 @@
     <div class="control-group form-field-wrapper pb-2">
       <label class="control-label" for="name">{{ _('Όνομα') }}</label>
       <div class="controls">
-        <input type="text" id="name" name="name" class="form-control" value="{{ vocabulary.name }}" required>
+        <input type="text" id="name" name="name" class="form-control" value="{{ vocabulary.name }}" required {{ 'readonly' if h.vocabularyadmin_is_vocabulary_name_readonly() else '' }}>
         <span class="info-block">{{ _('Το όνομα του λεξιλογίου') }}</span>
       </div>
     </div>

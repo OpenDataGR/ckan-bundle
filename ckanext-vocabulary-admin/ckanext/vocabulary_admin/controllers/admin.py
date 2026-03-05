@@ -5,6 +5,7 @@ import ckan.plugins.toolkit as toolkit
 from ckan.common import _, g, request
 from flask import render_template, redirect, url_for, flash
 
+from ckanext.vocabulary_admin.cache import invalidate_vocabulary_cache
 from ckanext.vocabulary_admin.model import vocabulary as vocabulary_model
 from ckanext.vocabulary_admin.model.tag_metadata import VocabularyTagMetadata
 from ckanext.vocabulary_admin.model.vocabulary_description import VocabularyDescription
@@ -67,6 +68,8 @@ def create_vocabulary():
                     description_el=description_el if description_el else None,
                     description_en=description_en if description_en else None
                 )
+
+            invalidate_vocabulary_cache()
 
             flash(_('Vocabulary created successfully'), 'alert-success')
             return redirect(url_for('vocabularyadmin.vocabulary_admin'))
@@ -140,6 +143,8 @@ def create_tag():
                 is_active=is_active,
                 order_index=order_index
             )
+
+            invalidate_vocabulary_cache()
 
             flash(_('Tag created successfully'), 'alert-success')
             return redirect(url_for('vocabularyadmin.vocabulary_admin'))
@@ -235,6 +240,8 @@ def edit_tag(tag_id):
                 order_index=order_index
             )
 
+            invalidate_vocabulary_cache()
+
             flash(_('Tag updated successfully'), 'alert-success')
             return redirect(url_for('vocabularyadmin.vocabulary_admin'))
         except toolkit.ValidationError as e:
@@ -313,6 +320,8 @@ def edit_vocabulary(vocabulary_id):
                     )
                     order_value += 1
 
+            invalidate_vocabulary_cache()
+
             flash(_('Vocabulary updated successfully'), 'alert-success')
             return redirect(url_for('vocabularyadmin.vocabulary_admin'))
         except toolkit.ValidationError as e:
@@ -331,6 +340,10 @@ def delete_vocabulary(vocabulary_id):
     """
     Delete a vocabulary and all its associated tags.
     """
+    # Check if vocabulary deletion is enabled
+    if not toolkit.asbool(toolkit.config.get('ckanext.vocabulary_admin.enable_vocabulary_delete', False)):
+        return toolkit.abort(403, _('Vocabulary deletion is disabled by configuration.'))
+
     # Check if user has admin permissions
     context = {'model': model, 'user': g.user}
     try:
@@ -367,6 +380,10 @@ def delete_tag(tag_id):
     """
     Delete a tag and its associated metadata.
     """
+    # Check if tag deletion is enabled
+    if not toolkit.asbool(toolkit.config.get('ckanext.vocabulary_admin.enable_tag_delete', False)):
+        return toolkit.abort(403, _('Tag deletion is disabled by configuration.'))
+
     # Check if user has admin permissions
     context = {'model': model, 'user': g.user}
     try:

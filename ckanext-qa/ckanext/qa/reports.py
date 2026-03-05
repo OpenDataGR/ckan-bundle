@@ -123,6 +123,110 @@ def _calculate_mqa_dimension_scores(dimension_totals):
     return scores
 
 
+def _accumulate_mqa_dimension_totals_from_scores(dimension_totals, mqa_scores):
+    if not mqa_scores:
+        return
+
+    dimension_totals['resources_with_mqa'] += 1
+
+    score_mapping = (
+        ('mqa_findability_score', 'total_findability', 'findability_values_count'),
+        ('mqa_accessibility_score', 'total_accessibility', 'accessibility_values_count'),
+        ('mqa_interoperability_score', 'total_interoperability', 'interoperability_values_count'),
+        ('mqa_reusability_score', 'total_reusability', 'reusability_values_count'),
+        ('mqa_contextuality_score', 'total_contextuality', 'contextuality_values_count'),
+    )
+
+    for score_key, total_key, count_key in score_mapping:
+        score = mqa_scores.get(score_key)
+        if score is not None:
+            dimension_totals[total_key] += score
+            dimension_totals[count_key] += 1
+
+
+def _normalize_mqa_score(value):
+    if value is None:
+        return None
+    try:
+        return round(float(value), 1)
+    except (TypeError, ValueError):
+        return None
+
+
+def _extract_mqa_scores_from_pkg_dict(pkg_dict):
+    qa_dict = pkg_dict.get('qa')
+    if not isinstance(qa_dict, dict):
+        return None
+
+    mqa_score = _normalize_mqa_score(qa_dict.get('mqa_score'))
+    if mqa_score is None:
+        return None
+
+    return {
+        'mqa_score': mqa_score,
+        'mqa_findability_score': _normalize_mqa_score(qa_dict.get('mqa_findability_score')),
+        'mqa_accessibility_score': _normalize_mqa_score(qa_dict.get('mqa_accessibility_score')),
+        'mqa_interoperability_score': _normalize_mqa_score(qa_dict.get('mqa_interoperability_score')),
+        'mqa_reusability_score': _normalize_mqa_score(qa_dict.get('mqa_reusability_score')),
+        'mqa_contextuality_score': _normalize_mqa_score(qa_dict.get('mqa_contextuality_score')),
+    }
+
+
+def _build_mqa_fallback_for_dataset_without_resources(pkg):
+    active_resources = [
+        resource for resource in getattr(pkg, 'resources', [])
+        if getattr(resource, 'state', None) == 'active'
+    ]
+    if active_resources:
+        return None
+
+    try:
+        from ckanext.data_gov_gr.logic.mqa_calculator import MQACalculator
+    except ImportError:
+        return None
+
+    context = {'model': model, 'session': model.Session, 'ignore_auth': True}
+
+    try:
+        pkg_dict = p.toolkit.get_action('package_show')(context, {'id': pkg.id})
+    except Exception as e:
+        log.warning(
+            'Error loading dataset %s for fallback MQA score calculation: %s',
+            pkg.id,
+            str(e)
+        )
+        return None
+
+    if pkg_dict.get('resources'):
+        return None
+
+    existing_mqa_scores = _extract_mqa_scores_from_pkg_dict(pkg_dict)
+    if existing_mqa_scores is not None:
+        return existing_mqa_scores
+
+    try:
+        check_urls = p.toolkit.asbool(
+            p.toolkit.config.get('ckanext.data_gov_gr.mqa.check_urls', True)
+        )
+        mqa_scores = MQACalculator(check_urls=check_urls).calculate_all_scores(pkg_dict)
+    except Exception as e:
+        log.warning(
+            'Error calculating fallback MQA score for dataset %s: %s',
+            pkg.id,
+            str(e)
+        )
+        return None
+
+    return {
+        'mqa_score': round(mqa_scores.get('percentage', 0), 1),
+        'mqa_findability_score': round(mqa_scores.get('findability', 0), 1),
+        'mqa_accessibility_score': round(mqa_scores.get('accessibility', 0), 1),
+        'mqa_interoperability_score': round(mqa_scores.get('interoperability', 0), 1),
+        'mqa_reusability_score': round(mqa_scores.get('reusability', 0), 1),
+        'mqa_contextuality_score': round(mqa_scores.get('contextuality', 0), 1),
+    }
+
+
 def openness_report(organization):
     if organization is None:
         return openness_index()
@@ -367,17 +471,26 @@ def metadata_quality_index():
         # Count metadata quality metrics for each package
         for pkg in pkgs:
             qa_objs = qa_by_package.get(pkg.id, [])
+            mqa_score = None
 
             # If we have QA objects with MQA scores, use them
             if qa_objs:
                 qa_dict = aggregate_qa_for_a_dataset(qa_objs)
                 mqa_score = qa_dict.get('mqa_score')
-
                 if mqa_score is not None:
-                    # Use the stored MQA score
-                    org_counts['total_mqa_score'] += mqa_score
-                    org_counts['packages_with_mqa_score'] += 1
                     log.info(f"Using stored MQA score for package {pkg.name}: {mqa_score}")
+
+            if mqa_score is None:
+                fallback_mqa_scores = _build_mqa_fallback_for_dataset_without_resources(pkg)
+                if fallback_mqa_scores:
+                    mqa_score = fallback_mqa_scores.get('mqa_score')
+                    if mqa_score is not None:
+                        _accumulate_mqa_dimension_totals_from_scores(org_counts, fallback_mqa_scores)
+                        log.info(f"Using fallback MQA score for dataset without resources {pkg.name}: {mqa_score}")
+
+            if mqa_score is not None:
+                org_counts['total_mqa_score'] += mqa_score
+                org_counts['packages_with_mqa_score'] += 1
 
         # Store organization counts
         counts[org.name] = {
@@ -493,10 +606,24 @@ def metadata_quality_for_organization(organization=None):
 
                 if mqa_score is not None:
                     # Use the stored MQA score (rounded to 1 decimal place)
-                    mqa_quality_score = round(mqa_score, 1) if mqa_score is not None else None
+                    mqa_quality_score = round(mqa_score, 1)
                     packages_with_mqa_score += 1
                     total_mqa_score += mqa_score
                     log.info(f"Using stored MQA score for package {pkg.name}: {mqa_score}")
+
+            if mqa_quality_score is None:
+                fallback_mqa_scores = _build_mqa_fallback_for_dataset_without_resources(pkg)
+                if fallback_mqa_scores:
+                    mqa_quality_score = fallback_mqa_scores.get('mqa_score')
+                    if mqa_quality_score is not None:
+                        mqa_findability_score = fallback_mqa_scores.get('mqa_findability_score')
+                        mqa_accessibility_score = fallback_mqa_scores.get('mqa_accessibility_score')
+                        mqa_interoperability_score = fallback_mqa_scores.get('mqa_interoperability_score')
+                        mqa_reusability_score = fallback_mqa_scores.get('mqa_reusability_score')
+                        mqa_contextuality_score = fallback_mqa_scores.get('mqa_contextuality_score')
+                        packages_with_mqa_score += 1
+                        total_mqa_score += mqa_quality_score
+                        log.info(f"Using fallback MQA score for dataset without resources {pkg.name}: {mqa_quality_score}")
 
 
             # Add row for this package

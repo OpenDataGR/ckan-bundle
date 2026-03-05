@@ -86,8 +86,9 @@ def validate(data_dict):
         and data_dict['email']
     ):
         if not is_email(data_dict['email'], check_dns=True):
-            errors['email'] = ['Email address appears to be invalid']
-            error_summary['email'] = 'Email address appears to be invalid'
+            invalid_email_message = toolkit._('Email address appears to be invalid')
+            errors['email'] = [invalid_email_message]
+            error_summary['email'] = invalid_email_message
 
     # only check the recaptcha if there are no errors
     if not errors:
@@ -254,6 +255,12 @@ def submit():
         author_email = None
         org_email = None
 
+        # Ελέγχει αν η αποστολή στο author_email είναι ενεργή μέσω config
+        # Default: false — αν δεν υπάρχει καθόλου, δεν αποστέλλεται στο author_email
+        send_to_author = asbool(
+            toolkit.config.get('ckanext.contact.send_to_author_email', False)
+        )
+
         # --------------Ανάκτηση Στοιχείων Συντάκτη--------
         if "package_id" in data_dict:
 
@@ -284,7 +291,7 @@ def submit():
         if recipient_email:
             recipients.append(recipient_email)
 
-        if author_email:
+        if send_to_author and author_email:
             recipients.append(author_email)
 
         if org_email:

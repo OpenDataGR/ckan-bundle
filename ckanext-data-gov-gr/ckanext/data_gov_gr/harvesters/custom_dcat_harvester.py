@@ -18,7 +18,7 @@ _vocabulary_cache = {}
 
 class CustomDcatHarvester(DCATRDFHarvester, IHarvester):
     """
-    Custom DCAT harvester for harvesting from data.gov.ie to data.gov.gr
+    Custom DCAT harvester for harvesting 
     that fixes validation errors through custom mapping.
     """
 
@@ -173,6 +173,91 @@ class CustomDcatHarvester(DCATRDFHarvester, IHarvester):
 
         return trimmed
 
+    def _canonicalize_license_value(self, value, uri_by_code):
+        """
+        Μετατρέπει μια τιμή άδειας σε έγκυρη τιμή του controlled vocabulary
+        `Licence` (συνήθως EU authority URI).
+
+        Στόχος εδώ είναι να κρατήσουμε το `rdf:about` του LicenseDocument ως
+        `license_url` και να γράψουμε στο `license` μόνο αποδεκτή επιλογή.
+        """
+        if not isinstance(value, str):
+            return None
+        raw = value.strip()
+        if not raw:
+            return None
+
+        code = self._extract_code_from_identifier(raw).upper().replace('-', '_')
+        if not code:
+            return None
+
+        resolved = uri_by_code.get(code)
+        if resolved:
+            return resolved
+
+        # Fallback: η πηγή μπορεί να δίνει "οικογένεια" άδειας χωρίς version
+        # (πχ CC_BYNCND) ενώ το vocabulary έχει versioned tags (πχ CC_BYNCND_4_0).
+        prefix = f"{code}_"
+        candidates = [c for c in uri_by_code.keys() if c.startswith(prefix)]
+        if not candidates:
+            return None
+
+        def _version_tuple(candidate_code):
+            tail = candidate_code[len(prefix):]
+            nums = []
+            for part in tail.split('_'):
+                if part.isdigit():
+                    nums.append(int(part))
+                else:
+                    break
+            return tuple(nums)
+
+        best = max(candidates, key=_version_tuple)
+        return uri_by_code.get(best)
+
+    def _fix_resource_license_fields(self, dataset_dict, harvest_object):
+        resources = dataset_dict.get('resources')
+        if not isinstance(resources, list) or not resources:
+            return
+
+        uri_by_code = {}
+        for code, value in self._get_vocabulary_uri_map('Licence').items():
+            if not isinstance(value, str) or not value.strip():
+                continue
+            canonical = value.strip()
+            uri_by_code[str(code).strip().upper()] = canonical
+
+        if not uri_by_code:
+            # Αν δεν φορτώνει το vocabulary, αφαιρούμε το resource.license για να μην σκάει validation.
+            for resource in resources:
+                if isinstance(resource, dict):
+                    resource.pop('license', None)
+            return
+
+        for resource in resources:
+            if not isinstance(resource, dict):
+                continue
+
+            raw = resource.get('license')
+            if not isinstance(raw, str):
+                resource.pop('license', None)
+                continue
+
+            raw = raw.strip()
+            if not raw:
+                resource.pop('license', None)
+                continue
+
+            # Κρατάμε το URL όπως ήρθε από το DCAT (`LicenseDocument/@rdf:about` κτλ).
+            if raw.lower().startswith(('http://', 'https://')):
+                resource['license_url'] = raw
+
+            resolved = self._canonicalize_license_value(raw, uri_by_code)
+            if resolved:
+                resource['license'] = resolved
+            else:
+                resource.pop('license', None)
+
     def info(self):
         return {
             'name': 'custom_dcat_harvester',
@@ -246,6 +331,7 @@ class CustomDcatHarvester(DCATRDFHarvester, IHarvester):
 
             # Fix 9: Preserve critical metadata from source
             self._preserve_resource_level_licenses(package_dict, source_data)
+            self._fix_resource_license_fields(package_dict, harvest_object)
             self._extract_and_preserve_contact_phone(package_dict, source_data)
 
             # Fix 10: Ensure required field fallbacks exist
@@ -1012,18 +1098,18 @@ class CustomDcatHarvester(DCATRDFHarvester, IHarvester):
                 alternative_mappings = {
                     'cc0': 'CC0_1_0',
                     'cc_by': 'CC_BY_4_0',
-                    'cc_by_sa': 'CC_BY_SA_4_0',
-                    'cc_by_nc': 'CC_BY_NC_4_0',
-                    'cc_by_nd': 'CC_BY_ND_4_0',
-                    'cc_by_nc_sa': 'CC_BY_NC_SA_4_0',
-                    'cc_by_nc_nd': 'CC_BY_NC_ND_4_0',
+                    'cc_by_sa': 'CC_BYSA_4_0',
+                    'cc_by_nc': 'CC_BYNC_4_0',
+                    'cc_by_nd': 'CC_BYND_4_0',
+                    'cc_by_nc_sa': 'CC_BYNCSA_4_0',
+                    'cc_by_nc_nd': 'CC_BYNCND_4_0',
                     'odc_by': 'ODC_BY',
                     'odc_odbl': 'ODC_ODBL',
                     'odc_pddl': 'ODC_PDDL',
                     'mit': 'MIT',
                     'gpl': 'GPL_3_0',
                     'lgpl': 'LGPL_3_0',
-                    'apache': 'APL_2_0',
+                    'apache': 'APACHE_2_0',
                 }
                 if lic_lower in alternative_mappings:
                     # Use the main 'license' field

@@ -92,6 +92,7 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         - ``ckanext.data_gov_gr.showcase.disclaimer`` (apps/showcases disclaimer)
         - ``ckanext.data_gov_gr.dataset.legislation.open`` (default applicable legislation for open datasets)
         - ``ckanext.data_gov_gr.dataset.legislation.protected`` (default applicable legislation for protected datasets)
+        - ``ckanext.data_gov_gr.dataset.show_metadata_license_disclaimer`` (show/hide metadata license disclaimer in dataset form)
         - ``ckanext.data_gov_gr.resource.license.default`` (default license URI for new resources on open datasets)
         - ``ckanext.data_gov_gr.dataset.spatial_coverage.default.*`` (προεπιλεγμένη χωρική κάλυψη για νέα datasets - παλιό/advanced σχήμα)
         - ``ckanext.data_gov_gr.dataset.spatial_coverage.default`` (απλή επιλογή προεπιλεγμένης χωρικής κάλυψης)
@@ -110,9 +111,11 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         schema.update({
             'ckanext.data_gov_gr.powerbi_embed_url': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.user_survey.url': [ignore_missing, unicode_safe],
+            'ckanext.geonames.username': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.showcase.disclaimer': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.dataset.legislation.open': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.dataset.legislation.protected': [ignore_missing, unicode_safe],
+            'ckanext.data_gov_gr.dataset.show_metadata_license_disclaimer': [ignore_missing, boolean_validator],
             'ckanext.data_gov_gr.resource.license.default': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.dataset.spatial_coverage.default': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.dataset.spatial_coverage.default.geonames_id': [ignore_missing, unicode_safe],
@@ -135,6 +138,7 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
             'ckanext.data_gov_gr.home.featured_dataset_views.ids': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.home.portal_numbers.enabled': [ignore_missing, boolean_validator],
             'ckanext.data_gov_gr.home.reuse_stats.enabled': [ignore_missing, boolean_validator],
+            'ckanext.data_gov_gr.home.registries.enabled': [ignore_missing, boolean_validator],
             'ckanext.data_gov_gr.home.showcases.ids': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.botakis.enabled': [ignore_missing, boolean_validator],
         })
@@ -159,12 +163,16 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         data_service = root.data_service
         resource = root.resource
         dataset = root.dataset
+        geonames = key.ckanext.geonames
 
         declaration.declare(root.powerbi_embed_url, "").set_description(
             "Power BI embed URL (used on /stats/powerbi and home previews)."
         )
         declaration.declare(root.user_survey.url, "").set_description(
             "User survey URL (supports {locale} placeholder)."
+        )
+        declaration.declare(geonames.username, "").set_description(
+            "GeoNames username used by geonames_search / geonames_get actions."
         )
         declaration.declare(root.showcase.disclaimer, "").set_description(
             "Showcases disclaimer text (HTML allowed)."
@@ -174,6 +182,9 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         )
         declaration.declare(root.dataset.legislation.protected, "").set_description(
             "Default applicable legislation URL for protected datasets."
+        )
+        declaration.declare(dataset.show_metadata_license_disclaimer, "no").set_description(
+            "Show/hide the metadata license disclaimer text in dataset create/edit forms."
         )
         declaration.declare(resource.license.default, "").set_description(
             "Προεπιλεγμένο URI άδειας για νέους πόρους σε ανοικτά datasets (access_rights που καταλήγει σε /PUBLIC)."
@@ -246,6 +257,9 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         )
         declaration.declare(home.reuse_stats.enabled, "yes").set_description(
             "Show the 'Reuse statistics' section (Matomo visitors/downloads + apps count) on the home page."
+        )
+        declaration.declare(home.registries.enabled, "yes").set_description(
+            "Show links to registries on the home page."
         )
         declaration.declare(home.stats.item1, "").set_description(
             "Home stats tile 1 (stats id)."
@@ -371,8 +385,6 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
 
     def get_helpers(self):
         return helpers.get_helpers()
-
-        self.raise_error_if_username_not_set()
 
     # IPackageController
     def before_index(self, pkg_dict):
@@ -720,6 +732,7 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
             'user_delete': actions.user_delete,
             "organization_list": actions.organization_list,
             'geonames_search': self.geonames_search_action,  # Κλήση για ανάκτηση αποτελεσμάτων σε geoname
+            'geonames_get': self.geonames_get_action,
             # Προσυμπλήρωση access_url / download_url κατά το save πόρου (chained actions)
             'resource_create': actions.resource_create,
             'resource_update': actions.resource_update,
@@ -743,13 +756,40 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         return exposed_actions
 
     ''' Έλεγχος αν είναι υπάρχει παραμετροποίηση '''
-    def raise_error_if_username_not_set(self):
+    @staticmethod
+    def raise_error_if_username_not_set():
         username = config.get('ckanext.geonames.username')
-        if not username:
+        if not username or not str(username).strip():
             raise toolkit.ValidationError('GeoNames username is not configured.')
-        return username
+        return str(username).strip()
 
-    from ckan.common import request
+    @staticmethod
+    def _build_bbox_polygon_geojson(raw_bbox: Any) -> str:
+        if not isinstance(raw_bbox, dict):
+            return ''
+        try:
+            west = float(raw_bbox.get('west'))
+            south = float(raw_bbox.get('south'))
+            east = float(raw_bbox.get('east'))
+            north = float(raw_bbox.get('north'))
+        except (TypeError, ValueError):
+            return ''
+
+        polygon = {
+            "type": "Polygon",
+            "coordinates": [[
+                [west, south],
+                [west, north],
+                [east, north],
+                [east, south],
+                [west, south],
+            ]],
+        }
+        try:
+            return json.dumps(polygon, ensure_ascii=False)
+        except Exception:
+            return ''
+
     ''' Κλήση για ανάκτηση περιοχής '''
     @staticmethod
     def geonames_search_action(context, data_dict):
@@ -758,23 +798,31 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         Expects 'query' in data_dict.
         """
         query = data_dict.get('query')
+        if isinstance(query, str):
+            query = query.strip()
         if not query:
             raise toolkit.ValidationError('Missing required parameter: query')
 
-
-
         try:
             # Ανάκτηση username και δημιουργία URL
-            username = config.get('ckanext.geonames.username')
+            username = DataGovGrPlugin.raise_error_if_username_not_set()
 
             language = DataGovGrPlugin.get_language_from_url_or_default()
 
-            url = f"http://api.geonames.org/searchJSON?q={query}&maxRows=10&username={username}&lang={language}"
+            url = "http://api.geonames.org/searchJSON"
             # Ορίζουμε σαν timeout για να απαντήσει ο GeoNames Server
             REQUEST_TIMEOUT = (5, 10)  # seconds
 
-
-            response = requests.get(url, timeout=REQUEST_TIMEOUT)
+            response = requests.get(
+                url,
+                params={
+                    "q": query,
+                    "maxRows": 10,
+                    "username": username,
+                    "lang": language,
+                },
+                timeout=REQUEST_TIMEOUT,
+            )
 
             # Exception για τις κλήσεις που είναι της μορφής (4xx or 5xx)
             response.raise_for_status()
@@ -791,6 +839,49 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         except Exception as e:
             # Για οποιοδήποτε άλλο σφάλμα
             raise toolkit.ValidationError(f'Unexpected error during GeoNames search: {str(e)}')
+
+    ''' Κλήση για ανάκτηση αναλυτικών στοιχείων τοποθεσίας GeoNames '''
+    @staticmethod
+    def geonames_get_action(context, data_dict):
+        geoname_id_raw = data_dict.get('geonameId')
+        geoname_id = str(geoname_id_raw).strip() if geoname_id_raw is not None else ''
+        if not geoname_id:
+            raise toolkit.ValidationError('Missing required parameter: geonameId')
+
+        try:
+            username = DataGovGrPlugin.raise_error_if_username_not_set()
+            language = DataGovGrPlugin.get_language_from_url_or_default()
+            request_timeout = (5, 10)  # seconds
+
+            response = requests.get(
+                "http://api.geonames.org/getJSON",
+                params={
+                    "geonameId": geoname_id,
+                    "username": username,
+                    "lang": language,
+                    "style": "full",
+                },
+                timeout=request_timeout,
+            )
+            response.raise_for_status()
+            payload = response.json() or {}
+
+            raw_bbox = payload.get('bbox')
+            bbox_geojson = DataGovGrPlugin._build_bbox_polygon_geojson(raw_bbox)
+
+            return {
+                "geonameId": geoname_id,
+                "bbox_raw": raw_bbox if isinstance(raw_bbox, dict) else None,
+                "bbox": bbox_geojson,
+            }
+        except requests.exceptions.Timeout as e:
+            raise toolkit.ValidationError(f'GeoNames API request timed out: {str(e)}')
+        except requests.exceptions.RequestException as e:
+            raise toolkit.ValidationError(f'Error communicating with GeoNames API: {str(e)}')
+        except toolkit.ValidationError:
+            raise
+        except Exception as e:
+            raise toolkit.ValidationError(f'Unexpected error during GeoNames get details: {str(e)}')
 
     ''' Ανάκτηση της γλώσσας από το URL αν υπάρχει '''
     @staticmethod

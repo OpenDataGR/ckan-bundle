@@ -8,6 +8,7 @@
 {% set show_home_featured_datasets_section = h.get_config_as_bool('ckanext.data_gov_gr.config_ui.home_featured_datasets.enabled', False) %}
 {% set show_home_showcases_section = h.get_config_as_bool('ckanext.data_gov_gr.config_ui.home_showcases.enabled', False) %}
 {% set show_dataset_menu_section = h.get_config_as_bool('ckanext.data_gov_gr.config_ui.dataset_menu.enabled', False) %}
+{% set show_guides_section = h.get_config_as_bool('ckanext.data_gov_gr.config_ui.guides.enabled', False) %}
 {% set contact_gitbook_embed_items_raw = config.get('ckanext.data_gov_gr.contact.gitbook_embed_items') %}
 {% set contact_gitbook_embed_has_value = contact_gitbook_embed_items_raw is not none %}
 
@@ -178,6 +179,40 @@
 	            document.addEventListener('DOMContentLoaded', function () {
 	              var checkbox = document.getElementById('field-ckanext.data_gov_gr.home.reuse_stats.enabled');
 	              var hidden = document.getElementById('field-ckanext.data_gov_gr.home.reuse_stats.enabled-hidden');
+	              if (!checkbox || !hidden) {
+	                return;
+	              }
+	              function syncHidden() {
+	                hidden.disabled = !!checkbox.checked;
+	              }
+	              checkbox.addEventListener('change', syncHidden);
+	              syncHidden();
+	            });
+	          </script>
+
+	          {% set home_registries_checked = h.get_config_as_bool('ckanext.data_gov_gr.home.registries.enabled', True) %}
+	          <input
+	            type="hidden"
+	            id="field-ckanext.data_gov_gr.home.registries.enabled-hidden"
+	            name="ckanext.data_gov_gr.home.registries.enabled"
+	            value="false"
+	            {% if home_registries_checked %}disabled="disabled"{% endif %}
+	          />
+	          {% call form.checkbox(
+	            'ckanext.data_gov_gr.home.registries.enabled',
+	            id='field-ckanext.data_gov_gr.home.registries.enabled',
+	            label=_('Εμφάνιση παραπομπών στα μητρώα στην αρχική'),
+	            value='true',
+	            checked=home_registries_checked
+	          ) %}
+	            <p class="help-block">
+	              {{ _('Εμφανίζει/κρύβει τις κάρτες παραπομπής στα μητρώα στην ενότητα Data Governance Act της αρχικής σελίδας.') }}
+	            </p>
+	          {% endcall %}
+	          <script>
+	            document.addEventListener('DOMContentLoaded', function () {
+	              var checkbox = document.getElementById('field-ckanext.data_gov_gr.home.registries.enabled');
+	              var hidden = document.getElementById('field-ckanext.data_gov_gr.home.registries.enabled-hidden');
 	              if (!checkbox || !hidden) {
 	                return;
 	              }
@@ -605,6 +640,7 @@
         {% endif %}
       </section>
 
+      {% if show_guides_section %}
 	      <section id="dg-config-guides" class="dg-config-section" data-dg-section="dg-config-guides">
 	        <h3>{{ _('Οδηγοί (GitBook)') }}</h3>
 
@@ -816,6 +852,7 @@
           })();
 	        </script>
 	      </section>
+      {% endif %}
 
 	      {% if show_stats_powerbi_section %}
 	      <section id="dg-config-powerbi" class="dg-config-section" data-dg-section="dg-config-powerbi">
@@ -1006,7 +1043,7 @@
 	      <li><a href="#dg-config-home">{{ _('Αρχική') }}</a></li>
 	      <li><a href="#dg-config-metadata-defaults">{{ _('Προεπιλογές πεδίων μεταδεδομένων') }}</a></li>
 	      <li><a href="#dg-config-menu">{{ _('Μενού / Αναζήτηση') }}</a></li>
-	      <li><a href="#dg-config-guides">{{ _('Οδηγοί (GitBook)') }}</a></li>
+	      {% if show_guides_section %}<li><a href="#dg-config-guides">{{ _('Οδηγοί (GitBook)') }}</a></li>{% endif %}
 	      {% if show_stats_powerbi_section %}<li><a href="#dg-config-powerbi">{{ _('Power BI') }}</a></li>{% endif %}
 	      <li><a href="#dg-config-survey">{{ _('Έρευνα') }}</a></li>
 	      <li><a href="#dg-config-showcases">{{ _('Showcases') }}</a></li>
@@ -1069,6 +1106,7 @@
       </ul>
     </div>
 
+      {% if show_guides_section %}
 	    <div class="dg-help-section" data-dg-help="dg-config-guides">
 	      <h4>{{ _('Οδηγοί (GitBook)') }}</h4>
 	      <ul>
@@ -1076,6 +1114,7 @@
 	        <li><strong>{{ _('Επιλογές embed στη σελίδα επικοινωνίας') }}:</strong> {{ _('Η λίστα καθορίζει τις κατηγορίες που εμφανίζονται στο dropdown. Αν μείνει κενή, δεν θα εμφανιστεί dropdown.') }}</li>
 	      </ul>
 	    </div>
+      {% endif %}
 
     {% if show_stats_powerbi_section %}
       <div class="dg-help-section" data-dg-help="dg-config-powerbi">

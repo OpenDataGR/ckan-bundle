@@ -84,6 +84,9 @@ msgstr "Πρέπει να αποδεχθείτε τους Όρους Χρήση�
 msgid "Email"
 msgstr "Email"
 
+msgid "Email address appears to be invalid"
+msgstr "Η διεύθυνση email φαίνεται να μην είναι έγκυρη"
+
 msgid "Thank you!"
 msgstr "Σας ευχαριστούμε!"
 

@@ -181,7 +181,8 @@ def _get_home_stats_catalog():
             'route': 'dataset_type.stats_top_creators',
             'icon': 'fa fa-user',
             'title': _('Users Creating Most Datasets'),
-            'description': _('Χρήστες που έχουν δημιουργήσει τα περισσότερα σύνολα δεδομένων.')
+            'description': _('Χρήστες που έχουν δημιουργήσει τα περισσότερα σύνολα δεδομένων.'),
+            'requires_sysadmin': True,
         },
         {
             'id': 'powerbi',
@@ -192,7 +193,70 @@ def _get_home_stats_catalog():
         },
     ]
 
+
+def _current_user_is_sysadmin() -> bool:
+    current_user = cast(Union["Model.User", "Model.AnonymousUser"], _cu)
+    if not getattr(current_user, 'is_authenticated', False):
+        return False
+
+    context = {
+        'user': getattr(current_user, 'name', None),
+        'auth_user_obj': current_user,
+    }
+    try:
+        toolkit.check_access('sysadmin', context, {})
+    except toolkit.NotAuthorized:
+        return False
+    return True
+
+
 log = logging.getLogger(__name__)
+
+_VOCAB_CACHE_VERSION_KEY = 'ckanext:vocabulary_admin:cache_version'
+_VOCAB_CACHE_FALLBACK_TTL_SECONDS = 30
+_VOCAB_TAGS_CACHE = {}
+_VOCAB_TAGS_CACHE_VERSION = None
+_VOCAB_TAGS_CACHE_LOCK = threading.Lock()
+_VOCAB_TAGS_FALLBACK_VERSION = 1
+_VOCAB_TAGS_FALLBACK_EXPIRES_AT = 0.0
+
+
+def _decode_cache_version(value, default=1):
+    """Μετατρέπει Redis τιμή version σε ακέραιο με ασφαλές fallback."""
+    if value is None:
+        return default
+    if isinstance(value, bytes):
+        value = value.decode('utf-8', 'ignore')
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _get_vocab_cache_fallback_version():
+    """Τοπικό fallback version όταν δεν είναι διαθέσιμο το Redis."""
+    global _VOCAB_TAGS_FALLBACK_VERSION, _VOCAB_TAGS_FALLBACK_EXPIRES_AT
+    now = time.time()
+    with _VOCAB_TAGS_CACHE_LOCK:
+        if now >= _VOCAB_TAGS_FALLBACK_EXPIRES_AT:
+            _VOCAB_TAGS_FALLBACK_VERSION += 1
+            _VOCAB_TAGS_FALLBACK_EXPIRES_AT = now + _VOCAB_CACHE_FALLBACK_TTL_SECONDS
+        return _VOCAB_TAGS_FALLBACK_VERSION
+
+
+def _get_vocab_cache_version():
+    """Παίρνει το shared cache version από Redis ή fallback τοπικά."""
+    try:
+        from ckan.lib.redis import connect_to_redis  # type: ignore
+        redis_conn = connect_to_redis()
+        current = redis_conn.get(_VOCAB_CACHE_VERSION_KEY)
+        if current is None:
+            redis_conn.set(_VOCAB_CACHE_VERSION_KEY, 1, nx=True)
+            current = redis_conn.get(_VOCAB_CACHE_VERSION_KEY)
+        return _decode_cache_version(current, default=1)
+    except Exception:
+        return _get_vocab_cache_fallback_version()
+
 
 # ---------------------------------------------------------------------------------------
 
@@ -211,16 +275,20 @@ def google_analytics_snippet():
 
 # ---------------------------------------------------------------------------------------
 
-# Αποθηκεύουμε τα δεδομένα από τη βάση σε ένα cache για καλύτερη απόδοση
-_vocabulary_cache = {}
-
 def _get_vocabulary_tags(vocabulary_id_or_name):
     """
     Ανακτά τα tags ενός λεξιλογίου από τη βάση δεδομένων.
-    Χρησιμοποιεί cache για καλύτερη απόδοση.
     """
-    if vocabulary_id_or_name in _vocabulary_cache:
-        return _vocabulary_cache[vocabulary_id_or_name]
+    global _VOCAB_TAGS_CACHE_VERSION
+    cache_version = _get_vocab_cache_version()
+    with _VOCAB_TAGS_CACHE_LOCK:
+        if _VOCAB_TAGS_CACHE_VERSION != cache_version:
+            _VOCAB_TAGS_CACHE.clear()
+            _VOCAB_TAGS_CACHE_VERSION = cache_version
+
+        cached_tags = _VOCAB_TAGS_CACHE.get(vocabulary_id_or_name)
+        if cached_tags is not None:
+            return cached_tags
 
     try:
         vocabulary_data = toolkit.get_action('vocabularyadmin_vocabulary_show')(
@@ -228,8 +296,8 @@ def _get_vocabulary_tags(vocabulary_id_or_name):
         )
         tags = vocabulary_data.get('tags', [])
 
-        # Αποθήκευση στο cache
-        _vocabulary_cache[vocabulary_id_or_name] = tags
+        with _VOCAB_TAGS_CACHE_LOCK:
+            _VOCAB_TAGS_CACHE[vocabulary_id_or_name] = tags
 
         return tags
     except toolkit.ObjectNotFound:
@@ -429,12 +497,7 @@ def get_vocabulary_id_for_field(field_name):
     if vocabulary_id:
         # Επαληθεύουμε ότι το vocabulary υπάρχει στη βάση δεδομένων
         try:
-            # Χρησιμοποιούμε το cache για καλύτερη απόδοση
-            if vocabulary_id in _vocabulary_cache:
-                return vocabulary_id
-
-            # Αν δεν υπάρχει στο cache, το ανακτούμε από τη βάση
-            vocabulary_data = toolkit.get_action('vocabularyadmin_vocabulary_show')(
+            toolkit.get_action('vocabularyadmin_vocabulary_show')(
                 {}, {'id': vocabulary_id}
             )
             # Αν φτάσουμε εδώ, το vocabulary υπάρχει
@@ -1187,7 +1250,15 @@ def get_home_stats_tiles():
             continue
         selected.append(stat_id)
 
-    return [catalog_by_id[stat_id] for stat_id in selected]
+    selected_tiles = [catalog_by_id[stat_id] for stat_id in selected]
+    if _current_user_is_sysadmin():
+        return selected_tiles
+
+    return [
+        tile
+        for tile in selected_tiles
+        if not tile.get('requires_sysadmin')
+    ]
 
 
 def get_home_total_datasets() -> int:
@@ -2334,6 +2405,8 @@ def get_stat_data(stat_id, raw_data=None, variant='full'):
     catalog = {item['id']: item for item in _get_home_stats_catalog()}
     meta = catalog.get(stat_id)
     if not meta:
+        return None
+    if meta.get('requires_sysadmin') and not _current_user_is_sysadmin():
         return None
 
     variant_norm = str(variant or 'full').lower()
