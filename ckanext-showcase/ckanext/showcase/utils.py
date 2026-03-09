@@ -142,13 +142,58 @@ def is_user_creator_of_showcase(pkg_dict, logged_user_id):
         return False
 
 
+def ensure_showcase_get_management_access(id, context):
+    """
+    Access gate μόνο για GET των management pages.
+
+    Επιτρέπεται μόνο σε:
+    1. sysadmin
+    2. showcase admin
+    3. creator μόνο όταν το showcase ΔΕΝ είναι approved
+    """
+    data_dict = {'id': id}
+
+    try:
+        pkg_dict = tk.get_action('ckanext_showcase_show')(
+            {'ignore_auth': True},
+            data_dict
+        )
+    except tk.ObjectNotFound:
+        return tk.abort(404, _('Showcase not found'))
+    except tk.NotAuthorized:
+        return tk.abort(401, _('Unauthorized to read showcase'))
+
+    from ckanext.showcase.logic.auth import _is_showcase_admin
+
+    # sysadmin
+    if is_sysadmin(tk.g.user):
+        return pkg_dict
+
+    # showcase admin
+    if _is_showcase_admin(context):
+        return pkg_dict
+
+    # creator μόνο αν δεν είναι approved
+    logged_user_id = getattr(getattr(g, 'userobj', None), 'id', None)
+    if logged_user_id and is_user_creator_of_showcase(pkg_dict, logged_user_id):
+        if not is_showcase_approved(pkg_dict):
+            return pkg_dict
+
+    return tk.abort(403, _('You do not have access to this page'))
+
+
 def manage_datasets_view(id):
 
     context = {
         'model': model,
         'session': model.Session,
-        'user': tk.g.user or tk.g.author
+        'user': tk.g.user or tk.g.author,
+        'auth_user_obj': tk.g.userobj
     }
+
+    # Κλείδωμα μόνο του GET ανοίγματος της φόρμας
+    if tk.request.method == 'GET':
+        ensure_showcase_get_management_access(id, context)
 
     data_dict = read_showcase(id, context)
 

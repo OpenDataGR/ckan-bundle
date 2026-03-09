@@ -120,6 +120,7 @@ class VocabularyAdminPlugin(plugins.SingletonPlugin):
             'vocabularyadmin_is_tag_name_readonly': helpers.vocabularyadmin_is_tag_name_readonly,
             'vocabularyadmin_is_tag_vocabulary_readonly': helpers.vocabularyadmin_is_tag_vocabulary_readonly,
             'vocabularyadmin_is_tag_uri_readonly': helpers.vocabularyadmin_is_tag_uri_readonly,
+            'vocabularyadmin_is_protected_vocabulary': helpers.vocabularyadmin_is_protected_vocabulary,
         }
 
     # IActions

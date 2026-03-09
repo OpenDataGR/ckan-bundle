@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import datetime
 
-from sqlalchemy import types, Column, text, Index
+from sqlalchemy import and_, func, select, types, Column, text, Index
 
 import ckan.model.meta as meta
 import ckan.model.domain_object as domain_object
@@ -120,13 +120,58 @@ class TrackingSummary(domain_object.DomainObject, BaseModel):  # type: ignore
 
     @classmethod
     def get_for_package(cls, package_id: str) -> dict[str, int]:
-        obj = meta.Session.query(cls).autoflush(False)
-        obj = obj.filter_by(package_id=package_id)
-        data = obj.order_by(text('tracking_date desc')).first()
-        if data:
-            return {'total': data.running_total, 'recent': data.recent_views}
+        table = cls.__table__
+        recent_cutoff = datetime.date.today() - datetime.timedelta(days=14)
 
-        return {'total': 0, 'recent': 0}
+        latest_dates = (
+            select(
+                table.c.url.label('url'),
+                func.max(table.c.tracking_date).label('tracking_date'),
+            )
+            .where(
+                table.c.package_id == package_id,
+                table.c.tracking_type == 'page',
+            )
+            .group_by(table.c.url)
+            .subquery()
+        )
+
+        latest_total = (
+            select(func.coalesce(func.sum(table.c.running_total), 0))
+            .select_from(
+                table.join(
+                    latest_dates,
+                    and_(
+                        table.c.url == latest_dates.c.url,
+                        table.c.tracking_date == latest_dates.c.tracking_date,
+                    ),
+                )
+            )
+            .where(
+                table.c.package_id == package_id,
+                table.c.tracking_type == 'page',
+            )
+            .scalar_subquery()
+        )
+
+        recent_total = (
+            select(func.coalesce(func.sum(table.c.count), 0))
+            .where(
+                table.c.package_id == package_id,
+                table.c.tracking_type == 'page',
+                table.c.tracking_date >= recent_cutoff,
+            )
+            .scalar_subquery()
+        )
+
+        data = meta.Session.execute(
+            select(
+                latest_total.label('total'),
+                recent_total.label('recent'),
+            )
+        ).one()
+
+        return {'total': int(data.total or 0), 'recent': int(data.recent or 0)}
 
     @classmethod
     def get_for_resource(cls, url: str) -> dict[str, int]:

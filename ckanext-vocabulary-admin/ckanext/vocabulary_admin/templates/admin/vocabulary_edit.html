@@ -71,9 +71,11 @@
             <a href="{{ h.url_for('vocabularyadmin.tag_edit', tag_id=tag.id) }}" class="btn btn-default tag-edit-button" title="{{ _('Επεξεργασία') }}">
               <i class="fa fa-edit"></i>
             </a>
+            {% if h.vocabularyadmin_is_tag_delete_enabled() %}
             <a href="{{ h.url_for('vocabularyadmin.tag_delete', tag_id=tag.id) }}" class="btn btn-danger tag-edit-button" title="{{ _('Διαγραφή') }}" onclick="return confirm('{{ _('Είστε σίγουροι ότι θέλετε να διαγράψετε αυτή την ετικέτα; Αυτή η ενέργεια δεν αναιρείται.') }}');">
               <i class="fa fa-trash-alt"></i>
             </a>
+            {% endif %}
           </div>
         {% endfor %}
       {% else %}

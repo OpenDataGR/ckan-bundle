@@ -10,6 +10,7 @@ from ckanext.vocabulary_admin.model import vocabulary as vocabulary_model
 from ckanext.vocabulary_admin import cache as vocabulary_cache
 from ckanext.vocabulary_admin.model.tag_metadata import get_tag_metadata as _get_tag_metadata
 from ckanext.vocabulary_admin.model.vocabulary_description import get_vocabulary_description as _get_vocabulary_description
+from ckanext.vocabulary_admin.vocabulary_rules import is_protected_vocabulary
 
 # Δημιουργούμε ένα logger για αυτό το αρχείο
 log = logging.getLogger(__name__)
@@ -153,3 +154,8 @@ def vocabularyadmin_is_tag_uri_readonly():
     return toolkit.asbool(
         toolkit.config.get('ckanext.vocabulary_admin.tag_uri_readonly', True)
     )
+
+
+def vocabularyadmin_is_protected_vocabulary(vocabulary_name):
+    """Check if a vocabulary has immutable is_active for its tags."""
+    return is_protected_vocabulary(vocabulary_name)

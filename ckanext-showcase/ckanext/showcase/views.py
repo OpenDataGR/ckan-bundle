@@ -369,7 +369,11 @@ class EditView(dataset.EditView):
     def get(self, id, data=None, errors=None, error_summary=None):
 
         context = self._prepare()
-        package_type = 'showcase' #dataset._get_package_type(id) or package_type
+
+        # Κλείδωμα μόνο του GET ανοίγματος της φόρμας
+        utils.ensure_showcase_get_management_access(id, context)
+
+        package_type = 'showcase'  # dataset._get_package_type(id) or package_type
         try:
             view_context = context.copy()
             view_context['for_view'] = True
