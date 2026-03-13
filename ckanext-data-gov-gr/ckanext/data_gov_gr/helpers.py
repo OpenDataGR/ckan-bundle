@@ -2688,8 +2688,17 @@ def harvest_frequencies():
 
 # ---------------------------------------------------------------------------------------
 
+def noindex_nofollow_enabled():
+    """Check if noindex/nofollow meta tag is enabled via ckan.ini config."""
+    return toolkit.asbool(
+        toolkit.config.get('ckanext.data_gov_gr.meta.noindex_nofollow', False)
+    )
+
+# ---------------------------------------------------------------------------------------
+
 def get_helpers():
     return {
+        'noindex_nofollow_enabled': noindex_nofollow_enabled,
         "is_url_field": is_url_field,
         "vocabulary_facet_item_label": vocabulary_facet_item_label,
         "vocabulary_facet_title": vocabulary_facet_title,

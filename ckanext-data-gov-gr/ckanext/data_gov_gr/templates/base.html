@@ -1,5 +1,12 @@
 {% ckan_extends %}
 
+{% block meta %}
+  {{ super() }}
+  {% if h.noindex_nofollow_enabled() %}
+    <meta name="robots" content="noindex, nofollow">
+  {% endif %}
+{% endblock %}
+
 {% block bodytag %}
   {{ super() }}
   {% set is_sysadmin = h.check_access('sysadmin') %}
