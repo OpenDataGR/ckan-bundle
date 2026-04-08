@@ -6,9 +6,13 @@
     {{ _('What are Showcases?') }}
   </h2>
   <div class="module-content">
-    <p>
-      {% trans %}Datasets have been used to build apps, websites and visualizations. They've been featured in articles, and written about in news reports and blog posts. Showcases collect together the best examples of datasets in use, to provide further insight, ideas, and inspiration.{% endtrans %}
-    </p>
+    {% if showcase_info_text is defined and showcase_info_text and showcase_info_text|trim %}
+      {{ h.literal(showcase_info_text) }}
+    {% else %}
+      <p>
+        {% trans %}Showcases are examples of <strong>data reuse</strong>. Datasets are utilized for the development of applications, websites and visualizations that highlight the value of open information. Through these showcases, characteristic examples of data reuse are presented, demonstrating the potential of open data in practice. The goal is to showcase the potential of open data utilization and the value of their reuse for public administration, businesses and citizens. This encourages the development of innovative services with social and economic impact and creates increased added value.{% endtrans %}
+      </p>
+    {% endif %}
     {% if h.check_access('ckanext_showcase_admin_add') %}
       <p>
         {% trans url=h.url_for(showcase_admins_route) %}Sysadmins can manage Showcase Admins from the <a href='{{ url }}'>Showcase configuration page</a>.{% endtrans %}

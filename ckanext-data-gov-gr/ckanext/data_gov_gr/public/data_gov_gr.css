@@ -137,6 +137,61 @@ aside.secondary {
     padding-bottom: 20px;
 }
 
+.dataset-heading-block {
+  display: flex;
+  flex-direction: column;
+}
+
+.dataset-heading-main {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.dataset-heading-title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.dataset-copy-wrap,
+.dataset-copy-button {
+  flex: 0 0 auto;
+}
+
+.dataset-organization {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.3rem 0 0.5rem;
+  color: var(--color-gray-700);
+  font-size: 0.82rem;
+  line-height: 1.3;
+}
+
+.dataset-organization i {
+  color: var(--color-gray-700);
+  font-size: 0.8rem;
+}
+
+.dataset-organization a {
+  color: var(--color-gray-800);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.dataset-organization a:hover,
+.dataset-organization a:focus {
+  color: var(--color-primary-light);
+  text-decoration: underline;
+}
+
+@media (max-width: 576px) {
+  .dataset-heading-main {
+    align-items: center;
+  }
+}
+
 .pages-form .form-actions {
     margin-top: 10px;
 }
@@ -447,10 +502,15 @@ li#simple-tab:hover, li#advanced-tab:hover {
   border-top: 1px solid #e9ecef;
 }
 
-.footer-section h5 {
+.footer-section h5,
+.footer-section .footer-section-title {
   font-weight: 600;
   margin-bottom: 1.2rem;
   color: #212529;
+}
+
+.footer-section .footer-section-title {
+  font-size: 1rem;
 }
 
 .footer-section ul li {
@@ -2523,6 +2583,7 @@ table.harvest-error-list tr td div.error {
 
 .proposal-key-stat-card {
   display: block;
+  height: fit-content;
   text-decoration: none;
   background: #ffffff;
   border: 1px solid #d9e3f0;
@@ -2547,12 +2608,23 @@ table.harvest-error-list tr td div.error {
   min-width: 0;
 }
 
+.proposal-key-stat-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.45rem;
+}
+
 .proposal-key-stat-titleline {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   gap: 0.55rem;
-  margin-bottom: 0.15rem;
+}
+
+.proposal-key-stat-titleline--stacked {
+  padding-top: 0.35rem;
+  border-top: 1px solid #d9e3f0;
 }
 
 .proposal-key-stat-icon {
@@ -3764,6 +3836,47 @@ table.harvest-error-list tr td div.error {
   overflow: hidden;
 }
 
+.organizations-index .organizations-index-submitter {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 0.35rem;
+  color: rgba(18, 39, 74, 0.78);
+  font-size: 0.89rem;
+  line-height: 1.4;
+  min-width: 0;
+  min-height: 1.25rem;
+  overflow: hidden;
+}
+
+.organizations-index .organizations-index-submitter-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.organizations-index .organizations-index-submitter-item i {
+  flex: 0 0 auto;
+  color: rgba(15, 74, 148, 0.72);
+  font-size: 0.9rem;
+}
+
+.organizations-index .organizations-index-submitter-text {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.organizations-index .organizations-index-submitter-sep {
+  flex: 0 0 auto;
+  color: rgba(18, 39, 74, 0.42);
+}
+
 .organizations-index .organizations-index-description {
   margin: 0.1rem 0 0;
   color: rgba(18, 39, 74, 0.82);
@@ -3915,6 +4028,84 @@ table.harvest-error-list tr td div.error {
 .masthead .logo img {
   position: relative;
   top: -10px; /* αρνητικό top για να ανέβει πάνω στο account-masthead */
+}
+
+/* ============================================================ */
+
+/* Truncated subfield values (bbox, geom, centroid) */
+.subfield-truncated-wrapper {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  cursor: help;
+}
+
+.subfield-truncated-text {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Custom CSS-only tooltip — no character limit, lives OUTSIDE the overflow:hidden element */
+.subfield-truncated-wrapper .subfield-tooltip-text {
+  visibility: hidden;
+  opacity: 0;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  z-index: 1000;
+  min-width: 250px;
+  max-width: 500px;
+  padding: 10px 14px;
+  background-color: #333;
+  color: #fff;
+  font-size: 0.85em;
+  line-height: 1.4;
+  border-radius: 6px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  transition: opacity 0.2s ease-in-out, visibility 0.2s ease-in-out;
+  user-select: text;
+  cursor: text;
+}
+
+/* Arrow */
+.subfield-truncated-wrapper .subfield-tooltip-text::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 20px;
+  border-width: 6px;
+  border-style: solid;
+  border-color: #333 transparent transparent transparent;
+}
+
+/* Show on hover — hover on the WRAPPER, not the overflow:hidden child */
+.subfield-truncated-wrapper:hover .subfield-tooltip-text,
+.subfield-truncated-wrapper .subfield-tooltip-text:hover {
+  visibility: visible;
+  opacity: 1;
+}
+
+/* ============================================================ */
+
+.resource-view img[src*="navigateToGraph"] {
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+@media (min-width: 992px) {
+  .resource-view img[src*="navigateToGraph"] {
+    width: 40%;
+    transition: width 0.25s ease;
+  }
+
+  .resource-view img[src*="navigateToGraph"]:hover {
+    width: 65%;
+  }
 }
 
 /* ============================================================ */

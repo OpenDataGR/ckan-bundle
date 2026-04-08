@@ -1,4 +1,5 @@
 {% ckan_extends %}
+{% set opens_in_new_tab_suffix = ' (ανοίγει σε νέα καρτέλα)' if h.lang() == 'el' else ' (opens in a new tab)' %}
 
 {% block resource_actions_inner %}
   {{ super() }}
@@ -15,19 +16,19 @@
     <ul class="dropdown-menu" aria-labelledby="dropdownDownloadFormat">
       <li>
         <a class="dropdown-item" href="{{ h.url_for('datastore.dump', resource_id=res.id, bom=True) }}"
-          target="_blank" rel="noreferrer"><span>CSV</span></a>
+          target="_blank" rel="noreferrer" aria-label="{{ 'CSV' ~ opens_in_new_tab_suffix }}"><span>CSV</span></a>
       </li>
       <li>
         <a class="dropdown-item" href="{{ h.url_for('datastore.dump', resource_id=res.id, format='tsv', bom=True) }}"
-          target="_blank" rel="noreferrer"><span>TSV</span></a>
+          target="_blank" rel="noreferrer" aria-label="{{ 'TSV' ~ opens_in_new_tab_suffix }}"><span>TSV</span></a>
       </li>
       <li>
           <a class="dropdown-item" href="{{ h.url_for('datastore.dump', resource_id=res.id, format='json') }}"
-          target="_blank" rel="noreferrer"><span>JSON</span></a>
+          target="_blank" rel="noreferrer" aria-label="{{ 'JSON' ~ opens_in_new_tab_suffix }}"><span>JSON</span></a>
       </li>
       <li>
           <a class="dropdown-item" href="{{ h.url_for('datastore.dump', resource_id=res.id, format='xml') }}"
-          target="_blank" rel="noreferrer"><span>XML</span></a>
+          target="_blank" rel="noreferrer" aria-label="{{ 'XML' ~ opens_in_new_tab_suffix }}"><span>XML</span></a>
       </li>
     </ul>
 {% endif %}

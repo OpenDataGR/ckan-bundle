@@ -17,6 +17,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
   let map;
 
+  function markMapTilesAsDecorative() {
+    const tiles = mapElement.querySelectorAll('.leaflet-tile');
+    tiles.forEach((tile) => {
+      tile.setAttribute('alt', '');
+      tile.setAttribute('role', 'presentation');
+      tile.setAttribute('aria-hidden', 'true');
+    });
+  }
+
   try {
     if (savedCenter && savedZoom) {
       const centerCoords = savedCenter.split(',').map(parseFloat);
@@ -60,6 +69,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     addBasemapByKey(basemapKey);
+    markMapTilesAsDecorative();
 
     console.log('Map initialized successfully');
 
@@ -73,6 +83,10 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     map.on('moveend', updateBBoxInput);
+    map.on('layeradd', markMapTilesAsDecorative);
+    map.on('load', markMapTilesAsDecorative);
+    map.on('zoomend', markMapTilesAsDecorative);
+    map.on('moveend', markMapTilesAsDecorative);
     updateBBoxInput();
 
     // Χειρισμός κουμπιού αναζήτησης

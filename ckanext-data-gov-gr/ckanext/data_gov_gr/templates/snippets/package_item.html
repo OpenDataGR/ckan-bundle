@@ -4,29 +4,34 @@
 
 {% block heading_title %}
     <div class="d-flex align-items-center">
-        <a href="{{ h.url_for('%s.read' % package.type, id=package.name) }}" title="{{ title }}">
+        <a href="{{ h.url_for('%s.read' % package.type, id=package.name) }}">
             {{title|truncate(80)}}
         </a>
         {% if package.type == 'data-service' %}
             <div class="position-relative">
                 <button class="btn btn-sm btn-outline-secondary ms-2"
-                        onclick="copyLink(this, window.location.origin + '{{ h.url_for('%s.read' % package.type, id=package.name) }}')">
+                        type="button"
+                        onclick="dataGovGrCopyLink(this, window.location.origin + '{{ h.url_for('%s.read' % package.type, id=package.name) }}')"
+                        aria-label="{{ _('Copy link') }}">
                     <i class="fa fa-copy"></i>
                 </button>
                 <div class="copy-tooltip d-none position-absolute start-100 ms-2 top-50 translate-middle-y">
                     <small class="bg-success text-white px-2 py-1 rounded">{{ _('Copied!') }}</small>
                 </div>
             </div>
-            <script>
-                function copyLink(button, url) {
-                    navigator.clipboard.writeText(url);
-                    const tooltip = button.parentElement.querySelector('.copy-tooltip');
-                    tooltip.classList.remove('d-none');
-                    setTimeout(() => {
-                        tooltip.classList.add('d-none');
-                    }, 2000);
-                }
-            </script>
         {% endif %}
     </div>
+    {% if package.organization_card %}
+        <span class="dataset-organization">
+            <i class="fas fa-building" aria-hidden="true"></i>
+            {% if package.organization_card.is_linkable and package.organization_card.name %}
+                {% set organization_group_type = package.organization_card.type or h.default_group_type('organization') %}
+                <a href="{{ h.url_for(organization_group_type ~ '.read', id=package.organization_card.name) }}">
+                    {{ package.organization_card.title }}
+                </a>
+            {% else %}
+                <span>{{ package.organization_card.title }}</span>
+            {% endif %}
+        </span>
+    {% endif %}
 {% endblock %}

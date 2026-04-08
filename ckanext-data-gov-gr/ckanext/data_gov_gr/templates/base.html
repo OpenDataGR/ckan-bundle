@@ -38,6 +38,22 @@
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
 
   <script>
+    function dataGovGrCopyLink(button, url) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url);
+      }
+
+      const tooltip = button.parentElement.querySelector('.copy-tooltip');
+      if (!tooltip) {
+        return;
+      }
+
+      tooltip.classList.remove('d-none');
+      setTimeout(function() {
+        tooltip.classList.add('d-none');
+      }, 2000);
+    }
+
     // Συνάρτηση που φορτώνει δυναμικά τα script
     function loadScripts(scripts) {
       scripts.forEach(src => {

@@ -79,6 +79,40 @@
                 syncHidden();
               });
             </script>
+
+          {% set activity_stream_restricted = h.get_config_as_bool('ckanext.data_gov_gr.activity_stream.dataset.restrict_visibility', True) %}
+          <input
+            type="hidden"
+            id="field-ckanext.data_gov_gr.activity_stream.dataset.restrict_visibility-hidden"
+            name="ckanext.data_gov_gr.activity_stream.dataset.restrict_visibility"
+            value="false"
+            {% if activity_stream_restricted %}disabled="disabled"{% endif %}
+          />
+          {% call form.checkbox(
+            'ckanext.data_gov_gr.activity_stream.dataset.restrict_visibility',
+            id='field-ckanext.data_gov_gr.activity_stream.dataset.restrict_visibility',
+            label=_('Περιορισμός ορατότητας της ροής δραστηριότητας'),
+            value='true',
+            checked=activity_stream_restricted
+          ) %}
+            <p class="help-block">
+              {{ _('Όταν είναι ενεργό, τη ροή δραστηριότητας τη βλέπουν μόνο sysadmins και admins του φορέα του dataset.') }}
+            </p>
+          {% endcall %}
+          <script>
+            document.addEventListener('DOMContentLoaded', function () {
+              var checkbox = document.getElementById('field-ckanext.data_gov_gr.activity_stream.dataset.restrict_visibility');
+              var hidden = document.getElementById('field-ckanext.data_gov_gr.activity_stream.dataset.restrict_visibility-hidden');
+              if (!checkbox || !hidden) {
+                return;
+              }
+              function syncHidden() {
+                hidden.disabled = !!checkbox.checked;
+              }
+              checkbox.addEventListener('change', syncHidden);
+              syncHidden();
+            });
+          </script>
       </section>
 
 	      <section id="dg-config-home" class="dg-config-section" data-dg-section="dg-config-home">
@@ -90,18 +124,18 @@
 		          'ckanext.data_gov_gr.getting_started.url',
 		          id='field-ckanext.data_gov_gr.getting_started.url',
 		          label=_('Οδηγός «Ξεκινώντας» (URL)'),
-		          value=(config.get('ckanext.data_gov_gr.getting_started.url') if config.get('ckanext.data_gov_gr.getting_started.url') is not none else 'https://data-gov-gr.gitbook.io/guides/eisagogika'),
+		          value=(config.get('ckanext.data_gov_gr.getting_started.url') if config.get('ckanext.data_gov_gr.getting_started.url') is not none else 'https://data-gov-gr.gitbook.io/guides/grigoroi-odigoi'),
 		          error=errors.get('ckanext.data_gov_gr.getting_started.url'),
-		          placeholder='https://data-gov-gr.gitbook.io/guides/eisagogika'
+		          placeholder='https://data-gov-gr.gitbook.io/guides/grigoroi-odigoi'
 		        ) }}
 
 		        {{ form.input(
 		          'ckanext.data_gov_gr.api_guide.url',
 		          id='field-ckanext.data_gov_gr.api_guide.url',
 		          label=_('Οδηγός «API Documentation» (URL)'),
-		          value=(config.get('ckanext.data_gov_gr.api_guide.url') if config.get('ckanext.data_gov_gr.api_guide.url') is not none else 'https://data-gov-gr.gitbook.io/guides/texnika-egxeiridia'),
+		          value=(config.get('ckanext.data_gov_gr.api_guide.url') if config.get('ckanext.data_gov_gr.api_guide.url') is not none else 'https://data-gov-gr.gitbook.io/guides/texnika-egxeiridia/data.gov.gr/metadedomena/tekmiriosi-api'),
 		          error=errors.get('ckanext.data_gov_gr.api_guide.url'),
-		          placeholder='https://data-gov-gr.gitbook.io/guides/texnika-egxeiridia'
+		          placeholder='https://data-gov-gr.gitbook.io/guides/texnika-egxeiridia/data.gov.gr/metadedomena/tekmiriosi-api'
 		        ) }}
 
 		        {{ form.input(
@@ -117,9 +151,9 @@
 			          'ckanext.data_gov_gr.quality_guide.url',
 			          id='field-ckanext.data_gov_gr.quality_guide.url',
 			          label=_('Οδηγός «Ποιότητα» (URL)'),
-			          value=(config.get('ckanext.data_gov_gr.quality_guide.url') if config.get('ckanext.data_gov_gr.quality_guide.url') is not none else 'https://data-gov-gr.gitbook.io/guides/xrisi-dedomenon/synola-dedomenon/aksiologisi-poiotitas-metadedomenon'),
+			          value=(config.get('ckanext.data_gov_gr.quality_guide.url') if config.get('ckanext.data_gov_gr.quality_guide.url') is not none else 'https://data-gov-gr.gitbook.io/guides/xrisi-dedomenon/synola-dedomenon/aksiologisi-poiotitas-metadedomenon/kritiria-aksiologisis-mqa'),
 			          error=errors.get('ckanext.data_gov_gr.quality_guide.url'),
-			          placeholder='https://data-gov-gr.gitbook.io/guides/xrisi-dedomenon/synola-dedomenon/aksiologisi-poiotitas-metadedomenon'
+			          placeholder='https://data-gov-gr.gitbook.io/guides/xrisi-dedomenon/synola-dedomenon/aksiologisi-poiotitas-metadedomenon/kritiria-aksiologisis-mqa'
 			        ) }}
 
 		          {% set portal_numbers_checked = h.get_config_as_bool('ckanext.data_gov_gr.home.portal_numbers.enabled', True) %}
@@ -172,7 +206,7 @@
 	            checked=reuse_stats_checked
 	          ) %}
 	            <p class="help-block">
-	              {{ _('Εμφανίζει τα στατιστικά επανάχρησης (επισκέπτες, λήψεις, εφαρμογές) στην αρχική σελίδα.') }}
+	              {{ _('Εμφανίζει τα στατιστικά επανάχρησης (επισκέπτες, λήψεις, επαναχρήσεις) στην αρχική σελίδα.') }}
 	            </p>
 	          {% endcall %}
 	          <script>
@@ -312,7 +346,7 @@
 	        {% endif %}
 
 		        {% if show_home_showcases_section %}
-	          <h4>{{ _('Εφαρμογές στην αρχική σελίδα (Showcases)') }}</h4>
+	          <h4>{{ _('Επαναχρήσεις στην αρχική σελίδα') }}</h4>
 
           {# Δυναμική λίστα διαθέσιμων showcases για εύκολη επιλογή #}
           {# Χρησιμοποιούμε απευθείας το config για να εμφανίζεται πάντα η αποθηκευμένη τιμή #}
@@ -341,7 +375,7 @@
                   {% endfor %}
                 </select>
 	                <p class="help-block">
-	                  {{ _('Επιλέξτε έως 4 εφαρμογές για την αρχική σελίδα. Η επιλογή ενημερώνει αυτόματα τα IDs παρακάτω.') }}
+	                  {{ _('Επιλέξτε έως 4 επαναχρήσεις για την αρχική σελίδα. Η επιλογή ενημερώνει αυτόματα τα IDs παρακάτω.') }}
 	                </p>
 	              </div>
 	            </div>
@@ -886,12 +920,21 @@
         <h3>{{ _('Showcases') }}</h3>
 
         {{ form.textarea(
+          'ckanext.data_gov_gr.showcase.intro_text',
+          id='field-ckanext.data_gov_gr.showcase.intro_text',
+          label=_('Νέο πληροφοριακό κείμενο για τις επαναχρήσεις (HTML επιτρέπεται)'),
+          value=data['ckanext.data_gov_gr.showcase.intro_text'],
+          error=errors['ckanext.data_gov_gr.showcase.intro_text'],
+          placeholder=_('Εισάγετε εδώ το νέο πληροφοριακό κείμενο για τη σελίδα επαναχρήσεων.')
+        ) }}
+
+        {{ form.textarea(
           'ckanext.data_gov_gr.showcase.disclaimer',
           id='field-ckanext.data_gov_gr.showcase.disclaimer',
-          label=_('Κείμενο αποποίησης ευθύνης για τις εφαρμογές (HTML επιτρέπεται)'),
+          label=_('Κείμενο αποποίησης ευθύνης για τις επαναχρήσεις (HTML επιτρέπεται)'),
           value=data['ckanext.data_gov_gr.showcase.disclaimer'],
           error=errors['ckanext.data_gov_gr.showcase.disclaimer'],
-          placeholder=_('Εισάγετε εδώ το κείμενο αποποίησης ευθύνης για την σελίδα εφαρμογών / Showcases.')
+          placeholder=_('Εισάγετε εδώ το κείμενο αποποίησης ευθύνης για τη σελίδα επαναχρήσεων.')
         ) }}
       </section>
 
@@ -1069,6 +1112,7 @@
         <li><strong>{{ _('Site Title') }}:</strong> {{ _('Ο τίτλος της πύλης, όπως εμφανίζεται στην κεφαλίδα και σε διάφορα σημεία του CKAN.') }}</li>
         <li><strong>{{ _('Site logo') }}:</strong> {{ _('Το λογότυπο που εμφανίζεται στην κεφαλίδα όλων των σελίδων της πύλης (μπορεί να δοθεί ως URL ή να ανέβει ως εικόνα).') }}</li>
         <li><strong>{{ _('Εμφάνιση Botaki (webchat)') }}:</strong> {{ _('Ενεργοποιεί/απενεργοποιεί την εμφάνιση του Botaki στο site.') }}</li>
+        <li><strong>{{ _('Περιορισμός ορατότητας της ροής δραστηριότητας') }}:</strong> {{ _('Ενεργοποιεί ή απενεργοποιεί τον περιορισμό της ροής δραστηριότητας μόνο σε sysadmins και admins του αντίστοιχου φορέα.') }}</li>
       </ul>
     </div>
 
@@ -1084,7 +1128,7 @@
 			          <li><strong>{{ _('Επιλεγμένα datasets') }}:</strong> {{ _('Δώστε μέχρι έξι resource view IDs (ένα ανά γραμμή) για να εμφανιστούν ως επιλεγμένες προβολές.') }}</li>
 			        {% endif %}
 		        {% if show_home_showcases_section %}
-		          <li><strong>{{ _('Showcases στην αρχική') }}:</strong> {{ _('Δώστε μέχρι τέσσερα IDs/ονόματα showcase (ένα ανά γραμμή) για να εμφανιστούν ως ενδεικτικές εφαρμογές.') }}</li>
+		          <li><strong>{{ _('Επαναχρήσεις στην αρχική') }}:</strong> {{ _('Δώστε μέχρι τέσσερα IDs/ονόματα επαναχρήσεων (ένα ανά γραμμή) για να εμφανιστούν ως ενδεικτικές επαναχρήσεις.') }}</li>
 		        {% endif %}
 		      </ul>
 		    </div>
@@ -1135,7 +1179,8 @@
     <div class="dg-help-section" data-dg-help="dg-config-showcases">
       <h4>{{ _('Showcases') }}</h4>
       <ul>
-        <li><strong>{{ _('Κείμενο αποποίησης ευθύνης') }}:</strong> {{ _('Κείμενο που εμφανίζεται στη σελίδα εφαρμογών (showcases). Υποστηρίζει απλό HTML.') }}</li>
+        <li><strong>{{ _('Νέο πληροφοριακό κείμενο') }}:</strong> {{ _('Κείμενο που εμφανίζεται στο πληροφοριακό πλαίσιο της σελίδας επαναχρήσεων. Αν μείνει κενό, χρησιμοποιείται το προεπιλεγμένο κείμενο. Υποστηρίζει απλό HTML.') }}</li>
+        <li><strong>{{ _('Κείμενο αποποίησης ευθύνης') }}:</strong> {{ _('Ξεχωριστό κείμενο αποποίησης ευθύνης που εμφανίζεται στη σελίδα επαναχρήσεων. Υποστηρίζει απλό HTML.') }}</li>
       </ul>
     </div>
   </div>

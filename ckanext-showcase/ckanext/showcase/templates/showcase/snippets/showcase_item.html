@@ -62,6 +62,8 @@ show_remove    - If True, show the remove button to remove showcase/dataset asso
 
     {% block metrics %}
       {% set datasets_total = package.num_datasets if package.num_datasets is defined else 0 %}
+      {% set apis_total = package.num_apis if package.num_apis is defined else none %}
+      {% set apis_count = apis_total | int if apis_total is not none else none %}
       {% set views_total = none %}
       {% if package.tracking_summary is defined %}
         {% set views_total = package.tracking_summary.get('total', 0) if package.tracking_summary else 0 %}
@@ -80,6 +82,12 @@ show_remove    - If True, show the remove button to remove showcase/dataset asso
           <i class="fa fa-database" aria-hidden="true"></i>
           {{ h.localised_number(datasets_total) }}
         </span>
+        {% if apis_count is not none %}
+          <span class="showcase-card-metric" title="{{ _('APIs') }}">
+            <i class="fa fa-plug" aria-hidden="true"></i>
+            {{ h.localised_number(apis_count) }}
+          </span>
+        {% endif %}
       </div>
     {% endblock %}
 

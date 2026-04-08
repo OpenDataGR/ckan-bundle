@@ -23,7 +23,21 @@
             <div class="report-card-column">
               {% set report_url=h.url_for('report.view', report_name=report.name, **h.report__explicit_default_options(report.name)) %}
               <div class="report-summary">
-                <a href="{{ report_url }}" class="report-header">
+                {% if 'metadata' in report.name %}
+                  {% set report_display_title = gettext('Metadata Quality', domain='ckanext-qa') %}
+                {% elif 'openness' in report.name %}
+                  {% set report_display_title = gettext('Openness (Five Stars)', domain='ckanext-qa') %}
+                {% elif 'broken' in report.name %}
+                  {% set report_display_title = gettext('Resource Links Report', domain='ckanext-archiver') %}
+                {% elif 'tagless' in report.name %}
+                  {% set report_display_title = report.title %}
+                {% elif 'stale-datasets' in report.name %}
+                  {% set report_display_title = gettext('Stale Datasets', domain='ckanext-report') %}
+                {% else %}
+                  {% set report_display_title = report.title %}
+                {% endif %}
+
+                <a href="{{ report_url }}" class="report-header" title="{{ report_display_title }}">
                   <div class="report-icon">
                     {% if 'metadata' in report.name %}
                       <i class="fa fa-check-circle"></i>
@@ -38,19 +52,7 @@
                     {% endif %}
                   </div>
                   <div class="report-title">
-                    {% if 'metadata' in report.name %}
-                      {{ gettext('Metadata Quality', domain='ckanext-qa') }}
-                    {% elif 'openness' in report.name %}
-                      {{ gettext('Openness (Five Stars)', domain='ckanext-qa') }}
-                    {% elif 'broken' in report.name %}
-                      {{ gettext('Broken links', domain='ckanext-archiver') }}
-                    {% elif 'tagless' in report.name %}
-                      {{ gettext('Tagless Datasets', domain='ckanext-report') }}
-                    {% elif 'stale-datasets' in report.name %}
-                      {{ gettext('Stale Datasets', domain='ckanext-report') }}
-                    {% else %}
-                      {{ report.title }}
-                    {% endif %}
+                    {{ report_display_title }}
                   </div>
                 </a>
                 <div class="report-body">
@@ -62,7 +64,7 @@
                     {% elif 'broken' in report.name %}
                       {{ gettext('Dataset resource URLs that are found to result in errors when resolved.', domain='ckanext-archiver') }}
                     {% elif 'tagless' in report.name %}
-                      {{ gettext('Datasets which have no tags.', domain='ckanext-report') }}
+                      {{ report.description }}
                     {% elif 'stale-datasets' in report.name %}
                       {{ gettext('Datasets that have not been updated according to their frequency schedule', domain='ckanext-report') }}
                     {% else %}

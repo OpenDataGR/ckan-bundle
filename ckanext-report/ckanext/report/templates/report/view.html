@@ -8,9 +8,9 @@
   {% elif 'openness' in report_name %}
     {{ gettext('Openness (Five Stars)', domain='ckanext-qa') }} - {{ _('Reports') }} - {{ super() }}
   {% elif 'broken' in report_name %}
-    {{ gettext('Broken links', domain='ckanext-archiver') }} - {{ _('Reports') }} - {{ super() }}
+    {{ gettext('Resource Links Report', domain='ckanext-archiver') }} - {{ _('Reports') }} - {{ super() }}
   {% elif 'tagless' in report_name %}
-    {{ gettext('Tagless Datasets', domain='ckanext-report') }} - {{ _('Reports') }} - {{ super() }}
+    {{ report.title }} - {{ _('Reports') }} - {{ super() }}
   {% elif 'stale-datasets' in report_name %}
     {{ gettext('Stale Datasets', domain='ckanext-report') }} - {{ _('Reports') }} - {{ super() }}
   {% else %}
@@ -26,9 +26,9 @@
     {% elif 'openness' in report_name %}
       {{ h.nav_link(gettext('Openness (Five Stars)', domain='ckanext-qa'), named_route='report.view', report_name=report_name) }}
     {% elif 'broken' in report_name %}
-      {{ h.nav_link(gettext('Broken links', domain='ckanext-archiver'), named_route='report.view', report_name=report_name) }}
+      {{ h.nav_link(gettext('Resource Links Report', domain='ckanext-archiver'), named_route='report.view', report_name=report_name) }}
     {% elif 'tagless' in report_name %}
-      {{ h.nav_link(gettext('Tagless Datasets', domain='ckanext-report'), named_route='report.view', report_name=report_name) }}
+      {{ h.nav_link(report.title, named_route='report.view', report_name=report_name) }}
     {% elif 'stale-datasets' in report_name %}
       {{ h.nav_link(gettext('Stale Datasets', domain='ckanext-report'), named_route='report.view', report_name=report_name) }}
     {% else %}
@@ -50,9 +50,9 @@
         {% elif 'openness' in report_name %}
           {{ gettext('Openness (Five Stars)', domain='ckanext-qa') }}
         {% elif 'broken' in report_name %}
-          {{ gettext('Broken links', domain='ckanext-archiver') }}
+          {{ gettext('Resource Links Report', domain='ckanext-archiver') }}
         {% elif 'tagless' in report_name %}
-          {{ gettext('Tagless Datasets', domain='ckanext-report') }}
+          {{ report.title }}
         {% elif 'stale-datasets' in report_name %}
           {{ gettext('Stale Datasets', domain='ckanext-report') }}
         {% else %}
@@ -67,7 +67,7 @@
         {% elif 'broken' in report_name %}
           {{ gettext('Dataset resource URLs that are found to result in errors when resolved.', domain='ckanext-archiver') }}
         {% elif 'tagless' in report_name %}
-          {{ gettext('Datasets which have no tags.', domain='ckanext-report') }}
+          {{ report.description }}
         {% elif 'stale-datasets' in report_name %}
           {{ gettext('Datasets that have not been updated according to their frequency schedule', domain='ckanext-report') }}
         {% else %}

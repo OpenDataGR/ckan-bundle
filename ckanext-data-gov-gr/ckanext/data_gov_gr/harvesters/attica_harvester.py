@@ -1356,7 +1356,7 @@ class AtticaOpenDataHarvester(CKANHarvester):
 
         # 3. Generic tags
         _add_tag('Περιφέρεια Αττικής')
-        _add_tag('Ανοιχτά Δεδομένα')
+        _add_tag('Ανοικτά Δεδομένα')
 
         # Extra tags (π.χ. κατηγορίες portal)
         if extra_tags:

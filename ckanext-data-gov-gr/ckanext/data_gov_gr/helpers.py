@@ -12,6 +12,7 @@ from ckan import model
 from ckan.common import g, asbool
 from ckan.lib import helpers as core_helpers
 from ckan.lib.helpers import lang
+from ckan.model.system_info import get_system_info
 from ckan.plugins.toolkit import render_snippet, _  # Import για το σύστημα μετάφρασης
 from flask_login import current_user as _cu
 from typing import (cast, Union)
@@ -211,6 +212,10 @@ def _current_user_is_sysadmin() -> bool:
 
 
 log = logging.getLogger(__name__)
+
+HOME_DATASET_RESOURCES_SNAPSHOT_KEY = (
+    'ckanext.data_gov_gr.home.dataset_resources_snapshot'
+)
 
 _VOCAB_CACHE_VERSION_KEY = 'ckanext:vocabulary_admin:cache_version'
 _VOCAB_CACHE_FALLBACK_TTL_SECONDS = 30
@@ -420,7 +425,7 @@ def vocabulary_facet_title(title):
         'license': 'Licence',
         'publishertype': {'el': 'Τύπος Οργανισμού', 'en': 'Organization Type'},
         'is_hvd': {'el': 'Σύνολο Δεδομένων Υψηλής Αξίας', 'en': 'High-Value Dataset'},
-        'is_nsip': {'el': 'Σύνολο Δεδομένων NSIP', 'en': 'NSIP Dataset'},
+        'is_nsip': {'el': 'Σύνολο προστατευόμενων Δεδομένων', 'en': 'Protected Dataset'},
 
     }
 
@@ -453,7 +458,7 @@ def vocabulary_facet_title(title):
             elif title == 'is_hvd':
                 return 'Σύνολο Δεδομένων Υψηλής Αξίας' if lang_system == 'el' else 'High-Value Dataset'
             elif title == 'is_nsip':
-                return 'Σύνολο Δεδομένων NSIP' if lang_system == 'el' else 'NSIP dataset'
+                return 'Σύνολο προστατευόμενων Δεδομένων' if lang_system == 'el' else 'Protected Dataset'
         except Exception as e:
             log.exception(f'Error retrieving vocabulary description for "{vocabulary_id}": {e}')
 
@@ -1075,14 +1080,62 @@ def _localize_data_service_label(text):
     return text
 
 
+def _localize_decision_label(text):
+    """
+    Post-process humanized strings for the decision dataset type so the
+    rendered labels match the active locale.
+    """
+    if not isinstance(text, str):
+        return text
+
+    current_lang = lang()
+    if current_lang == 'el':
+        replacements = {
+            'Decisions': 'Αποφάσεις',
+            'Decision': 'Απόφαση',
+        }
+    else:
+        replacements = {}
+
+    for source, target in replacements.items():
+        text = text.replace(source, target)
+
+    if current_lang == 'el':
+        phrase_replacements = {
+            'My Αποφάσεις': 'Οι Αποφάσεις μου',
+            'My Απόφαση': 'Η Απόφαση μου',
+            'Create Απόφαση': 'Δημιουργία Απόφασης',
+            'Add Απόφαση': 'Προσθήκη Απόφασης',
+            'Save Απόφαση': 'Αποθήκευση Απόφασης',
+            'Update Απόφαση': 'Ενημέρωση Απόφασης',
+            'View Απόφαση': 'Προβολή Απόφασης',
+        }
+        for source, target in phrase_replacements.items():
+            text = text.replace(source, target)
+
+        verb_replacements = {
+            'Create ': 'Δημιουργία ',
+            'Add ': 'Προσθήκη ',
+            'Save ': 'Αποθήκευση ',
+            'Update ': 'Ενημέρωση ',
+            'View ': 'Προβολή ',
+        }
+        for source, target in verb_replacements.items():
+            text = text.replace(source, target)
+
+    return text
+
+
 def humanize_entity_type(entity_type, object_type, purpose):
     """
-    Delegate to CKAN's default helper and localize the data-service type labels.
+    Delegate to CKAN's default helper and localize custom dataset type labels.
     """
     base_value = core_helpers.humanize_entity_type(entity_type, object_type, purpose)
-    if object_type != 'data-service':
-        return base_value
-    return _localize_data_service_label(base_value)
+    if object_type == 'data-service':
+        return _localize_data_service_label(base_value)
+    if object_type == 'decision':
+        return _localize_decision_label(base_value)
+    return base_value
 
 
 def should_hide_mqa_tab():
@@ -1274,6 +1327,74 @@ def get_home_total_datasets() -> int:
     except Exception as e:
         log.error('Error counting total datasets: %s', e)
         return 0
+
+
+def count_home_dataset_resources() -> int:
+    """
+    Επιστρέφει το συνολικό πλήθος ενεργών πόρων για ενεργά δημόσια datasets.
+
+    Εξαιρούνται:
+      - πόροι από μη ενεργά ή private packages
+      - packages που δεν είναι τύπου dataset
+      - synthetic πόροι downloadall με marker downloadall_metadata_modified
+    """
+    try:
+        count = (
+            model.Session.query(func.count(model.Resource.id))
+            .join(model.Package, model.Resource.package_id == model.Package.id)
+            .filter(model.Resource.state == 'active')
+            .filter(model.Package.state == 'active')
+            .filter(model.Package.private == False)
+            .filter(model.Package.type == 'dataset')
+            .filter(
+                or_(
+                    model.Resource.extras.is_(None),
+                    ~model.Resource.extras.like('%downloadall_metadata_modified%')
+                )
+            )
+            .scalar()
+        )
+        return int(count or 0)
+    except Exception as e:
+        log.error('Error counting homepage dataset resources: %s', e)
+        return 0
+
+
+def get_home_dataset_resources_snapshot():
+    """
+    Διαβάζει το αποθηκευμένο snapshot του πλήθους πόρων της αρχικής από το system_info.
+    """
+    raw_value = get_system_info(HOME_DATASET_RESOURCES_SNAPSHOT_KEY)
+    if not raw_value:
+        return None
+
+    try:
+        payload = json.loads(raw_value)
+    except (TypeError, ValueError):
+        log.warning(
+            'Invalid homepage dataset resources snapshot payload for key %s',
+            HOME_DATASET_RESOURCES_SNAPSHOT_KEY,
+        )
+        return None
+
+    if not isinstance(payload, dict):
+        return None
+
+    count = payload.get('count')
+    computed_at = payload.get('computed_at')
+
+    try:
+        count = int(count)
+    except (TypeError, ValueError):
+        return None
+
+    if computed_at is not None and not isinstance(computed_at, str):
+        return None
+
+    return {
+        'count': count,
+        'computed_at': computed_at,
+    }
 
 
 def get_home_datasets_vs_services() -> dict:
@@ -2250,6 +2371,7 @@ def get_home_portal_numbers():
 
     datasets_count = get_home_total_datasets()
     apis_count = _count_packages('dataset_type:data-service')
+    dataset_resources_snapshot = get_home_dataset_resources_snapshot()
 
     try:
         orgs_count = int(
@@ -2262,12 +2384,23 @@ def get_home_portal_numbers():
     except Exception:
         orgs_count = 0
 
+    datasets_tile = {
+        'value': _format_counter(datasets_count),
+        'label': _('Σύνολα δεδομένων'),
+        'link': _safe_url_for('dataset.search') or f'/{lang()}/dataset',
+    }
+    if dataset_resources_snapshot:
+        datasets_tile.update({
+            'resource_value': _format_counter(dataset_resources_snapshot['count']),
+            'resource_label': (
+                'Πόροι δεδομένων'
+                if lang() == 'el'
+                else 'Data resources'
+            ),
+        })
+
     return [
-        {
-            'value': _format_counter(datasets_count),
-            'label': _('Σύνολα δεδομένων'),
-            'link': _safe_url_for('dataset.search') or f'/{lang()}/dataset',
-        },
+        datasets_tile,
         {
             'value': _format_counter(orgs_count),
             'label': _('Οργανισμοί'),
@@ -2349,7 +2482,9 @@ def _organization_index_apps_counts(org_ids):
                 ),
             )
             .filter(dataset_pkg.owner_org.in_(org_ids))
-            .filter(dataset_pkg.type == 'dataset')
+            # Μετράμε και datasets και data-services, γιατί πλέον τα showcases
+            # μπορούν να συνδέονται και με τους δύο τύπους package.
+            .filter(dataset_pkg.type.in_(('dataset', 'data-service')))
             .filter(dataset_pkg.state == 'active')
             .filter(or_(dataset_pkg.private.is_(False), dataset_pkg.private.is_(None)))
             .filter(showcase_pkg.type == 'showcase')
@@ -2723,6 +2858,8 @@ def get_helpers():
         'get_home_stats_tiles': get_home_stats_tiles,
         'get_home_datasets_vs_services': get_home_datasets_vs_services,
         'get_home_total_datasets': get_home_total_datasets,
+        'count_home_dataset_resources': count_home_dataset_resources,
+        'get_home_dataset_resources_snapshot': get_home_dataset_resources_snapshot,
         'get_home_showcases': get_home_showcases,
         'get_home_featured_dataset_views': get_home_featured_dataset_views,
         'get_available_showcases': get_available_showcases,

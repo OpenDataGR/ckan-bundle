@@ -32,7 +32,7 @@ msgstr "Ετικέτες"
 
 #: ckanext/showcase/utils.py:40 ckanext/showcase/utils.py:147
 msgid "User not authorized to edit {showcase_id}"
-msgstr "Ο χρήστης δεν είναι εξουσιοδοτημένος να επεξεργαστεί την εφαρμογή {showcase_id}"
+msgstr "Ο χρήστης δεν είναι εξουσιοδοτημένος να επεξεργαστεί την επανάχρηση {showcase_id}"
 
 #: ckanext/showcase/utils.py:61
 msgid "Unauthorized to create a package"
@@ -42,33 +42,33 @@ msgstr "Μη εξουσιοδοτημένος για τη δημιουργία �
 #: ckanext/showcase/utils.py:480 ckanext/showcase/utils.py:538
 #: ckanext/showcase/utils.py:554
 msgid "Showcase not found"
-msgstr "Η εφαρμογή δεν βρέθηκε"
+msgstr "Η επανάχρηση δεν βρέθηκε"
 
 #: ckanext/showcase/utils.py:98 ckanext/showcase/utils.py:156
 msgid "Unauthorized to read showcase"
-msgstr "Μη εξουσιοδοτημένος για την ανάγνωση εφαρμογής"
+msgstr "Μη εξουσιοδοτημένος για την ανάγνωση επανάχρησης"
 
 #: ckanext/showcase/utils.py:101
 msgid "You do not have access to this showcase"
-msgstr "Δεν έχετε πρόσβαση σε αυτήν την εφαρμογή"
+msgstr "Δεν έχετε πρόσβαση σε αυτήν την επανάχρηση"
 
 #: ckanext/showcase/utils.py:185 ckanext/showcase/utils.py:557
 msgid "The dataset has been removed from the showcase."
 msgid_plural "The datasets have been removed from the showcase."
-msgstr[0] "Το σύνολο δεδομένων έχει αφαιρεθεί από την εφαρμογή."
-msgstr[1] "Τα σύνολα δεδομένων έχουν αφαιρεθεί από την εφαρμογή."
+msgstr[0] "Το σύνολο δεδομένων έχει αφαιρεθεί από την επανάχρηση."
+msgstr[1] "Τα σύνολα δεδομένων έχουν αφαιρεθεί από την επανάχρηση."
 
 #: ckanext/showcase/utils.py:194
 msgid ""
 "Δεν μπορεί να γίνει προσθήκη διασύνδεσης μη εγκεκριμένης εφαρμογής με σύνολο "
 "δεδομένων."
-msgstr ""
+msgstr "Δεν μπορεί να γίνει προσθήκη διασύνδεσης μη εγκεκριμένης επανάχρησης με σύνολο δεδομένων."
 
 #: ckanext/showcase/utils.py:221 ckanext/showcase/utils.py:541
 msgid "The dataset has been added to the showcase."
 msgid_plural "The datasets have been added to the showcase."
-msgstr[0] "Το σύνολο δεδομένων έχει προστεθεί στην εφαρμογή."
-msgstr[1] "Τα σύνολα δεδομένων έχουν προστεθεί στην εφαρμογή."
+msgstr[0] "Το σύνολο δεδομένων έχει προστεθεί στην επανάχρηση."
+msgstr[1] "Τα σύνολα δεδομένων έχουν προστεθεί στην επανάχρηση."
 
 #: ckanext/showcase/utils.py:368 ckanext/showcase/views.py:114
 msgid "Organizations"
@@ -92,11 +92,11 @@ msgstr "Η παράμετρος '{parameter_name}' δεν είναι ακέρα�
 
 #: ckanext/showcase/utils.py:466 ckanext/showcase/utils.py:478
 msgid "Unauthorized to delete showcase"
-msgstr "Μη εξουσιοδοτημένος για τη διαγραφή εφαρμογής"
+msgstr "Μη εξουσιοδοτημένος για τη διαγραφή επανάχρησης"
 
 #: ckanext/showcase/utils.py:474
 msgid "Showcase has been deleted."
-msgstr "Η εφαρμογή έχει διαγραφεί."
+msgstr "Η επανάχρηση έχει διαγραφεί."
 
 #: ckanext/showcase/utils.py:500 ckanext/showcase/utils.py:511
 msgid "Dataset not found"
@@ -114,7 +114,7 @@ msgstr "Μη εξουσιοδοτημένος για την ανάγνωση π�
 msgid ""
 "Δεν μπορεί να γίνει αφαίρεση διασύνδεσης μη εγκεκριμένης εφαρμογής με σύνολο "
 "δεδομένων."
-msgstr ""
+msgstr "Δεν μπορεί να γίνει αφαίρεση διασύνδεσης μη εγκεκριμένης επανάχρησης με σύνολο δεδομένων."
 
 #: ckanext/showcase/utils.py:599 ckanext/showcase/utils.py:642
 msgid "User not authorized to view page"
@@ -130,15 +130,15 @@ msgstr "Ο χρήστης '{user_name}' δεν βρέθηκε."
 
 #: ckanext/showcase/utils.py:619
 msgid "The user is now a Showcase Admin"
-msgstr "Ο χρήστης είναι πλέον Διαχειριστής Εφαρμογών"
+msgstr "Ο χρήστης είναι πλέον Διαχειριστής Επαναχρήσεων"
 
 #: ckanext/showcase/utils.py:660
 msgid "The user is not a Showcase Admin"
-msgstr "Ο χρήστης δεν είναι Διαχειριστής Εφαρμογών"
+msgstr "Ο χρήστης δεν είναι Διαχειριστής Επαναχρήσεων"
 
 #: ckanext/showcase/utils.py:662
 msgid "The user is no longer a Showcase Admin"
-msgstr "Ο χρήστης δεν είναι πλέον Διαχειριστής Εφαρμογών"
+msgstr "Ο χρήστης δεν είναι πλέον Διαχειριστής Επαναχρήσεων"
 
 #: ckanext/showcase/utils.py:705
 msgid "Only Posting is availiable"
@@ -178,11 +178,14 @@ msgstr "Σύνολο δεδομένων"
 #: ckanext/showcase/templates/showcase/search.html:8
 #: ckanext/showcase/templates/showcase/search.html:12
 msgid "Showcases"
-msgstr "Εφαρμογές"
+msgstr "Επαναχρήσεις"
+
+msgid "Reuse"
+msgstr "Επανάχρηση"
 
 #: ckanext/showcase/templates/admin/base.html:5
 msgid "Showcase Config"
-msgstr "Διαμόρφωση Εφαρμογών"
+msgstr "Διαμόρφωση Επαναχρήσεων"
 
 #: ckanext/showcase/templates/admin/confirm_remove_showcase_admin.html:4
 #: ckanext/showcase/templates/admin/confirm_remove_showcase_admin.html:18
@@ -191,7 +194,7 @@ msgstr "Επιβεβαίωση Αφαίρεσης"
 
 #: ckanext/showcase/templates/admin/confirm_remove_showcase_admin.html:12
 msgid "Are you sure you want to remove this user as a Showcase Admin - {name}?"
-msgstr "Είστε βέβαιοι ότι θέλετε να αφαιρέσετε αυτόν τον χρήστη ως Διαχειριστή Εφαρμογών - {name};"
+msgstr "Είστε βέβαιοι ότι θέλετε να αφαιρέσετε αυτόν τον χρήστη ως Διαχειριστή Επαναχρήσεων - {name};"
 
 #: ckanext/showcase/templates/admin/confirm_remove_showcase_admin.html:17
 #: ckanext/showcase/templates/showcase/confirm_delete.html:20
@@ -200,7 +203,7 @@ msgstr "Ακύρωση"
 
 #: ckanext/showcase/templates/admin/manage_showcase_admins.html:11
 msgid "Manage Showcase Admins"
-msgstr "Διαχείριση Διαχειριστών Εφαρμογών"
+msgstr "Διαχείριση Διαχειριστών Επαναχρήσεων"
 
 #: ckanext/showcase/templates/admin/manage_showcase_admins.html:19
 msgid "Add an Existing User"
@@ -210,7 +213,7 @@ msgstr "Προσθήκη Υπάρχοντος Χρήστη"
 msgid ""
 "To make an existing user a Showcase Admin, search for their username below."
 msgstr ""
-"Για να κάνετε έναν υπάρχοντα χρήστη Διαχειριστή Εφαρμογών, αναζητήστε το όνομα χρήστη τους παρακάτω."
+"Για να κάνετε έναν υπάρχοντα χρήστη Διαχειριστή Επαναχρήσεων, αναζητήστε το όνομα χρήστη του παρακάτω."
 
 #: ckanext/showcase/templates/admin/manage_showcase_admins.html:26
 msgid "Username"
@@ -222,7 +225,7 @@ msgstr "Προσθήκη Χρήστη"
 
 #: ckanext/showcase/templates/admin/manage_showcase_admins.html:41
 msgid "Showcase Admins"
-msgstr "Διαχειριστές Εφαρμογών"
+msgstr "Διαχειριστές Επαναχρήσεων"
 
 #: ckanext/showcase/templates/admin/manage_showcase_admins.html:46
 msgid "User"
@@ -230,7 +233,7 @@ msgstr "Χρήστης"
 
 #: ckanext/showcase/templates/admin/manage_showcase_admins.html:54
 msgid "Are you sure you want to remove this user from the Showcase Admin list?"
-msgstr "Είστε βέβαιοι ότι θέλετε να αφαιρέσετε αυτόν τον χρήστη από τη λίστα Διαχειριστών Εφαρμογών;"
+msgstr "Είστε βέβαιοι ότι θέλετε να αφαιρέσετε αυτόν τον χρήστη από τη λίστα Διαχειριστών Επαναχρήσεων;"
 
 #: ckanext/showcase/templates/admin/manage_showcase_admins.html:56
 #: ckanext/showcase/templates/showcase/snippets/showcase_item.html:51
@@ -239,15 +242,15 @@ msgstr "Αφαίρεση"
 
 #: ckanext/showcase/templates/admin/manage_showcase_admins.html:64
 msgid "There are currently no Showcase Admins."
-msgstr "Δεν υπάρχουν προς το παρόν Διαχειριστές Εφαρμογών."
+msgstr "Δεν υπάρχουν προς το παρόν Διαχειριστές Επαναχρήσεων."
 
 #: ckanext/showcase/templates/admin/manage_showcase_admins.html:72
 msgid ""
 "<p><strong>Showcase Admin:</strong> Can create and remove showcases. Can add "
 "and remove datasets from showcases.</p>"
 msgstr ""
-"<p><strong>Διαχειριστής Εφαρμογών:</strong> Μπορεί να δημιουργεί και να αφαιρεί εφαρμογές. Μπορεί να προσθέτει "
-"και να αφαιρεί σύνολα δεδομένων από εφαρμογές.</p>"
+"<p><strong>Διαχειριστής Επαναχρήσεων:</strong> Μπορεί να δημιουργεί και να αφαιρεί επαναχρήσεις. Μπορεί να προσθέτει "
+"και να αφαιρεί σύνολα δεδομένων από επαναχρήσεις.</p>"
 
 #: ckanext/showcase/templates/home/snippets/stats.html:10
 msgid "{site_title} statistics"
@@ -274,24 +277,24 @@ msgstr[1] "ομάδες"
 #: ckanext/showcase/templates/home/snippets/stats.html:33
 msgid "showcase"
 msgid_plural "showcases"
-msgstr[0] "εφαρμογή"
-msgstr[1] "εφαρμογές"
+msgstr[0] "επανάχρηση"
+msgstr[1] "επαναχρήσεις"
 
 #: ckanext/showcase/templates/package/dataset_showcase_list.html:14
 msgid "Associate this showcase with this dataset"
-msgstr "Συσχετισμός αυτής της εφαρμογής με αυτό το σύνολο δεδομένων"
+msgstr "Συσχετισμός αυτής της επανάχρησης με αυτό το σύνολο δεδομένων"
 
 #: ckanext/showcase/templates/package/dataset_showcase_list.html:14
 msgid "Add to showcase"
-msgstr "Προσθήκη στην εφαρμογή"
+msgstr "Προσθήκη στην Επανάχρηση"
 
 #: ckanext/showcase/templates/package/dataset_showcase_list.html:18
 msgid "Showcases featuring {dataset_name}"
-msgstr "Εφαρμογές που περιλαμβάνουν το {dataset_name}"
+msgstr "Επαναχρήσεις που περιλαμβάνουν το {dataset_name}"
 
 #: ckanext/showcase/templates/package/dataset_showcase_list.html:23
 msgid "There are no showcases that feature this dataset"
-msgstr "Δεν υπάρχουν εφαρμογές που να περιλαμβάνουν αυτό το σύνολο δεδομένων"
+msgstr "Δεν υπάρχουν επαναχρήσεις που να περιλαμβάνουν αυτό το σύνολο δεδομένων"
 
 #: ckanext/showcase/templates/package/dataset_showcase_list.html:27
 #: ckanext/showcase/templates/showcase/manage_datasets.html:94
@@ -305,7 +308,7 @@ msgstr "Μόνο"
 
 #: ckanext/showcase/templates/package/dataset_showcase_list.html:27
 msgid "approved showcases"
-msgstr "εγκεκριμένες εφαρμογές"
+msgstr "εγκεκριμένες επαναχρήσεις"
 
 #: ckanext/showcase/templates/package/dataset_showcase_list.html:27
 msgid "are displayed in the list above."
@@ -313,7 +316,7 @@ msgstr "εμφανίζονται στην παραπάνω λίστα."
 
 #: ckanext/showcase/templates/showcase/add_datasets.html:3
 msgid "Showcases - Add datasets"
-msgstr "Εφαρμογές - Προσθήκη συνόλων δεδομένων"
+msgstr "Επαναχρήσεις - Προσθήκη συνόλων δεδομένων"
 
 #: ckanext/showcase/templates/showcase/add_datasets.html:21
 #: ckanext/showcase/templates/showcase/manage_datasets.html:24
@@ -348,12 +351,12 @@ msgstr "Δημοφιλή"
 #: ckanext/showcase/templates/showcase/add_datasets.html:31
 #: ckanext/showcase/templates/showcase/manage_datasets.html:36
 msgid "Datasets available to add to this showcase"
-msgstr "Σύνολα δεδομένων διαθέσιμα για προσθήκη σε αυτήν την εφαρμογή"
+msgstr "Σύνολα δεδομένων διαθέσιμα για προσθήκη σε αυτήν την επανάχρηση"
 
 #: ckanext/showcase/templates/showcase/add_datasets.html:49
 #: ckanext/showcase/templates/showcase/manage_datasets.html:52
 msgid "Add to Showcase"
-msgstr "Προσθήκη στην Εφαρμογή"
+msgstr "Προσθήκη στην Επανάχρηση"
 
 #: ckanext/showcase/templates/showcase/add_datasets.html:79
 #: ckanext/showcase/templates/showcase/manage_datasets.html:89
@@ -367,7 +370,7 @@ msgstr "Επιβεβαίωση Διαγραφής"
 
 #: ckanext/showcase/templates/showcase/confirm_delete.html:16
 msgid "Are you sure you want to delete showcase - {showcase_name}?"
-msgstr "Είστε βέβαιοι ότι θέλετε να διαγράψετε την εφαρμογή - {showcase_name};"
+msgstr "Είστε βέβαιοι ότι θέλετε να διαγράψετε την επανάχρηση - {showcase_name};"
 
 #: ckanext/showcase/templates/showcase/edit_base.html:27
 msgid "Edit"
@@ -377,15 +380,15 @@ msgstr "Επεξεργασία"
 #: ckanext/showcase/templates/showcase/new.html:3
 #: ckanext/showcase/templates/showcase/new_package_form.html:98
 msgid "Create Showcase"
-msgstr "Δημιουργία Εφαρμογής"
+msgstr "Δημιουργία Επανάχρησης"
 
 #: ckanext/showcase/templates/showcase/edit_base.html:43
 msgid "View showcase"
-msgstr "Προβολή εφαρμογής"
+msgstr "Προβολή επανάχρησης"
 
 #: ckanext/showcase/templates/showcase/edit_base.html:49
 msgid "Edit showcase"
-msgstr "Επεξεργασία εφαρμογής"
+msgstr "Επεξεργασία επανάχρησης"
 
 #: ckanext/showcase/templates/showcase/edit_base.html:50
 msgid "Manage datasets"
@@ -393,7 +396,7 @@ msgstr "Διαχείριση συνόλων δεδομένων"
 
 #: ckanext/showcase/templates/showcase/manage_datasets.html:3
 msgid "Showcases - Manage datasets"
-msgstr "Εφαρμογές - Διαχείριση συνόλων δεδομένων"
+msgstr "Επαναχρήσεις - Διαχείριση συνόλων δεδομένων"
 
 #: ckanext/showcase/templates/showcase/manage_datasets.html:94
 msgid "public datasets"
@@ -405,19 +408,19 @@ msgstr "εμφανίζονται στον παραπάνω πίνακα."
 
 #: ckanext/showcase/templates/showcase/manage_datasets.html:100
 msgid "Datasets in this showcase"
-msgstr "Σύνολα δεδομένων σε αυτήν την εφαρμογή"
+msgstr "Σύνολα δεδομένων σε αυτήν την επανάχρηση"
 
 #: ckanext/showcase/templates/showcase/manage_datasets.html:114
 msgid "Remove from Showcase"
-msgstr "Αφαίρεση από την Εφαρμογή"
+msgstr "Αφαίρεση από την Επανάχρηση"
 
 #: ckanext/showcase/templates/showcase/manage_datasets.html:145
 msgid "This showcase has no datasets associated to it"
-msgstr "Αυτή η εφαρμογή δεν έχει συσχετισμένα σύνολα δεδομένων"
+msgstr "Αυτή η επανάχρηση δεν έχει συσχετισμένα σύνολα δεδομένων"
 
 #: ckanext/showcase/templates/showcase/new.html:8
 msgid "Create a Showcase"
-msgstr "Δημιουργία Εφαρμογής"
+msgstr "Δημιουργία Επανάχρησης"
 
 #: ckanext/showcase/templates/showcase/new_package_form.html:18
 msgid "Title"
@@ -433,7 +436,7 @@ msgstr "URL"
 
 #: ckanext/showcase/templates/showcase/new_package_form.html:28
 msgid "eg. my-showcase"
-msgstr "π.χ. η-εφαρμογή-μου"
+msgstr "π.χ. η-επανάχρηση-μου"
 
 #: ckanext/showcase/templates/showcase/new_package_form.html:41
 #: ckanext/showcase/templates/showcase/new_package_form.html:43
@@ -498,7 +501,7 @@ msgstr "nikos@example.com"
 
 #: ckanext/showcase/templates/showcase/new_package_form.html:93
 msgid "Are you sure you want to delete this showcase?"
-msgstr "Είστε βέβαιοι ότι θέλετε να διαγράψετε αυτήν την εφαρμογή;"
+msgstr "Είστε βέβαιοι ότι θέλετε να διαγράψετε αυτήν την επανάχρηση;"
 
 #: ckanext/showcase/templates/showcase/new_package_form.html:94
 msgid "Delete"
@@ -506,7 +509,7 @@ msgstr "Διαγραφή"
 
 #: ckanext/showcase/templates/showcase/new_package_form.html:98
 msgid "Update Showcase"
-msgstr "Ενημέρωση Εφαρμογής"
+msgstr "Ενημέρωση Επανάχρησης"
 
 #: ckanext/showcase/templates/showcase/read.html:57
 msgid "Manage"
@@ -531,19 +534,19 @@ msgstr "Εκκίνηση ιστοσελίδας"
 
 #: ckanext/showcase/templates/showcase/search.html:19
 msgid "Add Showcase"
-msgstr "Προσθήκη Εφαρμογής"
+msgstr "Προσθήκη Επανάχρησης"
 
 #: ckanext/showcase/templates/showcase/search.html:41
 msgid "Search showcases..."
-msgstr "Αναζήτηση εφαρμογών..."
+msgstr "Αναζήτηση επαναχρήσεων..."
 
 #: ckanext/showcase/templates/showcase/search.html:48
 msgid "There are currently no showcases for this site"
-msgstr "Αυτή τη στιγμή δεν υπάρχουν εφαρμογές για αυτόν τον ιστότοπο"
+msgstr "Αυτή τη στιγμή δεν υπάρχουν επαναχρήσεις για αυτόν τον ιστότοπο"
 
 #: ckanext/showcase/templates/showcase/snippets/helper.html:6
 msgid "What are Showcases?"
-msgstr "Τι είναι οι Εφαρμογές;"
+msgstr "Τι είναι οι Επαναχρήσεις;"
 
 #: ckanext/showcase/templates/showcase/snippets/helper.html:10
 msgid ""
@@ -552,9 +555,31 @@ msgid ""
 "Showcases collect together the best examples of datasets in use, to provide "
 "further insight, ideas, and inspiration."
 msgstr ""
-"Τα σύνολα δεδομένων έχουν χρησιμοποιηθεί για τη δημιουργία εφαρμογών, ιστοσελίδων "
-"και οπτικοποιήσεων. Οι εφαρμογές συγκεντρώνουν τα καλύτερα παραδείγματα συνόλων "
-"δεδομένων σε χρήση, για να παρέχουν περαιτέρω επισκόπηση, ιδέες και έμπνευση."
+"Τα σύνολα δεδομένων έχουν χρησιμοποιηθεί για τη δημιουργία ιστοσελίδων, "
+"οπτικοποιήσεων και άλλων λύσεων. Η ενότητα Επαναχρήσεις συγκεντρώνει τα καλύτερα παραδείγματα "
+"αξιοποίησης συνόλων δεδομένων, προσφέροντας περαιτέρω επισκόπηση, ιδέες και "
+"έμπνευση."
+
+msgid ""
+"Showcases are examples of <strong>data reuse</strong>. Datasets are utilized "
+"for the development of applications, websites and visualizations that "
+"highlight the value of open information. Through these showcases, "
+"characteristic examples of data reuse are presented, demonstrating the "
+"potential of open data in practice. The goal is to showcase the potential of "
+"open data utilization and the value of their reuse for public administration, "
+"businesses and citizens. This encourages the development of innovative "
+"services with social and economic impact and creates increased added value."
+msgstr ""
+"Οι επαναχρήσεις αποτελούν χαρακτηριστικά παραδείγματα αξιοποίησης δεδομένων. Τα "
+"σύνολα δεδομένων μπορούν να χρησιμοποιηθούν για την ανάπτυξη ιστοσελίδων, "
+"οπτικοποιήσεων και άλλων λύσεων που αναδεικνύουν την αξία της ανοικτής "
+"πληροφορίας. Μέσα από αυτές παρουσιάζονται ενδεικτικές περιπτώσεις "
+"επαναχρησιμοποίησης δεδομένων, οι οποίες αποτυπώνουν στην πράξη τις δυνατότητες "
+"των ανοικτών δεδομένων. Στόχος είναι η ανάδειξη των δυνατοτήτων αξιοποίησης των "
+"ανοικτών δεδομένων και της αξίας της επαναχρησιμοποίησής τους για τη δημόσια "
+"διοίκηση, τις επιχειρήσεις και τους πολίτες. Με τον τρόπο αυτό ενθαρρύνεται η "
+"ανάπτυξη καινοτόμων υπηρεσιών με κοινωνικό και οικονομικό αντίκτυπο, "
+"δημιουργώντας αυξημένη προστιθέμενη αξία."
 
 #: ckanext/showcase/templates/showcase/snippets/helper.html:16
 #, python-format
@@ -562,8 +587,8 @@ msgid ""
 "Sysadmins can manage Showcase Admins from the <a href='%(url)s'>Showcase "
 "configuration page</a>."
 msgstr ""
-"Οι διαχειριστές συστήματος μπορούν να διαχειριστούν τους διαχειριστές εφαρμογών "
-"από τη <a href='%(url)s'>σελίδα διαμόρφωσης εφαρμογών</a>."
+"Οι διαχειριστές συστήματος μπορούν να διαχειριστούν τους διαχειριστές επαναχρήσεων "
+"από τη <a href='%(url)s'>σελίδα διαμόρφωσης επαναχρήσεων</a>."
 
 #: ckanext/showcase/templates/showcase/snippets/showcase_info.html:21
 msgid "Submitted by"
@@ -571,15 +596,15 @@ msgstr "Υποβλήθηκε από"
 
 #: ckanext/showcase/templates/showcase/snippets/showcase_info.html:37
 msgid "Datasets in Showcase"
-msgstr "Σύνολα δεδομένων στην Εφαρμογή"
+msgstr "Σύνολα δεδομένων στην Επανάχρηση"
 
 #: ckanext/showcase/templates/showcase/snippets/showcase_info.html:47
 msgid "There are no Datasets in this Showcase"
-msgstr "Δεν υπάρχουν Σύνολα Δεδομένων σε αυτήν την Εφαρμογή"
+msgstr "Δεν υπάρχουν Σύνολα Δεδομένων σε αυτήν την Επανάχρηση"
 
 #: ckanext/showcase/templates/showcase/snippets/showcase_item.html:32
 msgid "This showcase has no description"
-msgstr "Αυτή η εφαρμογή δεν έχει περιγραφή"
+msgstr "Αυτή η επανάχρηση δεν έχει περιγραφή"
 
 #: ckanext/showcase/templates/showcase/snippets/showcase_item.html:37
 msgid "{num} Dataset"
@@ -598,36 +623,36 @@ msgstr "Προβολή {showcase_title}"
 
 #: ckanext/showcase/templates/showcase/snippets/showcase_item.html:51
 msgid "Remove dataset from this showcase"
-msgstr "Αφαίρεση συνόλου δεδομένων από αυτήν την εφαρμογή"
+msgstr "Αφαίρεση συνόλου δεδομένων από αυτήν την επανάχρηση"
 
 #: ckanext/showcase/templates/showcase/snippets/showcase_search_result_text.html:7
 msgid "{number} showcase found for '{query}'"
 msgid_plural "{number} showcases found for '{query}'"
-msgstr[0] "Βρέθηκε {number} εφαρμογή για το '{query}'"
-msgstr[1] "Βρέθηκαν {number} εφαρμογές για το '{query}'"
+msgstr[0] "Βρέθηκε {number} επανάχρηση για το '{query}'"
+msgstr[1] "Βρέθηκαν {number} επαναχρήσεις για το '{query}'"
 
 #: ckanext/showcase/templates/showcase/snippets/showcase_search_result_text.html:8
 msgid "No showcases found for '{query}'"
-msgstr "Δεν βρέθηκαν εφαρμογές για το '{query}'"
+msgstr "Δεν βρέθηκαν επαναχρήσεις για το '{query}'"
 
 #: ckanext/showcase/templates/showcase/snippets/showcase_search_result_text.html:9
 msgid "{number} showcase found"
 msgid_plural "{number} showcases found"
-msgstr[0] "Βρέθηκε {number} εφαρμογή"
-msgstr[1] "Βρέθηκαν {number} εφαρμογές"
+msgstr[0] "Βρέθηκε {number} επανάχρηση"
+msgstr[1] "Βρέθηκαν {number} επαναχρήσεις"
 
 #: ckanext/showcase/templates/showcase/snippets/showcase_search_result_text.html:10
 msgid "No showcases found"
-msgstr "Δεν βρέθηκαν εφαρμογές"
+msgstr "Δεν βρέθηκαν επαναχρήσεις"
 
 msgid "Showcase email notifications"
-msgstr "Ειδοποιήσεις email για τις Εφαρμογές"
+msgstr "Ειδοποιήσεις email για τις Επαναχρήσεις"
 
 msgid "Showcase email notifications and configuration"
-msgstr "Ειδοποιήσεις email και παραμετροποίηση Εφαρμογών"
+msgstr "Ειδοποιήσεις email και παραμετροποίηση Επαναχρήσεων"
 
 msgid "Email notifications are sent only when a new Showcase is created."
-msgstr "Οι ειδοποιήσεις email αποστέλλονται μόνο κατά τη δημιουργία νέας Εφαρμογής."
+msgstr "Οι ειδοποιήσεις email αποστέλλονται μόνο κατά τη δημιουργία νέας Επανάχρησης."
 
 msgid "The notification recipients can be configured through the ckan.ini file."
 msgstr "Οι παραλήπτες των ειδοποιήσεων μπορούν να παραμετροποιηθούν μέσω του αρχείου ckan.ini."
@@ -636,10 +661,10 @@ msgid "Default behavior:"
 msgstr "Προεπιλεγμένη συμπεριφορά:"
 
 msgid "If no relevant configuration is provided, notifications are sent to all sysadmins and showcase admins."
-msgstr "Αν δεν οριστεί σχετική παραμετροποίηση, οι ειδοποιήσεις αποστέλλονται σε όλους τους sysadmins και στους διαχειριστές εφαρμογών."
+msgstr "Αν δεν οριστεί σχετική παραμετροποίηση, οι ειδοποιήσεις αποστέλλονται σε όλους τους sysadmins και στους διαχειριστές επαναχρήσεων."
 
 msgid "Supported recipient modes are: all sysadmins and showcase admins, showcase admins only, or one configured email only."
-msgstr "Οι υποστηριζόμενοι τρόποι επιλογής παραληπτών είναι: όλοι οι sysadmins και οι διαχειριστές εφαρμογών, μόνο οι διαχειριστές εφαρμογών ή μόνο ένα συγκεκριμένο παραμετρικό email."
+msgstr "Οι υποστηριζόμενοι τρόποι επιλογής παραληπτών είναι: όλοι οι sysadmins και οι διαχειριστές επαναχρήσεων, μόνο οι διαχειριστές επαναχρήσεων ή μόνο ένα συγκεκριμένο παραμετρικό email."
 
 msgid "When configured, an additional email address can also be included in the notification recipients."
 msgstr "Όταν έχει οριστεί, μπορεί να συμπεριληφθεί και μία επιπλέον διεύθυνση email στους παραλήπτες των ειδοποιήσεων."
@@ -648,31 +673,31 @@ msgid "Specific email addresses can be excluded from notifications through confi
 msgstr "Συγκεκριμένες διευθύνσεις email μπορούν να εξαιρούνται από τις ειδοποιήσεις μέσω παραμετροποίησης."
 
 msgid "The Showcase creator continues to receive an email independently of this configuration."
-msgstr "Ο δημιουργός της Εφαρμογής συνεχίζει να λαμβάνει email ανεξάρτητα από αυτή την παραμετροποίηση."
+msgstr "Ο δημιουργός της Επανάχρησης συνεχίζει να λαμβάνει email ανεξάρτητα από αυτή την παραμετροποίηση."
 
 msgid "Configuration properties:"
 msgstr "Ιδιότητες παραμετροποίησης:"
 
 msgid "Notifications are configurable through ckan.ini and apply only on Showcase creation."
-msgstr "Οι ειδοποιήσεις παραμετροποιούνται μέσω του ckan.ini και εφαρμόζονται μόνο κατά τη δημιουργία Εφαρμογής."
+msgstr "Οι ειδοποιήσεις παραμετροποιούνται μέσω του ckan.ini και εφαρμόζονται μόνο κατά τη δημιουργία Επανάχρησης."
 
 msgid "By default, notifications are sent to all sysadmins and showcase admins."
-msgstr "Προεπιλεγμένα, οι ειδοποιήσεις αποστέλλονται σε όλους τους sysadmins και στους διαχειριστές εφαρμογών."
+msgstr "Προεπιλεγμένα, οι ειδοποιήσεις αποστέλλονται σε όλους τους sysadmins και στους διαχειριστές επαναχρήσεων."
 
 msgid "The Showcase creator still receives an email."
-msgstr "Ο δημιουργός της Εφαρμογής εξακολουθεί να λαμβάνει email."
+msgstr "Ο δημιουργός της Επανάχρησης εξακολουθεί να λαμβάνει email."
 
 msgid "Additional notification cases:"
 msgstr "Επιπλέον περιπτώσεις ειδοποιήσεων:"
 
 msgid "When a Showcase is approved, an email is sent to its creator."
-msgstr "Όταν μια Εφαρμογή εγκρίνεται, αποστέλλεται email στον δημιουργό της."
+msgstr "Όταν μια Επανάχρηση εγκρίνεται, αποστέλλεται email στον δημιουργό της."
 
 msgid "When a Showcase is approved, notification emails may also be sent to the organizations of the datasets used in the Showcase, if email updates are enabled for the organization."
-msgstr "Όταν μια Εφαρμογή εγκρίνεται, μπορούν επίσης να αποσταλούν emails ειδοποίησης στους φορείς των συνόλων δεδομένων που αξιοποιούνται στην Εφαρμογή, εφόσον είναι ενεργοποιημένες οι σχετικές ειδοποιήσεις email για τον φορέα."
+msgstr "Όταν μια Επανάχρηση εγκρίνεται, μπορούν επίσης να αποσταλούν emails ειδοποίησης στους φορείς των συνόλων δεδομένων που αξιοποιούνται σε αυτήν, εφόσον είναι ενεργοποιημένες οι σχετικές ειδοποιήσεις email για τον φορέα."
 
 msgid "Additional emails may be sent on Showcase approval."
-msgstr "Ενδέχεται να αποσταλούν επιπλέον emails κατά την έγκριση της Εφαρμογής."
+msgstr "Ενδέχεται να αποσταλούν επιπλέον emails κατά την έγκριση Επανάχρησης."
 
 msgid "Showcase administrators may be users other than system administrators who need management rights for Showcase applications."
-msgstr "Οι διαχειριστές εφαρμογών μπορεί να είναι και χρήστες διαφορετικοί από τους διαχειριστές συστήματος, όταν χρειάζονται δικαιώματα διαχείρισης των Εφαρμογών."
+msgstr "Οι διαχειριστές επαναχρήσεων μπορεί να είναι και χρήστες διαφορετικοί από τους διαχειριστές συστήματος, όταν χρειάζονται δικαιώματα διαχείρισης των Επαναχρήσεων."

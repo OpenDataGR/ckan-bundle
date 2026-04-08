@@ -1,0 +1,17 @@
+<!--  Φόρμα Νέου Dataset - Override -->
+{% ckan_extends %}
+
+{% block disclaimer %}
+  {% if form_style != 'edit' %}
+    {{ super() }}
+    {% set terms_page = config.get('ckanext.data_gov_gr.dataset.terms_of_use_page', '') %}
+    {% if terms_page %}
+      <p class="action-info small">
+        Πατώντας Αποθήκευση, ο χρήστης δηλώνει ρητά ότι έχει λάβει γνώση
+        και αποδέχεται το νομικό πλαίσιο και τους
+        <a href="/pages/{{ terms_page }}" target="_blank" rel="noopener noreferrer">όρους χρήσης</a>,
+        όπως αυτοί ισχύουν.
+      </p>
+    {% endif %}
+  {% endif %}
+{% endblock %}

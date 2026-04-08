@@ -2,7 +2,7 @@
 <form class="lang-select" action="{% url_for 'util.internal_redirect' %}" data-module="select-switch" method="POST">
   {{ h.csrf_input() }} 
   <div class="form-group">
-    <select id="field-lang-select" name="url" data-module="autocomplete" data-module-dropdown-class="lang-dropdown" data-module-container-class="lang-container">
+    <select id="field-lang-select" name="url" aria-label="{{ _('Επιλογή γλώσσας') }}" data-module="autocomplete" data-module-dropdown-class="lang-dropdown" data-module-container-class="lang-container">
       {% for locale in h.get_available_locales() %}
         <option value="{% url_for h.current_url(), locale=locale.short_name %}" {% if locale.short_name == current_lang %}selected="selected"{% endif %}>
           {{ locale.display_name or locale.english_name }}
@@ -12,5 +12,47 @@
   </div>
   <button class="btn btn-default d-none " type="submit">{{ _('Go') }}</button>
 </form>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    var select = document.getElementById('field-lang-select');
+    if (!select) return;
 
+    var labelText = {{ _('Επιλογή γλώσσας')|tojson }};
 
+    function patchSelect2Labels() {
+      var container = document.getElementById('s2id_field-lang-select');
+      if (!container) return false;
+
+      container.querySelectorAll('label.select2-offscreen').forEach(function (label) {
+        if (!label.textContent.trim()) {
+          label.textContent = labelText;
+        }
+      });
+
+      var focusser = container.querySelector('.select2-focusser');
+      if (focusser) {
+        focusser.setAttribute('aria-label', labelText);
+      }
+
+      var searchInput = container.querySelector('.select2-input');
+      if (searchInput) {
+        searchInput.setAttribute('aria-label', labelText);
+      }
+
+      return true;
+    }
+
+    if (patchSelect2Labels()) return;
+
+    var observer = new MutationObserver(function () {
+      if (patchSelect2Labels()) {
+        observer.disconnect();
+      }
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+    window.setTimeout(function () {
+      observer.disconnect();
+    }, 3000);
+  });
+</script>

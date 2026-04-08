@@ -473,7 +473,7 @@ def more_page():
     """Render the More page with content sections as cards"""
     template_name = 'more_base.html'
     extra_vars = {
-        'page_title': 'Περισσότερα',
+        'page_title': 'Εργαλεία',
         'sections': [
             {
                 'title': 'Blog',
@@ -511,14 +511,14 @@ def more_page():
                 'color': 'danger'
             },
             {
-                'title': 'Αναφορές',
+                'title': 'Αναφορές ποιότητας Συνόλων Δεδομένων',
                 'description': 'Στατιστικά στοιχεία και αναφορές ποιότητας για τα δεδομένα της πύλης',
                 'url': 'report',
                 'icon': 'fa-bar-chart',
                 'color': 'dark'
             },
             {
-                'title': 'Στατιστικά',
+                'title': 'Στατιστικά χρήσης της Εθνικής Πύλης',
                 'description': 'Προβολή στατιστικών χρήσης και δεικτών για την πύλη δεδομένων',
                 'url': config.get('ckanext.data_gov_gr.stats.destination.url', '/'),
                 'icon': 'fa-chart-line',

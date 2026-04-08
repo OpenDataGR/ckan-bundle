@@ -1,0 +1,202 @@
+# Greek translations for ckanext-manage-tags.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: ckanext-manage-tags 0.0.1\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-03-24 00:00+0200\n"
+"PO-Revision-Date: 2026-03-24 00:00+0200\n"
+"Last-Translator: OpenAI Codex\n"
+"Language-Team: el\n"
+"Language: el\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.15.0\n"
+
+msgid "Tag not found."
+msgstr "Η ετικέτα δεν βρέθηκε."
+
+msgid "Only global free tags can be edited from this page."
+msgstr "Από αυτή τη σελίδα μπορούν να επεξεργαστούν μόνο κοινές ελεύθερες ετικέτες."
+
+msgid "A free tag with this name already exists."
+msgstr "Υπάρχει ήδη ελεύθερη ετικέτα με αυτό το όνομα."
+
+msgid "Need to be system administrator to administer"
+msgstr "Απαιτούνται δικαιώματα διαχειριστή συστήματος."
+
+msgid "Error updating tag: {0}"
+msgstr "Σφάλμα κατά την ενημέρωση της ετικέτας: {0}"
+
+msgid "Tag updated successfully."
+msgstr "Η ετικέτα ενημερώθηκε με επιτυχία."
+
+msgid "Tag name was unchanged."
+msgstr "Το όνομα της ετικέτας δεν άλλαξε."
+
+msgid "Tag name was unchanged, so no reindex job was queued."
+msgstr "Το όνομα της ετικέτας δεν άλλαξε, οπότε δεν προγραμματίστηκε job για reindex."
+
+msgid "The tag was renamed, but the background reindex job could not be queued: {0}"
+msgstr "Η ετικέτα μετονομάστηκε, αλλά δεν ήταν δυνατό να προγραμματιστεί το background job για reindex: {0}"
+
+msgid "Background reindex was queued for {0} affected datasets (job id: {1})."
+msgstr "Το background reindex προγραμματίστηκε για {0} επηρεαζόμενα σύνολα δεδομένων (job id: {1})."
+
+msgid "The Rebuild Index job could not be queued: {0}"
+msgstr "Δεν ήταν δυνατό να προγραμματιστεί το job για Rebuild Index: {0}"
+
+msgid "Rebuild Index job was queued (job id: {0})."
+msgstr "Το job για Rebuild Index προγραμματίστηκε (job id: {0})."
+
+msgid "The tag was renamed without reindex. Use the Rebuild Index tab if you want search results to be refreshed immediately."
+msgstr "Η ετικέτα μετονομάστηκε χωρίς reindex. Χρησιμοποιήστε την καρτέλα Rebuild Index αν θέλετε να ανανεωθούν άμεσα τα αποτελέσματα αναζήτησης."
+
+msgid "Dataset"
+msgstr "Σύνολο Δεδομένων"
+
+msgid "Data Service"
+msgstr "Υπηρεσία Δεδομένων"
+
+msgid "Decision"
+msgstr "Απόφαση"
+
+msgid "Manage Tags"
+msgstr "Διαχείριση Ετικετών"
+
+msgid "Rebuild Index"
+msgstr "Rebuild Index"
+
+msgid "About Manage Tags"
+msgstr "Σχετικά με τη Διαχείριση Ετικετών"
+
+msgid "This area manages CKAN free tags that are shared across multiple datasets, data services or decisions."
+msgstr "Αυτή η ενότητα διαχειρίζεται τις ετικέτες που συμπληρώνονται στο πεδίο «Ετικέτες» κατά τη δημιουργία ή επεξεργασία συνόλων δεδομένων, υπηρεσιών δεδομένων ή αποφάσεων."
+
+msgid "Renaming a tag updates the shared keyword. Reindex can be launched selectively from the edit form or as a full rebuild from the dedicated tab."
+msgstr "Η μετονομασία μιας ετικέτας ενημερώνει την κοινή λέξη-κλειδί. Το reindex μπορεί να εκκινηθεί επιλεκτικά από τη φόρμα επεξεργασίας ή ως πλήρες rebuild από την αντίστοιχη καρτέλα."
+
+msgid "About Tag Management"
+msgstr "Σχετικά με τη Διαχείριση Ετικετών"
+
+msgid "This page lists the free tags (keywords) used across datasets, data services and decisions. You can search for a tag by keyword."
+msgstr "Η σελίδα αυτή εμφανίζει τις ελεύθερες ετικέτες (keywords) που χρησιμοποιούνται σε σύνολα δεδομένων, υπηρεσίες δεδομένων και αποφάσεις. Μπορείτε να αναζητήσετε ετικέτα με βάση λέξη-κλειδί."
+
+msgid "For each tag, the usage count shows how many records use it, along with their type (dataset, data service or decision)."
+msgstr "Για κάθε ετικέτα εμφανίζεται ο αριθμός εγγραφών που τη χρησιμοποιούν καθώς και ο τύπος τους (σύνολο δεδομένων, υπηρεσία δεδομένων ή απόφαση)."
+
+msgid "If you plan to change many tags, avoid running reindex on each change. Complete all edits first, then run one full Rebuild Index from the dedicated tab."
+msgstr "Αν σκοπεύετε να αλλάξετε πολλές ετικέτες, αποφύγετε να εκτελέσετε reindex σε κάθε αλλαγή. Ολοκληρώστε πρώτα όλες τις αλλαγές και στο τέλος εκτελέστε ένα συνολικό Rebuild Index από τον αντίστοιχο tab."
+
+msgid "About Tag Rename"
+msgstr "Σχετικά με τη Μετονομασία Ετικέτας"
+
+msgid "Saving the form updates the tag name in the database, but does not automatically update the search index (Solr), where record metadata is stored for search."
+msgstr "Η αποθήκευση αλλάζει την τιμή της ετικέτας στη βάση δεδομένων, αλλά δεν ενημερώνει αυτόματα το ευρετήριο αναζήτησης (Solr), όπου αποθηκεύονται τα μεταδεδομένα των εγγραφών για αναζήτηση."
+
+msgid "To update the index, check the Reindex option. This will re-index all related records as an asynchronous background job."
+msgstr "Για να ενημερωθεί το ευρετήριο, τσεκάρετε την επιλογή Reindex, η οποία θα ευρετηριάσει εκ νέου όλες τις σχετιζόμενες εγγραφές ως background job (ασύγχρονη διεργασία)."
+
+msgid "If you plan to change many tags — especially if they affect the same records — skip the reindex on each change and run one full Rebuild Index from the dedicated tab at the end."
+msgstr "Αν σκοπεύετε να αλλάξετε πολλές ετικέτες — ιδιαίτερα αν επηρεάζουν τις ίδιες εγγραφές — παραλείψτε το reindex σε κάθε αλλαγή και εκτελέστε ένα συνολικό Rebuild Index από τον αντίστοιχο tab στο τέλος."
+
+msgid "The rebuild is complete when changes appear in the dataset search page: the old tag will be replaced by the new one in the tag filter with the same number of records. For approximately 10,000 records, the process may take around 8 minutes."
+msgstr "Το rebuild ολοκληρώνεται όταν εμφανιστούν οι αλλαγές στη σελίδα αναζήτησης εγγραφών: το παλιό tag θα έχει αντικατασταθεί από το νέο στο φίλτρο ετικετών με τον ίδιο αριθμό εμφανίσεων. Για ~10.000 εγγραφές η διαδικασία μπορεί να διαρκέσει περίπου 8 λεπτά."
+
+msgid "About Rebuild Index"
+msgstr "Σχετικά με το Rebuild Index"
+
+msgid "Use this page when many tag changes have been made and one final Rebuild Index is preferable to multiple selective reindex jobs."
+msgstr "Χρησιμοποιήστε αυτή τη σελίδα όταν έχουν γίνει πολλές αλλαγές σε ετικέτες και είναι προτιμότερο ένα τελικό Rebuild Index αντί για πολλά επιλεκτικά jobs reindex."
+
+msgid "The rebuild runs in the background and refreshes the whole search index. It is the safest option after bulk tag maintenance."
+msgstr "Το rebuild εκτελείται στο παρασκήνιο και ανανεώνει ολόκληρο το index αναζήτησης. Είναι η ασφαλέστερη επιλογή μετά από μαζική συντήρηση ετικετών."
+
+msgid "View and rename global free tags used as shared keywords across packages."
+msgstr "Προβολή και μετονομασία κοινών ελεύθερων ετικετών που χρησιμοποιούνται ως κοινές λέξεις-κλειδιά στα πακέτα."
+
+msgid "Search tags"
+msgstr "Αναζήτηση ετικετών"
+
+msgid "Search by tag name"
+msgstr "Αναζήτηση με όνομα ετικέτας"
+
+msgid "Search"
+msgstr "Αναζήτηση"
+
+msgid "Clear"
+msgstr "Καθαρισμός"
+
+msgid "Tag"
+msgstr "Ετικέτα"
+
+msgid "Usage count"
+msgstr "Πλήθος χρήσεων"
+
+msgid "Package types"
+msgstr "Τύποι πακέτων"
+
+msgid "Action"
+msgstr "Ενέργεια"
+
+msgid "Edit"
+msgstr "Επεξεργασία"
+
+msgid "No free tags matched the current filter."
+msgstr "Δεν βρέθηκαν ελεύθερες ετικέτες με το τρέχον φίλτρο."
+
+msgid "Edit Free Tag"
+msgstr "Επεξεργασία Ελεύθερης Ετικέτας"
+
+msgid "Saving this form will rename the shared free tag. Reindex is optional and can run as a background job for the affected datasets."
+msgstr "Η αποθήκευση αυτής της φόρμας θα μετονομάσει την κοινή ελεύθερη ετικέτα. Το reindex είναι προαιρετικό και μπορεί να εκτελεστεί ως background job για τα επηρεαζόμενα σύνολα δεδομένων."
+
+msgid "Current tag"
+msgstr "Τρέχουσα ετικέτα"
+
+msgid "New tag name"
+msgstr "Νέο όνομα ετικέτας"
+
+msgid "The shared keyword that will replace the current free tag."
+msgstr "Η κοινή λέξη-κλειδί που θα αντικαταστήσει την τρέχουσα ελεύθερη ετικέτα."
+
+msgid "Selective reindex"
+msgstr "Επιλεκτικό Reindex"
+
+msgid "Run background reindex only for the datasets affected by this tag change."
+msgstr "Εκτέλεση background reindex μόνο για τα σύνολα δεδομένων που επηρεάζονται από αυτή την αλλαγή ετικέτας."
+
+msgid "If you are making many tag changes, you can skip this step and use the Rebuild Index tab once at the end."
+msgstr "Αν κάνετε πολλές αλλαγές σε ετικέτες, μπορείτε να παραλείψετε αυτό το βήμα και να χρησιμοποιήσετε την καρτέλα Rebuild Index μία φορά στο τέλος."
+
+msgid "Save"
+msgstr "Αποθήκευση"
+
+msgid "Cancel"
+msgstr "Ακύρωση"
+
+msgid "Affected datasets"
+msgstr "Επηρεαζόμενα σύνολα δεδομένων"
+
+msgid "Name"
+msgstr "Όνομα"
+
+msgid "Title"
+msgstr "Τίτλος"
+
+msgid "Type"
+msgstr "Τύπος"
+
+msgid "This tag is not currently attached to any active dataset."
+msgstr "Αυτή η ετικέτα δεν είναι συνδεδεμένη αυτή τη στιγμή με κανένα ενεργό σύνολο δεδομένων."
+
+msgid "Use this option after many tag changes when you prefer one full search index rebuild instead of multiple selective reindex jobs."
+msgstr "Χρησιμοποιήστε αυτή την επιλογή μετά από πολλές αλλαγές σε ετικέτες όταν προτιμάτε ένα πλήρες rebuild του search index αντί για πολλά επιλεκτικά jobs reindex."
+
+msgid "This action will enqueue a background job that rebuilds the whole search index. The page will return immediately, but the rebuild may take time to finish."
+msgstr "Αυτή η ενέργεια θα προγραμματίσει ένα background job που θα ξαναχτίσει ολόκληρο το search index. Η σελίδα θα επιστρέψει αμέσως, αλλά το rebuild μπορεί να χρειαστεί χρόνο για να ολοκληρωθεί."
+
+msgid "Start Rebuild Index"
+msgstr "Έναρξη Rebuild Index"

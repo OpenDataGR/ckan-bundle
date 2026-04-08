@@ -1,0 +1,15 @@
+{% ckan_extends %}
+
+{% block content_primary_nav %}
+  {{ super() }}
+  <li{% if g.blueprint == 'manage_tags' and g.view in ['index', 'edit'] %} class="active"{% endif %}>
+    <a href="{{ h.url_for('manage_tags.index') }}">
+      <i class="fa fa-tags"></i> {{ _('Manage Tags') }}
+    </a>
+  </li>
+  <li{% if g.blueprint == 'manage_tags' and g.view == 'rebuild_index' %} class="active"{% endif %}>
+    <a href="{{ h.url_for('manage_tags.rebuild_index') }}">
+      <i class="fa fa-refresh"></i> {{ _('Rebuild Index') }}
+    </a>
+  </li>
+{% endblock %}

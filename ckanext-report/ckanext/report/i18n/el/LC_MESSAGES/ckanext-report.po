@@ -96,7 +96,7 @@ msgstr "Λήψη"
 
 # Stale Datasets Report translations
 msgid "Stale Datasets"
-msgstr "Μη επικαιροποιημένα Σύνολα Δεδομένων"
+msgstr "Αναφορά Προγραμματισμού Ανανέωσης Συνόλων Δεδομένων"
 
 msgid "Datasets that have not been updated according to their frequency schedule"
 msgstr "Σύνολα δεδομένων που δεν έχουν ενημερωθεί σύμφωνα με το πρόγραμμα συχνότητάς τους"
@@ -299,3 +299,30 @@ msgstr "Δεν βρέθηκαν μη επικαιροποιημένα σύνολ
 
 msgid "No stale datasets were found."
 msgstr "Δεν βρέθηκαν μη επικαιροποιημένα σύνολα δεδομένων."
+
+msgid "All"
+msgstr "Όλα"
+
+msgid "Stale"
+msgstr "Μη επικαιροποιημένα"
+
+msgid "Up-to-date"
+msgstr "Επικαιροποιημένα"
+
+msgid "Per page"
+msgstr "Ανά σελίδα"
+
+msgid "Non-evaluable"
+msgstr "Μη αξιολογήσιμο"
+
+msgid "Non-evaluable datasets"
+msgstr "Μη αξιολογήσιμα"
+
+msgid "OK datasets (up-to-date and non-evaluable)"
+msgstr "OK (Επικαιροποιημένα & Μη αξιολογήσιμα)"
+
+msgid "N/A (Not Available)"
+msgstr "Μ/Δ (Μη Διαθέσιμο)"
+
+msgid "Information is not available (e.g. frequency not declared)"
+msgstr "Η πληροφορία δεν είναι διαθέσιμη (π.χ. δεν έχει δηλωθεί συχνότητα)"

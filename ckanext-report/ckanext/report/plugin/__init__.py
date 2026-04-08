@@ -82,6 +82,10 @@ class TaglessReportPlugin(p.SingletonPlugin):
 
     def register_reports(self):
         import ckanext.report.reports as reports
+        import ckanext.report.contact_email_report as contact_email_report
         import ckanext.report.stale_datasets_report as stale_report
-        return [reports.tagless_report_info, stale_report.stale_datasets_report_info]
-
+        return [
+            reports.tagless_report_info,
+            stale_report.stale_datasets_report_info,
+            contact_email_report.contact_email_coverage_report_info,
+        ]

@@ -6,6 +6,7 @@
 {% set search_class = search_class if search_class else 'search-giant' %}
 {% set no_bottom_border = no_bottom_border if no_bottom_border else false %}
 {% set form_id = form_id if form_id else false %}
+{% set id_suffix = '-' ~ form_id if form_id else '' %}
 
 <form {% if form_id %}id="{{ form_id }}" {% endif %}class="search-form{% if no_bottom_border %} no-bottom-border{% endif %}" method="get" data-module="select-switch">
   <!--  Μπάρα Αναζήτησης -->
@@ -34,8 +35,8 @@
   {% block search_sortby %}
     {% if sorting %}
       <div class="form-group control-order-by">
-        <label for="field-order-by">{{ _('Order by') }}</label>
-        <select id="field-order-by" name="sort" class="form-control form-select">
+        <label for="field-order-by{{ id_suffix }}">{{ _('Order by') }}</label>
+        <select id="field-order-by{{ id_suffix }}" name="sort" class="form-control form-select">
           {% for label, value in sorting %}
             {% if label and value %}
               <option value="{{ value }}"{% if sorting_selected == value %} selected="selected"{% endif %}>{{ label }}</option>
@@ -51,18 +52,15 @@
 
   <!--  Τίτλος Αναζήτησης -->
   {% block search_title %}
-    <h1>
-    {% if not error %}
-    {% else %}
-      Error
+    {% if error %}
+      <p class="visually-hidden">Error</p>
     {% endif %}
-    </h1>
   {% endblock %}
 
    <!-- Λίστα Από Facets Αναζήτησης -->
   {% block search_facets %}
     {% if facets %}
-      <p class="filter-list">
+      <div class="filter-list" aria-live="polite">
         {% for field in facets.fields %}
           {% set search_facets_items = facets.search.get(field)['items'] if facets.search and field in facets.search else [] %}
           <span class="facet">{{ facets.titles.get(field) }}:</span>
@@ -77,8 +75,8 @@
             </span>
           {% endfor %}
         {% endfor %}
-      </p>
-      <a class="show-filters btn btn-default">{{ _('Filter Results') }}</a>
+      </div>
+      <button class="show-filters btn btn-default" type="button">{{ _('Filter Results') }}</button>
     {% endif %}
   {% endblock %}
 

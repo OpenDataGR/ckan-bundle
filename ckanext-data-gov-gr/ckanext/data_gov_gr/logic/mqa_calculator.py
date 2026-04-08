@@ -204,6 +204,18 @@ class MQACalculator:
         """
         return [resource for resource in resources if not self._is_bulk_download_resource(resource)]
 
+    def _get_resource_access_url(self, resource: Dict[str, Any]) -> str:
+        """
+        Επιστρέφει το access URL που χρησιμοποιεί το MQA.
+
+        Προτιμά το ρητό DCAT access URL και, αν αυτό λείπει,
+        κάνει fallback στο legacy resource URL για συμβατότητα .
+        """
+        access_url = resource.get('access_url') or resource.get('url') or ''
+        if isinstance(access_url, str):
+            return access_url.strip()
+        return access_url or ''
+
     def calculate_all_scores(self, dataset_dict: Dict[str, Any]) -> Dict[str, Any]:
         """
         Calculate all MQA scores for a dataset.
@@ -230,6 +242,10 @@ class MQACalculator:
             'reusability': self.calculate_reusability_score(dataset_dict),
             'contextuality': self.calculate_contextuality_score(dataset_dict)
         }
+        scores['dataset_criteria'] = self._calculate_dataset_criteria_satisfaction(
+            dataset_dict,
+            self._resources
+        )
 
         # Calculate distribution quality scores
         distribution_scores = self.calculate_distribution_quality_scores(dataset_dict)
@@ -319,10 +335,14 @@ class MQACalculator:
             if url in self._url_cache:
                 return self._url_cache[url]
 
-            # Try to find the resource ID for this URL
+            # Προσπαθούμε να βρούμε το resource ID για αυτό το URL
             resource_id = None
             for resource in self._resources:
-                if resource.get('url') == url or resource.get('download_url') == url:
+                if (
+                    self._get_resource_access_url(resource) == url
+                    or resource.get('url') == url
+                    or resource.get('download_url') == url
+                ):
                     resource_id = resource.get('id')
                     break
 
@@ -395,8 +415,12 @@ class MQACalculator:
             return 0.0
 
         # 1) Count how many resources satisfy each sub-criterion
-        access_url_accessible_count = sum(1 for r in resources if r.get('url') and
-                                         self._check_url_accessibility(r.get('url')))
+        access_url_accessible_count = sum(
+            1
+            for r in resources
+            if self._get_resource_access_url(r)
+            and self._check_url_accessibility(self._get_resource_access_url(r))
+        )
         # Only check if download_url exists
         download_url_exists_count = sum(1 for r in resources if r.get('download_url'))
         download_url_accessible_count = sum(1 for r in resources if r.get('download_url') and
@@ -610,7 +634,7 @@ class MQACalculator:
             return has_title and has_description
 
         # If there are resources, check that all of them have an access URL
-        has_access_url = all(bool(r.get('url')) for r in resources)
+        has_access_url = all(bool(self._get_resource_access_url(r)) for r in resources)
 
         return has_title and has_description and has_access_url
 
@@ -914,24 +938,28 @@ class MQACalculator:
         """
         resources = self._filter_bulk_download_resources(dataset_dict.get('resources', []))
         n = len(resources)
-        if n == 0:
-            return 0.0
 
-        # 1) Count how many resources satisfy each sub-criterion
-        rights_count = sum(1 for r in resources if r.get('rights'))
-        size_count = sum(1 for r in resources if r.get('size'))
-        # Treat dct:issued as the primary issue date and fall back
-        # to the resource creation date if issued is not present.
-        issue_count = sum(1 for r in resources if r.get('issued') or r.get('created'))
-        mod_count = sum(1 for r in resources if r.get('metadata_modified'))
+        rights_score = 0.0
+        size_score = 0.0
+        if n > 0:
+            rights_count = sum(1 for r in resources if r.get('rights'))
+            size_count = sum(1 for r in resources if r.get('size'))
+            rights_score = (rights_count / n) * 5
+            size_score = (size_count / n) * 5
 
-        # 2) Calculate score as (prevalence * sub-criterion weight) for each sub-criterion
-        score = (
-            (rights_count / n) * 5 +
-            (size_count / n) * 5 +
-            (issue_count / n) * 5 +
-            (mod_count / n) * 5
+        # Τα dataset-level dct:issued / dct:modified ελέγχονται μέσω των
+        # mapped πεδίων του package και των αντίστοιχων resource πεδίων.
+        has_issue_date = bool(dataset_dict.get('metadata_created')) or any(
+            r.get('created') for r in resources
         )
+        has_modification_date = bool(dataset_dict.get('metadata_modified')) or any(
+            r.get('metadata_modified') for r in resources
+        )
+
+        issue_score = 5.0 if has_issue_date else 0.0
+        mod_score = 5.0 if has_modification_date else 0.0
+
+        score = rights_score + size_score + issue_score + mod_score
 
         return score  # float from 0.0 to 20.0
 
@@ -1000,8 +1028,7 @@ class MQACalculator:
         distribution_scores = []
         resources = self._filter_bulk_download_resources(dataset_dict.get('resources', []))
 
-        # Calculate dataset-level criteria satisfaction
-        dataset_criteria = self._calculate_dataset_criteria_satisfaction(resources)
+        dataset_criteria = self._calculate_dataset_criteria_satisfaction(dataset_dict, resources)
 
         for resource in resources:
             # Skip bulk download resources in distribution scores
@@ -1071,14 +1098,14 @@ class MQACalculator:
         """
         score = 0
 
-        # Check for access URL
-        access_url = resource.get('url')
+        # Έλεγχος για access URL
+        access_url = self._get_resource_access_url(resource)
         if access_url:
-            # Store access URL for analysis
+            # Αποθήκευση access URL για ανάλυση
             if access_url not in self._access_urls:
                 self._access_urls.append(access_url)
 
-            # Check if access URL is accessible
+            # Έλεγχος αν το access URL είναι προσβάσιμο
             if self._check_url_accessibility(access_url):
                 score += 50
 
@@ -1193,8 +1220,8 @@ class MQACalculator:
         if resource.get('size'):
             score += 5
 
-        # Check for issue date (dct:issued), falling back to creation date
-        if resource.get('issued') or resource.get('created'):
+        # Check for issue date
+        if resource.get('created'):
             score += 5
 
         # Check for modification date (metadata last updated)
@@ -1224,8 +1251,8 @@ class MQACalculator:
 
         criteria = {
             # Accessibility criteria
-            'has_access_url': bool(resource.get('url')),
-            'access_url_accessible': self._check_url_accessibility(resource.get('url')),
+            'has_access_url': bool(self._get_resource_access_url(resource)),
+            'access_url_accessible': self._check_url_accessibility(self._get_resource_access_url(resource)),
             'has_download_url': bool(resource.get('download_url')),
             'download_url_accessible': bool(resource.get('download_url') and self._check_url_accessibility(resource.get('download_url'))),
 
@@ -1243,27 +1270,29 @@ class MQACalculator:
             # Documentation criteria
             'has_rights': bool(resource.get('rights')),
             'has_size': bool(resource.get('size')),
-            'has_issue_date': bool(resource.get('issued') or resource.get('created')),
+            'has_issue_date': bool(resource.get('created')),
             'has_modification_date': bool(resource.get('metadata_modified') )
         }
 
         return criteria
 
-    def _calculate_dataset_criteria_satisfaction(self, resources: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def _calculate_dataset_criteria_satisfaction(
+        self,
+        dataset_dict: Dict[str, Any],
+        resources: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
         """
         Calculate dataset-level criteria satisfaction based on all resources.
 
         For each criterion, calculates the percentage of resources that satisfy it.
 
         Args:
+            dataset_dict: The dataset dictionary
             resources: List of resource dictionaries
 
         Returns:
             A dictionary with criterion names as keys and satisfaction percentages as values
         """
-        if not resources:
-            return {}
-
         # Initialize counters for each criterion
         criteria_counts = {
             'has_access_url': 0,
@@ -1293,9 +1322,16 @@ class MQACalculator:
         # Calculate percentages
         num_resources = len(resources)
         criteria_percentages = {
-            criterion: (count / num_resources) * 100 
+            criterion: ((count / num_resources) * 100) if num_resources else 0
             for criterion, count in criteria_counts.items()
         }
+
+        # Τα dataset-level dates προβάλλονται στα criteria μέσω των mapped
+        # package πεδίων metadata_created / metadata_modified.
+        if dataset_dict.get('metadata_created'):
+            criteria_percentages['has_issue_date'] = 100
+        if dataset_dict.get('metadata_modified'):
+            criteria_percentages['has_modification_date'] = 100
 
         # Group criteria by category
         format_quality_metrics = [
@@ -1557,8 +1593,7 @@ class MQACalculator:
                 }
                 display_data['distributions'].append(distribution_data)
 
-            # Add dataset-level criteria from the first distribution
-            if display_data['distributions'] and 'dataset_criteria' in mqa_scores['distributions'][0]:
-                display_data['dataset_criteria'] = mqa_scores['distributions'][0]['dataset_criteria']
+        if 'dataset_criteria' in mqa_scores:
+            display_data['dataset_criteria'] = mqa_scores['dataset_criteria']
 
         return display_data

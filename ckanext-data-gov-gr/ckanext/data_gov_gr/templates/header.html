@@ -54,7 +54,7 @@
 	      <ul class="list-unstyled">
 	        {% block header_account_notlogged %}
         <li class="account-login-register">
-          {% set login_label = _('Log in / Register') %}
+          {% set login_label = _('Login') %}
           {% link_for login_label, named_route='user.login' %}
         </li>
 	        {% endblock %}
@@ -70,7 +70,7 @@
     <div class="debug">Blueprint : {{ g.blueprint }}<br />View : {{ g.view }}</div>
     {% endif %} {% endblock %}
     <nav class="navbar navbar-expand-lg navbar-light">
-      <hgroup class="{{ g.header_class }} navbar-left">
+      <div class="{{ g.header_class }} navbar-left">
 
       {% block header_logo %}
       {% if g.site_logo %}
@@ -88,7 +88,7 @@
       {% endif %}
       {% endblock %}
 
-       </hgroup>
+       </div>
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#main-navigation-toggle"
         aria-controls="main-navigation-toggle" aria-expanded="false" aria-label="{{ _('Toggle navigation') }}">
         <span class="fa fa-bars text-white"></span>
@@ -107,6 +107,8 @@
               {% set dataset_menu_items = h.get_dataset_menu_items() %}
               {# Ενεργό όταν βρισκόμαστε σε views των datasets ή των resources #}
               {% set dataset_active = g.blueprint in ['dataset', 'resource'] %}
+
+              {% set showcase_route = 'showcase_blueprint.index' %}
 
               <li class="dropdown {% if dataset_active %}active{% endif %}">
                 <a href="{{ h.url_for('dataset.search') }}"
@@ -140,6 +142,8 @@
                 ) }}
               {% endif %}
 
+              {{ h.build_nav_main((showcase_route, _('Reuse'))) }}
+
               {{ h.build_nav_main(
                 (org_type ~ '.index',
                   h.humanize_entity_type('organization', org_type, 'main nav') or _('Organizations'),
@@ -153,7 +157,7 @@
        <!-- Αναζήτηση από Κεφαλίδα -->
       {% block header_site_search %}
           <form class="d-flex site-search" action="{% url_for dataset_type ~ '.search' %}" method="get">
-              <label class="d-none" for="field-sitewide-search">{% block header_site_search_label %}{{ h.humanize_entity_type('package', dataset_type, 'search_placeholder') or _('Search Datasets...') }}{% endblock %}</label>
+              <label class="visually-hidden" for="field-sitewide-search">{% block header_site_search_label %}{{ h.humanize_entity_type('package', dataset_type, 'search_placeholder') or _('Search Datasets...') }}{% endblock %}</label>
               <input id="field-sitewide-search" class="form-control me-2"  type="text" name="q" placeholder="{{ _('Search') }}" aria-label="{{ h.humanize_entity_type('package', dataset_type, 'search_placeholder') or _('Search datasets...') }}"/>
               <button class="btn" type="submit" aria-label="{{ _('Submit') }}"><i class="fa fa-search"></i></button>
           </form>

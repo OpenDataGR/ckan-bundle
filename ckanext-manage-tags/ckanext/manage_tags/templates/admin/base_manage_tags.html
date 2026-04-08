@@ -1,0 +1,20 @@
+{% extends "admin/base.html" %}
+
+{% block secondary_content %}
+  <div class="module module-narrow module-shallow">
+    <h2 class="module-heading">
+      <i class="fa fa-info-circle"></i>
+      {% block manage_tags_help_title %}{{ _('About Manage Tags') }}{% endblock %}
+    </h2>
+    <div class="module-content">
+      {% block manage_tags_help_content %}
+        <p>
+          {{ _('This area manages CKAN free tags that are shared across multiple datasets, data services or decisions.') }}
+        </p>
+        <p>
+          {{ _('Renaming a tag updates the shared keyword. Reindex can be launched selectively from the edit form or as a full rebuild from the dedicated tab.') }}
+        </p>
+      {% endblock %}
+    </div>
+  </div>
+{% endblock %}

@@ -347,6 +347,10 @@ def manage_datasets(id):
     return utils.manage_datasets_view(id)
 
 
+def manage_apis(id):
+    return utils.manage_apis_view(id)
+
+
 def delete(id):
     return utils.delete_view(id)
 
@@ -404,12 +408,11 @@ class EditView(dataset.EditView):
         pkg = context.get(u"package")
         rj = h.dump_json(data.get(u'resources', []))
         user = current_user.name
-        showcase_package = utils.read_showcase(pkg_dict.get('id'), context)
         try:
             check_access(
                 'ckanext_showcase_update',
                 context,
-                showcase_package
+                pkg_dict
             )
         except NotAuthorized:
             return base.abort(
@@ -530,8 +533,8 @@ def send_approved_showcase_email(context, recipient, data_dict, showcase_url):
     mail_recipient(
         recipient_name="",
         recipient_email=recipient,
-        subject=f"DATA GOV GR: Εγκεκριμένη Εφαρμογή: '{data_dict['title']}'",
-        body=f"Η εφαρμογή '{data_dict['title']}' εγκρίθηκε. Η εφαρμογή είναι διαθέσιμη εδώ. URL: '{showcase_url}'"
+        subject=f"DATA GOV GR: Εγκεκριμένη Επανάχρηση: '{data_dict['title']}'",
+        body=f"Η επανάχρηση '{data_dict['title']}' εγκρίθηκε. Η επανάχρηση είναι διαθέσιμη εδώ. URL: '{showcase_url}'"
     )
 
 def get_email_from_id(context, user_id):
@@ -544,6 +547,10 @@ def get_email_from_id(context, user_id):
 
 def dataset_showcase_list(id):
     return utils.dataset_showcase_list(id)
+
+
+def data_service_showcase_list(id):
+    return utils.data_service_showcase_list(id)
 
 
 def admins():
@@ -573,10 +580,18 @@ showcase.add_url_rule('/showcase/manage_datasets/<id>',
                       view_func=manage_datasets,
                       methods=['GET', 'POST'],
                       endpoint="manage_datasets")
+showcase.add_url_rule('/showcase/manage_apis/<id>',
+                      view_func=manage_apis,
+                      methods=['GET', 'POST'],
+                      endpoint="manage_apis")
 showcase.add_url_rule('/dataset/showcases/<id>',
                       view_func=dataset_showcase_list,
                       methods=['GET', 'POST'],
                       endpoint="dataset_showcase_list")
+showcase.add_url_rule('/data-service/applications/<id>',
+                      view_func=data_service_showcase_list,
+                      methods=['GET'],
+                      endpoint="data_service_showcase_list")
 showcase.add_url_rule('/ckan-admin/showcase_admins',
                       view_func=admins,
                       methods=['GET', 'POST'],

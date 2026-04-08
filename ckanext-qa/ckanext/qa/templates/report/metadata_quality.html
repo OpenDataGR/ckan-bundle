@@ -1,24 +1,173 @@
+{#
+  Αναφορά ποιότητας MQA
+#}
+
+{# --- Στυλ --- #}
+<style>
+  .pagination > li > a,
+  .pagination > li > span {
+    margin: 0 3px;
+    padding: 6px 12px;
+    border-radius: 4px !important;
+  }
+  .pagination > li:first-child > a,
+  .pagination > li:last-child > a {
+    border-radius: 4px !important;
+  }
+  /* Επικεφαλίδες με ταξινόμηση */
+  th.sortable {
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    padding-right: 20px !important;
+  }
+  th.sortable:hover {
+    background-color: #eaeaea;
+  }
+  th.sortable .sort-icon {
+    margin-left: 5px;
+    color: #999;
+    font-size: 12px;
+  }
+  th.sortable.sort-asc .sort-icon,
+  th.sortable.sort-desc .sort-icon {
+    color: #333;
+  }
+  div.pull-right {
+    margin-top: 15px !important;
+  }
+  #pagination-nav {
+    margin-top: 25px;
+  }
+  .pagination > li.active > a,
+  .pagination > li.active > a:hover,
+  .pagination > li.active > a:focus {
+    background-color: #337ab7;
+    border-color: #337ab7;
+    color: #fff;
+    font-weight: bold;
+  }
+  .status-summary {
+    display: flex;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+  .status-summary > [class*="col-"] {
+    display: flex;
+    margin-bottom: 15px;
+  }
+  .status-summary .well {
+    width: 100%;
+    margin-bottom: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 132px;
+  }
+  .status-summary .well p {
+    margin-bottom: 0;
+  }
+  .metadata-quality-meta {
+    margin: -2px 0 18px;
+    color: #6f7f8f;
+  }
+  #report-table td:nth-child(1),
+  #report-table td:nth-child(2) {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+</style>
+
 {% if c.options['organization'] == None %}
-  <ul>
-    <li>{% trans %}Total datasets{% endtrans %}: {{ c.data['total_packages'] }}</li>
-  </ul>
+
+  {# ==================== Συνοπτική προβολή (όλοι οι οργανισμοί) ==================== #}
+
+  <div class="row status-summary">
+    <div class="col-md-4">
+      <div class="well text-center">
+        <h2>{{ c.data['total_organizations'] if c.data.get('total_organizations') is not none else c.data['table']|length }}</h2>
+        <p>Οργανισμοί</p>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="well text-center">
+        <h2>{{ c.data['total_packages'] }}</h2>
+        <p>{% trans %}Total datasets{% endtrans %}</p>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="well text-center" style="border-left: 4px solid #337ab7;">
+        <h2 style="color: #337ab7;">{% if c.data['overall_score'] is not none %}{{ c.data['overall_score'] }}%{% else %}(κενό){% endif %}</h2>
+        <p>{% trans %}Overall MQA Score{% endtrans %}</p>
+      </div>
+    </div>
+  </div>
+  <p class="metadata-quality-meta">
+    Σύνολα δεδομένων με βαθμολογία MQA: {{ c.data.get('packages_with_mqa_score', 0) }}
+  </p>
+
+  {# --- Επιλογέας αποτελεσμάτων ανά σελίδα --- #}
+  <div class="row" style="margin-bottom: 15px;">
+    <div class="col-md-12 text-right">
+      <label style="font-weight: normal; margin-right: 5px;">{% trans %}Per page{% endtrans %}</label>
+      <select id="per-page-select" class="form-control" style="width: auto; display: inline-block;">
+        <option value="20" selected>20</option>
+        <option value="50">50</option>
+        <option value="100">100</option>
+        <option value="all">{% trans %}All{% endtrans %}</option>
+      </select>
+    </div>
+  </div>
+
   <div class="report-table-wrapper">
-    <table class="table table-striped table-bordered table-condensed tablesorter" id="report-table">
+    <table class="table table-striped table-bordered table-condensed table-hover" id="report-table">
       <thead>
         <tr>
-          <th>{% trans %}Organization{% endtrans %}</th>
-          <th>{% trans %}Datasets{% endtrans %}</th>
-          <th>{% trans %}Overall MQA Score{% endtrans %}</th>
-          <th>{% trans %}Findability{% endtrans %}</th>
-          <th>{% trans %}Accessibility{% endtrans %}</th>
-          <th>{% trans %}Interoperability{% endtrans %}</th>
-          <th>{% trans %}Reusability{% endtrans %}</th>
-          <th>{% trans %}Contextuality{% endtrans %}</th>
+          <th class="sortable" data-sort="org_title" data-sort-type="string">
+            {% trans %}Organization{% endtrans %}
+            <i class="fa fa-sort sort-icon"></i>
+          </th>
+          <th class="sortable" data-sort="datasets" data-sort-type="number">
+            {% trans %}Datasets{% endtrans %}
+            <i class="fa fa-sort sort-icon"></i>
+          </th>
+          <th class="sortable" data-sort="overall" data-sort-type="number">
+            {% trans %}Overall MQA Score{% endtrans %}
+            <i class="fa fa-sort sort-icon"></i>
+          </th>
+          <th class="sortable" data-sort="findability" data-sort-type="number">
+            {% trans %}Findability{% endtrans %}
+            <i class="fa fa-sort sort-icon"></i>
+          </th>
+          <th class="sortable" data-sort="accessibility" data-sort-type="number">
+            {% trans %}Accessibility{% endtrans %}
+            <i class="fa fa-sort sort-icon"></i>
+          </th>
+          <th class="sortable" data-sort="interoperability" data-sort-type="number">
+            {% trans %}Interoperability{% endtrans %}
+            <i class="fa fa-sort sort-icon"></i>
+          </th>
+          <th class="sortable" data-sort="reusability" data-sort-type="number">
+            {% trans %}Reusability{% endtrans %}
+            <i class="fa fa-sort sort-icon"></i>
+          </th>
+          <th class="sortable" data-sort="contextuality" data-sort-type="number">
+            {% trans %}Contextuality{% endtrans %}
+            <i class="fa fa-sort sort-icon"></i>
+          </th>
         </tr>
       </thead>
       <tbody>
         {% for row in c.data['table'] %}
-          <tr>
+          <tr class="report-row"
+              data-sort-org_title="{{ row['organization_title']|lower }}"
+              data-sort-datasets="{{ row['total_packages'] }}"
+              data-sort-overall="{{ row['overall_score'] if row['overall_score'] is not none else -1 }}"
+              data-sort-findability="{{ row.get('mqa_findability_score', -1) if row.get('mqa_findability_score') is not none else -1 }}"
+              data-sort-accessibility="{{ row.get('mqa_accessibility_score', -1) if row.get('mqa_accessibility_score') is not none else -1 }}"
+              data-sort-interoperability="{{ row.get('mqa_interoperability_score', -1) if row.get('mqa_interoperability_score') is not none else -1 }}"
+              data-sort-reusability="{{ row.get('mqa_reusability_score', -1) if row.get('mqa_reusability_score') is not none else -1 }}"
+              data-sort-contextuality="{{ row.get('mqa_contextuality_score', -1) if row.get('mqa_contextuality_score') is not none else -1 }}">
             <td>{{ h.link_to(row['organization_title'], h.report__relative_url_for(organization=row['organization_name'])) }}</td>
             <td>{{ row['total_packages'] }}</td>
             <td>{% if row['overall_score'] is not none %}{{ row['overall_score'] }}%{% else %}{% trans %}No MQA score{% endtrans %}{% endif %}</td>
@@ -33,35 +182,108 @@
     </table>
   </div>
 
+  {# --- Στοιχεία σελιδοποίησης --- #}
+  <nav class="text-center" id="pagination-nav">
+    <ul class="pagination" id="pagination-controls"></ul>
+    <p class="text-muted" id="pagination-info" style="margin-top: 5px;"></p>
+  </nav>
+
 {% else %}
 
-  <ul>
-    <li>{% trans %}Total datasets{% endtrans %}: {{ c.data['num_packages'] }}</li>
-    <li>{% trans %}Overall MQA Score{% endtrans %}: {% if c.data['overall_score'] is not none %}{{ c.data['overall_score'] }}%{% else %}{% trans %}No MQA score{% endtrans %}{% endif %}</li>
-  </ul>
+  {# ==================== Αναλυτική προβολή (ένας οργανισμός) ==================== #}
+
+  <div class="row status-summary">
+    <div class="col-md-4">
+      <div class="well text-center">
+        <h2>{{ c.data['num_packages'] }}</h2>
+        <p>{% trans %}Total datasets{% endtrans %}</p>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="well text-center">
+        <h2>{{ c.data.get('packages_with_mqa_score', 0) }}</h2>
+        <p>Σύνολα δεδομένων με βαθμολογία MQA</p>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="well text-center" style="border-left: 4px solid #337ab7;">
+        <h2 style="color: #337ab7;">{% if c.data['overall_score'] is not none %}{{ c.data['overall_score'] }}%{% else %}(κενό){% endif %}</h2>
+        <p>{% trans %}Overall MQA Score{% endtrans %}</p>
+      </div>
+    </div>
+  </div>
+  <p class="metadata-quality-meta">
+    Σύνοψη οργανισμού βάσει των διαθέσιμων βαθμολογιών MQA.
+  </p>
+
+  {# --- Επιλογέας αποτελεσμάτων ανά σελίδα --- #}
+  <div class="row" style="margin-bottom: 15px;">
+    <div class="col-md-12 text-right">
+      <label style="font-weight: normal; margin-right: 5px;">{% trans %}Per page{% endtrans %}</label>
+      <select id="per-page-select" class="form-control" style="width: auto; display: inline-block;">
+        <option value="20" selected>20</option>
+        <option value="50">50</option>
+        <option value="100">100</option>
+        <option value="all">{% trans %}All{% endtrans %}</option>
+      </select>
+    </div>
+  </div>
+
   <div class="report-table-wrapper">
-    <table class="table table-striped table-bordered table-condensed tablesorter" id="report-table">
+    <table class="table table-striped table-bordered table-condensed table-hover" id="report-table">
       <thead>
         <tr>
-          <th>{% trans %}Dataset{% endtrans %}</th>
-          <th>{% trans %}Notes{% endtrans %}</th>
-          <th>{% trans %}Overall MQA Score{% endtrans %}</th>
-          <th>{% trans %}Findability{% endtrans %}</th>
-          <th>{% trans %}Accessibility{% endtrans %}</th>
-          <th>{% trans %}Interoperability{% endtrans %}</th>
-          <th>{% trans %}Reusability{% endtrans %}</th>
-          <th>{% trans %}Contextuality{% endtrans %}</th>
+          <th class="sortable" data-sort="dataset" data-sort-type="string">
+            {% trans %}Dataset{% endtrans %}
+            <i class="fa fa-sort sort-icon"></i>
+          </th>
+          <th class="sortable" data-sort="notes" data-sort-type="string">
+            {% trans %}Notes{% endtrans %}
+            <i class="fa fa-sort sort-icon"></i>
+          </th>
+          <th class="sortable" data-sort="overall" data-sort-type="number">
+            {% trans %}Overall MQA Score{% endtrans %}
+            <i class="fa fa-sort sort-icon"></i>
+          </th>
+          <th class="sortable" data-sort="findability" data-sort-type="number">
+            {% trans %}Findability{% endtrans %}
+            <i class="fa fa-sort sort-icon"></i>
+          </th>
+          <th class="sortable" data-sort="accessibility" data-sort-type="number">
+            {% trans %}Accessibility{% endtrans %}
+            <i class="fa fa-sort sort-icon"></i>
+          </th>
+          <th class="sortable" data-sort="interoperability" data-sort-type="number">
+            {% trans %}Interoperability{% endtrans %}
+            <i class="fa fa-sort sort-icon"></i>
+          </th>
+          <th class="sortable" data-sort="reusability" data-sort-type="number">
+            {% trans %}Reusability{% endtrans %}
+            <i class="fa fa-sort sort-icon"></i>
+          </th>
+          <th class="sortable" data-sort="contextuality" data-sort-type="number">
+            {% trans %}Contextuality{% endtrans %}
+            <i class="fa fa-sort sort-icon"></i>
+          </th>
         </tr>
       </thead>
       <tbody>
         {% for row in c.data['table'] %}
-          <tr>
+          <tr class="report-row"
+              data-sort-dataset="{{ row['dataset_title']|lower }}"
+              data-sort-notes="{{ row['dataset_notes']|lower if row['dataset_notes'] else '' }}"
+              data-sort-overall="{{ row['mqa_quality_score'] if row['mqa_quality_score'] is not none else -1 }}"
+              data-sort-findability="{{ row.get('mqa_findability_score', -1) if row.get('mqa_findability_score') is not none else -1 }}"
+              data-sort-accessibility="{{ row.get('mqa_accessibility_score', -1) if row.get('mqa_accessibility_score') is not none else -1 }}"
+              data-sort-interoperability="{{ row.get('mqa_interoperability_score', -1) if row.get('mqa_interoperability_score') is not none else -1 }}"
+              data-sort-reusability="{{ row.get('mqa_reusability_score', -1) if row.get('mqa_reusability_score') is not none else -1 }}"
+              data-sort-contextuality="{{ row.get('mqa_contextuality_score', -1) if row.get('mqa_contextuality_score') is not none else -1 }}">
             <td>
               <a href="/dataset/{{ row['dataset_name'] }}" title="{{ row['dataset_title'] }}">
                 {{ row['dataset_title'] }}
               </a>
             </td>
-            <td>{{row['dataset_notes'] }}</td>
+            <td>{{ row['dataset_notes'] }}</td>
             <td>{% if row['mqa_quality_score'] is not none %}{{ row['mqa_quality_score'] }}%{% else %}{% trans %}No MQA score{% endtrans %}{% endif %}</td>
             <td>{% if row.get('mqa_findability_score') is not none %}{{ row['mqa_findability_score']|int if row['mqa_findability_score'] == row['mqa_findability_score']|int else row['mqa_findability_score'] }}/100{% else %}-{% endif %}</td>
             <td>{% if row.get('mqa_accessibility_score') is not none %}{{ row['mqa_accessibility_score']|int if row['mqa_accessibility_score'] == row['mqa_accessibility_score']|int else row['mqa_accessibility_score'] }}/100{% else %}-{% endif %}</td>
@@ -73,4 +295,200 @@
       </tbody>
     </table>
   </div>
+
+  {# --- Στοιχεία σελιδοποίησης --- #}
+  <nav class="text-center" id="pagination-nav">
+    <ul class="pagination" id="pagination-controls"></ul>
+    <p class="text-muted" id="pagination-info" style="margin-top: 5px;"></p>
+  </nav>
+
 {% endif %}
+
+{# --- JavaScript: ταξινόμηση + σελιδοποίηση --- #}
+<script>
+(function() {
+  'use strict';
+
+  var ROWS_SELECTOR = '#report-table tbody .report-row';
+  var perPage = 20;
+  var currentPage = 1;
+  var currentSort = { column: null, direction: 'asc' };
+
+  // ===================== ΤΑΞΙΝΟΜΗΣΗ =====================
+
+  function sortRows(column) {
+    if (currentSort.column === column) {
+      currentSort.direction = (currentSort.direction === 'asc') ? 'desc' : 'asc';
+    } else {
+      currentSort.column = column;
+      currentSort.direction = 'asc';
+    }
+
+    var tbody = document.querySelector('#report-table tbody');
+    var rows = Array.prototype.slice.call(tbody.querySelectorAll('.report-row'));
+
+    var th = document.querySelector('th[data-sort="' + column + '"]');
+    var sortType = (th && th.getAttribute('data-sort-type')) || 'string';
+
+    rows.sort(function(a, b) {
+      var valA = a.getAttribute('data-sort-' + column) || '';
+      var valB = b.getAttribute('data-sort-' + column) || '';
+
+      var result;
+      if (sortType === 'number') {
+        result = (parseFloat(valA) || 0) - (parseFloat(valB) || 0);
+      } else {
+        result = valA.localeCompare(valB, 'el');
+      }
+
+      return (currentSort.direction === 'desc') ? -result : result;
+    });
+
+    rows.forEach(function(row) {
+      tbody.appendChild(row);
+    });
+
+    updateSortHeaders();
+    currentPage = 1;
+    render();
+  }
+
+  function updateSortHeaders() {
+    var headers = document.querySelectorAll('th.sortable');
+    headers.forEach(function(th) {
+      var col = th.getAttribute('data-sort');
+      var icon = th.querySelector('.sort-icon');
+
+      th.classList.remove('sort-asc', 'sort-desc');
+      icon.className = 'fa sort-icon';
+
+      if (col === currentSort.column) {
+        if (currentSort.direction === 'asc') {
+          th.classList.add('sort-asc');
+          icon.classList.add('fa-sort-up');
+        } else {
+          th.classList.add('sort-desc');
+          icon.classList.add('fa-sort-down');
+        }
+      } else {
+        icon.classList.add('fa-sort');
+      }
+    });
+  }
+
+  // ===================== RENDER =====================
+
+  function render() {
+    var allRows = Array.prototype.slice.call(
+      document.querySelectorAll(ROWS_SELECTOR)
+    );
+    var totalRows = allRows.length;
+
+    var totalPages = (perPage === 'all')
+      ? 1
+      : Math.ceil(totalRows / perPage) || 1;
+
+    if (currentPage > totalPages) currentPage = totalPages;
+
+    var startIdx = (perPage === 'all') ? 0 : (currentPage - 1) * perPage;
+    var endIdx = (perPage === 'all') ? totalRows : startIdx + perPage;
+
+    allRows.forEach(function(row, i) {
+      if (i >= startIdx && i < endIdx) {
+        row.style.display = '';
+      } else {
+        row.style.display = 'none';
+      }
+    });
+
+    var info = document.getElementById('pagination-info');
+    if (perPage === 'all') {
+      info.textContent = totalRows + ' {% trans %}records{% endtrans %}';
+    } else {
+      var showStart = totalRows > 0 ? startIdx + 1 : 0;
+      var showEnd = Math.min(endIdx, totalRows);
+      info.textContent = showStart + '-' + showEnd +
+                         ' {% trans %}of{% endtrans %} ' + totalRows;
+    }
+
+    renderPaginationButtons(totalPages);
+  }
+
+  // ===================== PAGINATION =====================
+
+  function renderPaginationButtons(totalPages) {
+    var nav = document.getElementById('pagination-controls');
+    nav.innerHTML = '';
+
+    if (totalPages <= 1 || perPage === 'all') {
+      document.getElementById('pagination-nav').style.display = 'none';
+      return;
+    }
+    document.getElementById('pagination-nav').style.display = '';
+
+    // Previous button
+    var prevLi = document.createElement('li');
+    if (currentPage <= 1) prevLi.className = 'disabled';
+    prevLi.innerHTML = '<a href="#">&laquo;</a>';
+    prevLi.addEventListener('click', function(e) {
+      e.preventDefault();
+      if (currentPage > 1) { currentPage--; render(); }
+    });
+    nav.appendChild(prevLi);
+
+    // Page numbers (window of 7)
+    var startPage = Math.max(1, currentPage - 3);
+    var endPage = Math.min(totalPages, startPage + 6);
+    if (endPage - startPage < 6) startPage = Math.max(1, endPage - 6);
+
+    for (var p = startPage; p <= endPage; p++) {
+      var li = document.createElement('li');
+      if (p === currentPage) li.className = 'active';
+      li.innerHTML = '<a href="#">' + p + '</a>';
+      (function(page) {
+        li.addEventListener('click', function(e) {
+          e.preventDefault();
+          currentPage = page;
+          render();
+        });
+      })(p);
+      nav.appendChild(li);
+    }
+
+    // Next button
+    var nextLi = document.createElement('li');
+    if (currentPage >= totalPages) nextLi.className = 'disabled';
+    nextLi.innerHTML = '<a href="#">&raquo;</a>';
+    nextLi.addEventListener('click', function(e) {
+      e.preventDefault();
+      if (currentPage < totalPages) { currentPage++; render(); }
+    });
+    nav.appendChild(nextLi);
+  }
+
+  // ===================== EVENT LISTENERS =====================
+
+  // Sorting
+  var sortHeaders = document.querySelectorAll('th.sortable');
+  sortHeaders.forEach(function(th) {
+    th.addEventListener('click', function() {
+      sortRows(this.getAttribute('data-sort'));
+    });
+  });
+
+  // Per page
+  var perPageSelect = document.getElementById('per-page-select');
+  if (perPageSelect) {
+    perPageSelect.addEventListener('change', function() {
+      var val = this.value;
+      perPage = (val === 'all') ? 'all' : parseInt(val, 10);
+      currentPage = 1;
+      render();
+    });
+  }
+
+  // Initial render
+  render();
+
+})();
+</script>

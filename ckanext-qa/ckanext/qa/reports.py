@@ -287,10 +287,21 @@ def openness_index():
     table.sort(key=lambda x: (-x['total_stars'],
                               -x['average_stars']))
 
+    num_packages_scored = sum(
+        v for k, v in total_score_counts.items() if k is not None
+    )
+    total_stars = sum(
+        k * v for k, v in total_score_counts.items() if k is not None
+    )
+    average_stars = round(float(total_stars) / num_packages_scored, 1) \
+        if num_packages_scored else 0.0
+
     return {'table': table,
             'total_score_counts': jsonify_counter(total_score_counts),
-            'num_packages_scored': sum(total_score_counts.values()),
+            'num_packages_scored': num_packages_scored,
             'num_packages': total_packages,
+            'average_stars': average_stars,
+            'total_organizations': len(table),
             }
 
 
@@ -336,7 +347,7 @@ def openness_for_organization(organization=None):
             'score_counts': jsonify_counter(score_counts),
             'total_stars': total_stars,
             'average_stars': average_stars,
-            'num_packages_scored': len(rows),
+            'num_packages_scored': num_pkgs_with_stars,
             'num_packages': num_packages,
             }
 
@@ -439,6 +450,8 @@ def metadata_quality_index():
 
     counts = {}
     total_packages_count = 0
+    total_mqa_score = 0
+    total_packages_with_mqa_score = 0
 
 
     # Get all organizations
@@ -491,6 +504,9 @@ def metadata_quality_index():
             if mqa_score is not None:
                 org_counts['total_mqa_score'] += mqa_score
                 org_counts['packages_with_mqa_score'] += 1
+
+        total_mqa_score += org_counts['total_mqa_score']
+        total_packages_with_mqa_score += org_counts['packages_with_mqa_score']
 
         # Store organization counts
         counts[org.name] = {
@@ -559,7 +575,10 @@ def metadata_quality_index():
     return {
         'table': table,
         'total_packages': total_packages_count,
-
+        'total_organizations': len(table),
+        'packages_with_mqa_score': total_packages_with_mqa_score,
+        'overall_score': round(total_mqa_score / total_packages_with_mqa_score, 1)
+        if total_packages_with_mqa_score > 0 else None,
     }
 
 def metadata_quality_for_organization(organization=None):
@@ -654,7 +673,8 @@ def metadata_quality_for_organization(organization=None):
     return {
         'table': rows,
         'num_packages': num_packages,
-        'overall_score': overall_score
+        'overall_score': overall_score,
+        'packages_with_mqa_score': packages_with_mqa_score
     }
 
 
@@ -686,6 +706,7 @@ def metadata_quality_post_access_filter(data, context):
             scores.append(score)
 
     data['num_packages'] = len(table)
+    data['packages_with_mqa_score'] = len(scores)
     data['overall_score'] = round(sum(scores) / len(scores), 1) if scores else None
     return data
 

@@ -67,6 +67,9 @@ msgstr "Υποβολή"
 msgid "Dataset Feedback"
 msgstr "Ανατροφοδότηση Συνόλου Δεδομένων"
 
+msgid "Data Service Feedback"
+msgstr "Ανατροφοδότηση Υπηρεσίας Δεδομένων"
+
 msgid "Hi, I wanted to ask about..."
 msgstr "Γεια σας, ήθελα να ρωτήσω για..."
 

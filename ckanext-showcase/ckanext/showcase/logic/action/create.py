@@ -95,7 +95,9 @@ def showcase_package_association_create(context, data_dict):
         toolkit.check_access('ckanext_showcase_package_association_create',
                            context, data_dict)
     except toolkit.NotAuthorized:
-        return toolkit.abort(403, toolkit._('Not authorized to add dataset to showcase'))
+        return toolkit.abort(
+            403, toolkit._('Not authorized to add package to showcase')
+        )
 
     # validate the incoming data_dict
     validated_data_dict, errors = validate(
@@ -110,8 +112,14 @@ def showcase_package_association_create(context, data_dict):
 
     if ShowcasePackageAssociation.exists(package_id=package_id,
                                          showcase_id=showcase_id):
-        raise toolkit.ValidationError("ShowcasePackageAssociation with package_id '{0}' and showcase_id '{1}' already exists.".format(package_id, showcase_id),
-                                      error_summary=u"The dataset, {0}, is already in the showcase".format(convert_package_name_or_id_to_title_or_name(package_id, context)))
+        raise toolkit.ValidationError(
+            "ShowcasePackageAssociation with package_id '{0}' and showcase_id '{1}' already exists.".format(
+                package_id, showcase_id
+            ),
+            error_summary=u"The package, {0}, is already in the showcase".format(
+                convert_package_name_or_id_to_title_or_name(package_id, context)
+            ),
+        )
 
     # create the association
     return ShowcasePackageAssociation.create(package_id=package_id,
@@ -347,5 +355,5 @@ def send_email(context, recipient, data_dict, showcase_url):
         recipient_name="",
         recipient_email=recipient,
         subject=f"DATA GOV GR: Δημιουργήθηκε Showcase: '{data_dict['name']}'",
-        body=f"Μια νέα εφαρμογή με όνομα '{data_dict['title']}' δημιουργήθηκε με επιτυχία. Μπορείτε να επισκεφθείτε την εφαρμογή σας εδώ για να ελέγξετε την κατάστασή της. URL: '{showcase_url}'"
+        body=f"Μια νέα επανάχρηση με όνομα '{data_dict['title']}' δημιουργήθηκε με επιτυχία. Μπορείτε να επισκεφθείτε την επανάχρησή σας εδώ για να ελέγξετε την κατάστασή της. URL: '{showcase_url}'"
     )

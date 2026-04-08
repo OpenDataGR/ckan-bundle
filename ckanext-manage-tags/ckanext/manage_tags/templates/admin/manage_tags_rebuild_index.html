@@ -1,0 +1,31 @@
+{% extends "admin/base_manage_tags.html" %}
+
+{% block manage_tags_help_title %}{{ _('About Rebuild Index') }}{% endblock %}
+
+{% block manage_tags_help_content %}
+  <p>
+    {{ _('Use this page when many tag changes have been made and one final Rebuild Index is preferable to multiple selective reindex jobs.') }}
+  </p>
+  <p>
+    {{ _('The rebuild runs in the background and refreshes the whole search index. It is the safest option after bulk tag maintenance.') }}
+  </p>
+{% endblock %}
+
+{% block primary_content_inner %}
+  <h1 class="page-heading">{{ _('Rebuild Index') }}</h1>
+
+  <div class="alert alert-warning">
+    {{ _('Use this option after many tag changes when you prefer one full search index rebuild instead of multiple selective reindex jobs.') }}
+  </div>
+
+  <p>
+    {{ _('This action will enqueue a background job that rebuilds the whole search index. The page will return immediately, but the rebuild may take time to finish.') }}
+  </p>
+
+  <form method="post" action="{{ h.url_for('manage_tags.rebuild_index') }}">
+    {{ h.csrf_input() }}
+    <button type="submit" class="btn btn-primary">
+      <i class="fa fa-refresh"></i> {{ _('Start Rebuild Index') }}
+    </button>
+  </form>
+{% endblock %}

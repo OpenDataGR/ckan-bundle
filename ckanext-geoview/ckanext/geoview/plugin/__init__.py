@@ -24,6 +24,19 @@ boolean_validator = toolkit.get_validator("boolean_validator")
 log = logging.getLogger(__name__)
 
 
+def _build_proxy_error_response(message, status=500):
+    from flask import Response
+
+    response = Response(message, status=status, mimetype='text/plain')
+    response.headers.update({
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Max-Age': '86400'
+    })
+    return response
+
+
 class GeoViewBase(p.SingletonPlugin):
     """This base class is for view extensions. """
 
@@ -108,8 +121,8 @@ class OLGeoView(GeoViewMixin, GeoViewBase):
             context = {'user': toolkit.c.user}
             resource = toolkit.get_action('resource_show')(context, {'id': resource_id})
 
-            if not resource.get('url_type') == 'upload':
-                return toolkit.abort(404, 'Resource not an upload')
+            if resource.get('url_type') != 'upload':
+                return _build_proxy_error_response('Resource not an upload', status=404)
 
             # Get the uploader for this resource
             resource_uploader = uploader.get_resource_uploader(resource)
@@ -164,19 +177,10 @@ class OLGeoView(GeoViewMixin, GeoViewBase):
 
         except Exception as e:
             log.error("Error in kml_proxy: %s", str(e))
-            response = Response(
+            return _build_proxy_error_response(
                 f"Error fetching KML data: {str(e)}",
-                status=500,
-                mimetype='text/plain'
+                status=500
             )
-            # Add CORS headers even to error responses
-            response.headers.update({
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'GET, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-                'Access-Control-Max-Age': '86400'  # 24 hours
-            })
-            return response
 
     GEOVIEW_FORMATS = [
         "kml",
@@ -400,8 +404,8 @@ class GeoJSONView(GeoViewBase):
             resource = toolkit.get_action('resource_show')(context, {'id': resource_id})
             
             # Check if the resource is an upload
-            if not resource.get('url_type') == 'upload':
-                return toolkit.abort(404, 'Resource not an upload')
+            if resource.get('url_type') != 'upload':
+                return _build_proxy_error_response('Resource not an upload', status=404)
             
             # Get the uploader for this resource
             resource_uploader = uploader.get_resource_uploader(resource)
@@ -468,34 +472,16 @@ class GeoJSONView(GeoViewBase):
                 return response
             except json.JSONDecodeError as json_err:
                 log.error("Error parsing GeoJSON data: %s", str(json_err))
-                response = Response(
-                    f"Error parsing GeoJSON data: The file is not valid JSON. Please check the file format.",
-                    status=400,
-                    mimetype='text/plain'
+                return _build_proxy_error_response(
+                    'Error parsing GeoJSON data: The file is not valid JSON. Please check the file format.',
+                    status=400
                 )
-                # Add CORS headers even to error responses
-                response.headers.update({
-                    'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Allow-Methods': 'GET, OPTIONS',
-                    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-                    'Access-Control-Max-Age': '86400'  # 24 hours
-                })
-                return response
         except Exception as e:
             log.error("Error in geoview_proxy: %s", str(e))
-            response = Response(
+            return _build_proxy_error_response(
                 f"Error fetching GeoJSON data: {str(e)}",
-                status=500,
-                mimetype='text/plain'
+                status=500
             )
-            # Add CORS headers even to general error responses
-            response.headers.update({
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'GET, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-                'Access-Control-Max-Age': '86400'  # 24 hours
-            })
-            return response
 
     def geoview_file_proxy(self, resource_id, filename):
         """
@@ -513,8 +499,8 @@ class GeoJSONView(GeoViewBase):
             resource = toolkit.get_action('resource_show')(context, {'id': resource_id})
 
             # Ensure it's an uploaded resource stored in Azure
-            if not resource.get('url_type') == 'upload':
-                return toolkit.abort(404, 'Resource not an upload')
+            if resource.get('url_type') != 'upload':
+                return _build_proxy_error_response('Resource not an upload', status=404)
 
             # Resolve blob path via the resource-specific uploader
             resource_uploader = uploader.get_resource_uploader(resource)
@@ -568,18 +554,10 @@ class GeoJSONView(GeoViewBase):
             return response
         except Exception as e:
             log.error("Error in geoview_file_proxy: %s", str(e))
-            response = Response(
+            return _build_proxy_error_response(
                 f"Error fetching file data: {str(e)}",
-                status=500,
-                mimetype='text/plain'
+                status=500
             )
-            response.headers.update({
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'GET, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-                'Access-Control-Max-Age': '86400'
-            })
-            return response
 
     def update_config(self, config):
 

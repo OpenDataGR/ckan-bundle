@@ -29,6 +29,13 @@
             </p>
           {% endif %}
         </div>
+      {% elif package_type == 'decision' %}
+        <h2 class="module-heading"><i class="fa fa-info-circle"></i> {{ _('What are decisions?') }}</h2>
+        <div class="module-content">
+          <p>
+            {{ _('A Decision contains decision documents and metadata organized so they can be published, discovered, and accessed easily.') }}
+          </p>
+        </div>
       {% else %}
         <h2 class="module-heading"><i class="fa fa-info-circle"></i> {{ _('What are packages?') }}</h2>
         <div class="module-content">

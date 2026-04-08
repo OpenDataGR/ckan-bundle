@@ -1,6 +1,7 @@
 {% extends "package/base.html" %}
 
 {% set res = resource %}
+{% set opens_in_new_tab_suffix = ' (ανοίγει σε νέα καρτέλα)' if h.lang() == 'el' else ' (opens in a new tab)' %}
 
 {% block head_extras -%}
   {{ super() }}
@@ -70,9 +71,9 @@
               {{ h.render_markdown(res.description) }}
             {% endif %}
             {% if not res.description and package.notes %}
-              <h3>{{ _('Dataset description:') }}</h3>
+              <h2>{{ _('Dataset description:') }}</h2>
               <blockquote>{{ h.markdown_extract(h.get_translated(package, 'notes')) }}</blockquote>
-              <p>{% trans dataset=h.get_translated(package, 'title'), url=h.url_for(package.type ~ '.read', id=package.name) %}Source: <a href="{{ url }}">{{ dataset }}</a>{% endtrans %}<p>
+              <p>{% trans dataset=h.get_translated(package, 'title'), url=h.url_for(package.type ~ '.read', id=package.name) %}Source: <a href="{{ url }}">{{ dataset }}</a>{% endtrans %}</p>
             {% endif %}
           </div>
         {% endblock %}

@@ -47,7 +47,7 @@ fields:
 - field_name: receive_dataset_email_updates
   label:
     en: Receive Email Updates for using Datasets in Applications
-    el: Λήψη Ενημερωτικών Email για χρήση Συνόλων Δεδομένων σε Εφαρμογές
+    el: Λήψη Ενημερωτικών Email για χρήση Συνόλων Δεδομένων σε Επαναχρήσεις
   preset: select
   hidden_in_public: true
   choices:

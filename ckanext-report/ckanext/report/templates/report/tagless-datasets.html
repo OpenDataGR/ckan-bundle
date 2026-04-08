@@ -1,53 +1,279 @@
 {#
-Report (snippet)
+Απόσπασμα αναφοράς
 
-table - main data, as a list of rows, each row is a dict
-data - other data values, as a dict
+table - κύρια δεδομένα, ως λίστα από γραμμές/λεξικά
+data - επιπλέον τιμές της αναφοράς, ως λεξικό
 #}
 
 {% set ckan_29_or_higher = h.check_ckan_version(min_version="2.9.0", max_version="3.0.0") %}
 {% set dataset_read_route = 'dataset.read' if ckan_29_or_higher else 'dataset_read' %}
-<ul>
-    <li>
-      {% trans %}Datasets without tags{% endtrans %}: {{ table|length }}
-      {% if data['num_packages'] is not none %}
-        / {{ data['num_packages'] }}
-      {% endif %}
-      {% if data['packages_without_tags_percent'] is not none %}
-        ({{ data['packages_without_tags_percent'] }}%)
-      {% endif %}
-    </li>
-    <li>
-      {% trans %}Average tags per package{% endtrans %}:
-      {% if data['average_tags_per_package'] is not none %}
-        {{ data['average_tags_per_package'] }} tags
-      {% else %}
-        {% trans %}N/A{% endtrans %}
-      {% endif %}
-    </li>
-</ul>
+{% set tagless_count = data['tagless_count'] if data['tagless_count'] is not none else 0 %}
+{% set tagged_count = data['tagged_count'] if data['tagged_count'] is not none else 0 %}
 
-<table class="table table-bordered table-condensed" id="report-table" style="width: 100%; table-layout:fixed; margin-top: 8px;">
+<style>
+  .pagination > li > a,
+  .pagination > li > span {
+    margin: 0 3px;
+    padding: 6px 12px;
+    border-radius: 4px !important;
+  }
+  .pagination > li:first-child > a,
+  .pagination > li:last-child > a {
+    border-radius: 4px !important;
+  }
+  .pagination > li.active > a,
+  .pagination > li.active > a:hover,
+  .pagination > li.active > a:focus {
+    background-color: #337ab7;
+    border-color: #337ab7;
+    color: #fff;
+    font-weight: bold;
+  }
+  #report-table {
+    table-layout: auto !important;
+  }
+  #report-table th,
+  #report-table td {
+    vertical-align: middle;
+  }
+  #report-table th:first-child,
+  #report-table td:first-child {
+    min-width: 320px;
+  }
+  #report-table td:first-child a,
+  #report-table td:nth-child(4) {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+  .summary-metrics {
+    display: flex;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+  .summary-metrics > [class*="col-"] {
+    display: flex;
+    margin-bottom: 15px;
+  }
+  .summary-metrics .well {
+    width: 100%;
+    margin-bottom: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 132px;
+  }
+  .summary-metrics .well p {
+    margin-bottom: 0;
+  }
+</style>
+
+<div class="row summary-metrics">
+  <div class="col-md-4">
+    <div class="well text-center">
+      <h2>{{ data['num_packages'] if data['num_packages'] is not none else table|length }}</h2>
+      <p>{% trans %}Total datasets{% endtrans %}</p>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="well text-center" style="border-left: 4px solid #d9534f;">
+      <h2 style="color: #d9534f;">{{ tagless_count }}</h2>
+      <p>
+        {% trans %}Datasets without tags{% endtrans %}
+        {% if data['packages_without_tags_percent'] is not none %}
+          ({{ data['packages_without_tags_percent'] }}%)
+        {% endif %}
+      </p>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="well text-center" style="border-left: 4px solid #5cb85c;">
+      <h2 style="color: #5cb85c;">{{ tagged_count }}</h2>
+      <p>Σύνολα δεδομένων με ετικέτες</p>
+    </div>
+  </div>
+</div>
+
+<div style="margin-bottom: 15px;">
+  <div style="margin-bottom: 10px;">
+    <div class="btn-group" role="group">
+      <button type="button" class="btn btn-default active" data-filter="all">
+        Όλα ({{ table|length }})
+      </button>
+      <button type="button" class="btn btn-default" data-filter="missing">
+        <i class="fa fa-exclamation-triangle text-danger"></i>
+        Χωρίς ετικέτες ({{ tagless_count }})
+      </button>
+      <button type="button" class="btn btn-default" data-filter="ok">
+        <i class="fa fa-check text-success"></i>
+        Με ετικέτες ({{ tagged_count }})
+      </button>
+    </div>
+  </div>
+  <div>
+    <label style="font-weight: normal; margin-right: 5px;">{% trans %}Per page{% endtrans %}</label>
+    <select id="tagless-per-page-select" class="form-control" style="width: auto; display: inline-block;">
+      <option value="20" selected>20</option>
+      <option value="50">50</option>
+      <option value="100">100</option>
+      <option value="all">{% trans %}All{% endtrans %}</option>
+    </select>
+  </div>
+</div>
+
+<table class="table table-bordered table-condensed" id="report-table" style="width: 100%; margin-top: 8px;">
     <thead>
       <tr>
         <th>{% trans %}Dataset{% endtrans %}</th>
+        <th>Έχει ετικέτες;</th>
         <th>{% trans %}Notes{% endtrans %}</th>
-        <th>{% trans %}User{% endtrans %}</th>
+        <th>Οργανισμός</th>
         <th>{% trans %}Created{% endtrans %}</th>
       </tr>
     </thead>
     <tbody>
       {% for row in table %}
-        <tr>
+        <tr class="{% if row.has_tags == 'Ναι' %}filter-ok{% else %}filter-missing{% endif %}">
           <td>
             <a href="{{ h.url_for(dataset_read_route, id=row.name) }}" title="{{ row.title }}">
               {{ row.title }}
             </a>
           </td>
+          <td>{{ row.has_tags }}</td>
           <td>{{ row.notes }}</td>
-          <td>{{ h.linked_user(row.user) }}</td>
+          <td>{{ row.organization }}</td>
           <td>{{ h.report__render_datetime(row.created) }}</td>
         </tr>
       {% endfor %}
     </tbody>
 </table>
+
+<nav class="text-center" id="tagless-pagination-nav" style="margin-top: 25px;">
+  <ul class="pagination" id="tagless-pagination-controls"></ul>
+  <p class="text-muted" id="tagless-pagination-info" style="margin-top: 5px;"></p>
+</nav>
+
+<script>
+(function() {
+  'use strict';
+
+  var ROWS_SELECTOR = '#report-table tbody tr';
+  var currentFilter = 'all';
+  var perPage = 20;
+  var currentPage = 1;
+
+  function getAllRows() {
+    return Array.prototype.slice.call(document.querySelectorAll(ROWS_SELECTOR));
+  }
+
+  function getFilteredRows() {
+    var rows = getAllRows();
+    if (currentFilter === 'all') return rows;
+    var cls = currentFilter === 'missing' ? 'filter-missing' : 'filter-ok';
+    return rows.filter(function(row) { return row.classList.contains(cls); });
+  }
+
+  function renderPaginationButtons(totalPages) {
+    var nav = document.getElementById('tagless-pagination-controls');
+    var navWrap = document.getElementById('tagless-pagination-nav');
+    nav.innerHTML = '';
+
+    if (totalPages <= 1 || perPage === 'all') {
+      navWrap.style.display = 'none';
+      return;
+    }
+    navWrap.style.display = '';
+
+    var prevLi = document.createElement('li');
+    if (currentPage <= 1) prevLi.className = 'disabled';
+    prevLi.innerHTML = '<a href="#">&laquo;</a>';
+    prevLi.addEventListener('click', function(e) {
+      e.preventDefault();
+      if (currentPage > 1) {
+        currentPage--;
+        render();
+      }
+    });
+    nav.appendChild(prevLi);
+
+    var startPage = Math.max(1, currentPage - 3);
+    var endPage = Math.min(totalPages, startPage + 6);
+    if (endPage - startPage < 6) startPage = Math.max(1, endPage - 6);
+
+    for (var p = startPage; p <= endPage; p++) {
+      var li = document.createElement('li');
+      if (p === currentPage) li.className = 'active';
+      li.innerHTML = '<a href="#">' + p + '</a>';
+      (function(page) {
+        li.addEventListener('click', function(e) {
+          e.preventDefault();
+          currentPage = page;
+          render();
+        });
+      })(p);
+      nav.appendChild(li);
+    }
+
+    var nextLi = document.createElement('li');
+    if (currentPage >= totalPages) nextLi.className = 'disabled';
+    nextLi.innerHTML = '<a href="#">&raquo;</a>';
+    nextLi.addEventListener('click', function(e) {
+      e.preventDefault();
+      if (currentPage < totalPages) {
+        currentPage++;
+        render();
+      }
+    });
+    nav.appendChild(nextLi);
+  }
+
+  function render() {
+    var allRows = getAllRows();
+    var filteredRows = getFilteredRows();
+    var totalRows = filteredRows.length;
+    var totalPages = (perPage === 'all') ? 1 : Math.ceil(totalRows / perPage) || 1;
+
+    if (currentPage > totalPages) currentPage = totalPages;
+
+    var startIdx = (perPage === 'all') ? 0 : (currentPage - 1) * perPage;
+    var endIdx = (perPage === 'all') ? totalRows : startIdx + perPage;
+    var visibleSet = new Set(filteredRows.slice(startIdx, endIdx));
+
+    allRows.forEach(function(row) {
+      row.style.display = visibleSet.has(row) ? '' : 'none';
+    });
+
+    var info = document.getElementById('tagless-pagination-info');
+    if (perPage === 'all') {
+      info.textContent = 'Εμφάνιση ' + totalRows + ' συνόλων δεδομένων';
+    } else {
+      var showStart = totalRows > 0 ? startIdx + 1 : 0;
+      var showEnd = Math.min(endIdx, totalRows);
+      info.textContent = 'Εμφάνιση ' + showStart + '-' + showEnd +
+        ' από ' + totalRows + ' σύνολα δεδομένων';
+    }
+
+    renderPaginationButtons(totalPages);
+  }
+
+  document.getElementById('tagless-per-page-select').addEventListener('change', function() {
+    var val = this.value;
+    perPage = (val === 'all') ? 'all' : parseInt(val, 10);
+    currentPage = 1;
+    render();
+  });
+
+  Array.prototype.slice.call(document.querySelectorAll('[data-filter]')).forEach(function(button) {
+    button.addEventListener('click', function() {
+      Array.prototype.slice.call(document.querySelectorAll('[data-filter]')).forEach(function(other) {
+        other.classList.remove('active');
+      });
+      this.classList.add('active');
+      currentFilter = this.getAttribute('data-filter');
+      currentPage = 1;
+      render();
+    });
+  });
+
+  render();
+})();
+</script>

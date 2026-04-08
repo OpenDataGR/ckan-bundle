@@ -6,8 +6,10 @@ from ckan.logic.schema import (default_tags_schema,
                                default_resource_schema)
 
 from ckanext.showcase.logic.validators import (
-    convert_package_name_or_id_to_id_for_type_dataset,
-    convert_package_name_or_id_to_id_for_type_showcase)
+    convert_package_name_or_id_to_id_for_association_package,
+    convert_package_name_or_id_to_id_for_type_dataset_or_data_service,
+    convert_package_name_or_id_to_id_for_type_showcase,
+    showcase_package_type_filter)
 
 if toolkit.check_ckan_version("2.10"):
     unicode_safe = toolkit.get_validator("unicode_safe")
@@ -139,7 +141,7 @@ def showcase_show_schema():
 def showcase_package_association_create_schema():
     schema = {
         'package_id': [not_empty, unicode_safe,
-                       convert_package_name_or_id_to_id_for_type_dataset],
+                       convert_package_name_or_id_to_id_for_association_package],
         'showcase_id': [not_empty, unicode_safe,
                         convert_package_name_or_id_to_id_for_type_showcase]
     }
@@ -147,13 +149,20 @@ def showcase_package_association_create_schema():
 
 
 def showcase_package_association_delete_schema():
-    return showcase_package_association_create_schema()
+    schema = {
+        'package_id': [not_empty, unicode_safe,
+                       convert_package_name_or_id_to_id_for_type_dataset_or_data_service],
+        'showcase_id': [not_empty, unicode_safe,
+                        convert_package_name_or_id_to_id_for_type_showcase]
+    }
+    return schema
 
 
 def showcase_package_list_schema():
     schema = {
         'showcase_id': [not_empty, unicode_safe,
-                        convert_package_name_or_id_to_id_for_type_showcase]
+                        convert_package_name_or_id_to_id_for_type_showcase],
+        'package_type': [ignore_missing, unicode_safe, showcase_package_type_filter],
     }
     return schema
 
@@ -161,7 +170,7 @@ def showcase_package_list_schema():
 def package_showcase_list_schema():
     schema = {
         'package_id': [not_empty, unicode_safe,
-                       convert_package_name_or_id_to_id_for_type_dataset]
+                       convert_package_name_or_id_to_id_for_type_dataset_or_data_service]
     }
     return schema
 

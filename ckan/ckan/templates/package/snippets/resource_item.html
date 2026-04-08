@@ -14,6 +14,7 @@
 #}
 {% set url_action = pkg.type ~ ('_resource.edit' if url_is_edit and can_edit else '_resource.read') %}
 {% set url = url or h.url_for(url_action, id=pkg.name, resource_id=res.id) %}
+{% set opens_in_new_tab_suffix = ' (ανοίγει σε νέα καρτέλα)' if h.lang() == 'el' else ' (opens in a new tab)' %}
 
 <li class="resource-item" data-id="{{ res.id }}">
   {% block resource_item_title %}
@@ -22,11 +23,11 @@
   </a>
   {% endblock %}
   {% block resource_item_description %}
-    <p class="description">
-      {% if res.description %}
+    {% if res.description %}
+      <p class="description">
         {{ h.markdown_extract(h.get_translated(res, 'description'), extract_length=80) }}
-      {% endif %}
-    </p>
+      </p>
+    {% endif %}
   {% endblock %}
   {% block resource_item_explore %}
   {% if not url_is_edit %}
@@ -54,7 +55,8 @@
 
         {% if res.url and h.is_url(res.url) %}
       <li>
-        <a class="dropdown-item resource-url-analytics" href="{{ res.url }}" target="_blank" rel="noreferrer">
+        <a class="dropdown-item resource-url-analytics" href="{{ res.url }}" target="_blank" rel="noreferrer"
+           aria-label="{{ (_('Download') if res.has_views or res.url_type == 'upload' else _('Go to resource')) ~ opens_in_new_tab_suffix }}">
           {% if res.has_views or res.url_type == 'upload' %}
             <i class="fa fa-arrow-circle-down"></i>
             {{ _('Download') }}

@@ -1,6 +1,7 @@
 {% set title = package.title or package.name %}
 {% set url = h.url_for('showcase_blueprint.read', id=package.name) %}
 {% set datasets_total = package.num_datasets if package.num_datasets is defined else 0 %}
+{% set apis_total = package.num_apis if package.num_apis is defined else none %}
 {% set views_total = none %}
 {% if package.tracking_summary is defined %}
   {% set views_total = package.tracking_summary.get('total', 0) if package.tracking_summary else 0 %}
@@ -8,8 +9,24 @@
   {% set views_total = package.views_total %}
 {% endif %}
 {% set datasets_count = datasets_total | int %}
+{% set apis_count = apis_total | int if apis_total is not none else none %}
 {% set views_count = views_total | int if views_total is not none else none %}
 {% set description = package.notes if package.notes else '' %}
+{% set ns = namespace(submitter_organization='') %}
+{% if package.submitter_organization is defined and package.submitter_organization %}
+  {% set ns.submitter_organization = package.submitter_organization %}
+{% endif %}
+{% if not ns.submitter_organization and package.extras is defined and package.extras %}
+  {% for extra in package.extras %}
+    {% if extra.key == 'submitter_organization' %}
+      {% set ns.submitter_organization = extra.value %}
+    {% endif %}
+  {% endfor %}
+{% endif %}
+{% if not ns.submitter_organization and package.organization is defined and package.organization %}
+  {% set ns.submitter_organization = package.organization.title or package.organization.name or '' %}
+{% endif %}
+{% set submitter_author = package.author if package.author is defined and package.author else (package.maintainer if package.maintainer is defined and package.maintainer else '') %}
 <li class="organizations-index-item">
   <a href="{{ url }}" title="{{ _('View {showcase_title}').format(showcase_title=title) }}" class="organizations-index-card">
     <div class="organizations-index-card-top" aria-hidden="true">
@@ -25,7 +42,26 @@
     </div>
     <div class="organizations-index-card-main">
       <h2 class="organizations-index-title">{{ title }}</h2>
-      <div class="organizations-index-stats" aria-label="{{ _('Στατιστικά εφαρμογής') }}">
+      {% if ns.submitter_organization or submitter_author %}
+        <div class="organizations-index-submitter" aria-label="{{ _('Αναρτητής επανάχρησης') }}">
+          {% if ns.submitter_organization %}
+            <span class="organizations-index-submitter-item">
+              <i class="fa fa-building" aria-hidden="true"></i>
+              <span class="organizations-index-submitter-text" title="{{ ns.submitter_organization }}">{{ ns.submitter_organization }}</span>
+            </span>
+          {% endif %}
+          {% if ns.submitter_organization and submitter_author %}
+            <span class="organizations-index-submitter-sep" aria-hidden="true">|</span>
+          {% endif %}
+          {% if submitter_author %}
+            <span class="organizations-index-submitter-item">
+              <i class="fa fa-user" aria-hidden="true"></i>
+              <span class="organizations-index-submitter-text" title="{{ submitter_author }}">{{ submitter_author }}</span>
+            </span>
+          {% endif %}
+        </div>
+      {% endif %}
+      <div class="organizations-index-stats" aria-label="{{ _('Στατιστικά επανάχρησης') }}">
         {% if views_count is not none %}
           <span class="organizations-index-stat"
             aria-label="{{ _('{num} Προβολές').format(num=views_count) }}"
@@ -42,6 +78,15 @@
           <span class="organizations-index-stat-value">{{ '{:,}'.format(datasets_count) | replace(',', ' ') }}</span>
           <span class="organizations-index-visually-hidden">{{ _('Σύνολα Δεδομένων') }}</span>
         </span>
+        {% if apis_count is not none %}
+          <span class="organizations-index-stat"
+            aria-label="{{ _('{num} APIs').format(num=apis_count) }}"
+            title="{{ _('{num} APIs').format(num=apis_count) }}">
+            <i class="fa fa-plug" aria-hidden="true" title="{{ _('{num} APIs').format(num=apis_count) }}"></i>
+            <span class="organizations-index-stat-value">{{ '{:,}'.format(apis_count) | replace(',', ' ') }}</span>
+            <span class="organizations-index-visually-hidden">{{ _('APIs') }}</span>
+          </span>
+        {% endif %}
       </div>
       {% if description %}
         <p class="organizations-index-description">{{ h.markdown_extract(description, extract_length=170) }}</p>

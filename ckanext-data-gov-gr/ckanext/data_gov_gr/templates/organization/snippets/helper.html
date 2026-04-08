@@ -1,0 +1,23 @@
+{#
+  Displays a sidebar module with information about organizations.
+  group_type    - The type of organization.
+  Example:
+  {% snippet "organization/snippets/helper.html", group_type=group_type %}
+#}
+<div class="module module-narrow module-shallow">
+  <h2 class="module-heading">
+    <i class="fa fa-info-circle"></i>
+    {{ _('What are Organizations?') }}
+  </h2>
+  <div class="module-content">
+    <p>
+      {% trans %}
+        Data portal organizations are the entities that create, manage and
+        publish datasets. The portal includes both public administration
+        bodies that are required to publish open data under the institutional
+        framework, and organizations that choose to make data available on
+        their own initiative, strengthening the open data ecosystem.
+      {% endtrans %}
+    </p>
+  </div>
+</div>

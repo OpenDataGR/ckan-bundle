@@ -526,7 +526,7 @@ msgid "Open Data - Restricted Access Data"
 msgstr "Ανοικτά Δεδομένα - Δεδομένα Περιορισμένης Πρόσβασης"
 
 msgid "Open data"
-msgstr "Ανοιχτά δεδομένα"
+msgstr "Ανοικτά δεδομένα"
 
 msgid "Restricted Access Data"
 msgstr "Δεδομένα Περιορισμένης Πρόσβασης"
@@ -661,6 +661,9 @@ msgstr "Δημιουργία νέου Συνόλου Προστατευόμεν�
 msgid "Add dataset of protected data"
 msgstr "Προσθήκη συνόλου προστατευόμενων δεδομένων"
 
+msgid "Protected Dataset"
+msgstr "Σύνολο προστατευόμενων δεδομένων"
+
 msgid "Datasets/APIs/Decisions"
 msgstr "Σύνολα δεδομένων/APIs/Αποφάσεις"
 
@@ -692,10 +695,16 @@ msgid "What are data services?"
 msgstr "Τι είναι οι υπηρεσίες δεδομένων;"
 
 msgid "A CKAN Data Service provides programmatic access to data through APIs, web services, or other automated interfaces. Data services enable applications and systems to access and process data automatically."
-msgstr "Μια CKAN Υπηρεσία Δεδομένων προσφέρει προγραμματιστική πρόσβαση σε δεδομένα μέσω APIs, υπηρεσιών web ή άλλων αυτοματοποιημένων διεπαφών. Οι υπηρεσίες δεδομένων επιτρέπουν σε εφαρμογές και συστήματα να αποκτούν και να επεξεργάζονται δεδομένα αυτόματα."
+msgstr "Μια CKAN Υπηρεσία Δεδομένων προσφέρει προγραμματιστική πρόσβαση σε δεδομένα μέσω APIs, υπηρεσιών web ή άλλων αυτοματοποιημένων διεπαφών. Οι υπηρεσίες δεδομένων επιτρέπουν την αυτόματη απόκτηση και επεξεργασία δεδομένων από συστήματα και υπηρεσίες."
 
 msgid "Read the data service submission guide"
 msgstr "Διαβάστε τον οδηγό υποβολής υπηρεσίας δεδομένων"
+
+msgid "What are decisions?"
+msgstr "Τι είναι οι αποφάσεις;"
+
+msgid "A Decision contains decision documents and metadata organized so they can be published, discovered, and accessed easily."
+msgstr "Μια Απόφαση περιλαμβάνει έγγραφα αποφάσεων και μεταδεδομένα οργανωμένα έτσι ώστε να μπορούν να δημοσιεύονται, να εντοπίζονται και να είναι εύκολα προσβάσιμα."
 
 msgid "Data Service"
 msgstr "Υπηρεσία Δεδομένων"
@@ -896,13 +905,13 @@ msgid "coming soon..."
 msgstr "coming soon..."
 
 msgid "Selected applications"
-msgstr "Επιλεγμένες εφαρμογές"
+msgstr "Επιλεγμένες επαναχρήσεις"
 
 msgid "There are no selected applications yet."
-msgstr "Δεν υπάρχουν ακόμη επιλεγμένες εφαρμογές."
+msgstr "Δεν υπάρχουν ακόμη επιλεγμένες επαναχρήσεις."
 
 msgid "All applications"
-msgstr "Όλες οι εφαρμογές"
+msgstr "Όλες οι επαναχρήσεις"
 
 msgid "Reuse Statistics"
 msgstr "Στατιστικά Επανάχρησης"
@@ -932,7 +941,7 @@ msgid "Total downloads (all time)"
 msgstr "Αριθμός λήψεων (all time)"
 
 msgid "Applications"
-msgstr "Εφαρμογές"
+msgstr "Επαναχρήσεις"
 
 msgid "View statistics"
 msgstr "Δείτε τα στατιστικά"
@@ -983,7 +992,7 @@ msgid "Start creating with datasets"
 msgstr "Ξεκινήστε να δημιουργείτε με τα σύνολα δεδομένων"
 
 msgid "Access comprehensive user guides and learn how to publish and use datasets."
-msgstr "Αποκτήστε πρόσβαση σε εκτενείς οδηγούς χρήσης και μάθετε πώς να δημοσιεύετε και να χρησιμοποιείτε τα σύνολα δεδομένων σε εφαρμογές και αναλύσεις."
+msgstr "Αποκτήστε πρόσβαση σε εκτενείς οδηγούς χρήσης και μάθετε πώς να δημοσιεύετε και να χρησιμοποιείτε τα σύνολα δεδομένων σε επαναχρήσεις και αναλύσεις."
 
 msgid "Getting started"
 msgstr "Ξεκινώντας"
@@ -1006,6 +1015,27 @@ msgstr "Ποιότητα"
 msgid "Data and metadata quality guides"
 msgstr "Οδηγοί ποιότητας δεδομένων και μεταδεδομένων"
 
+msgid "Quick guides"
+msgstr "Γρήγοροι οδηγοί"
+
+msgid "Quick guides for using the platform"
+msgstr "Γρήγοροι οδηγοί χρήσης της πλατφόρμας"
+
+msgid "API Documentation"
+msgstr "Τεκμηρίωση API"
+
+msgid "Add dataset"
+msgstr "Προσθήκη συνόλου δεδομένων"
+
+msgid "How to add a dataset"
+msgstr "Πώς να προσθέσετε ένα σύνολο δεδομένων"
+
+msgid "Metadata Quality Assessment Criteria (MQA)"
+msgstr "Κριτήρια Αξιολόγησης Ποιότητας (MQA)"
+
+msgid "Metadata quality assessment criteria guide"
+msgstr "Οδηγός κριτηρίων αξιολόγησης ποιότητας μεταδεδομένων"
+
 msgid "Submit an application for recognition under the Data Governance Act"
 msgstr "Υποβάλετε αίτηση για αναγνώριση σύμφωνα με τον Κανονισμό Διακυβέρνησης Δεδομένων"
 
@@ -1027,3 +1057,20 @@ msgstr "Υποβάλετε αίτηση για αναγνώριση ως οργ�
 #: ckanext/data_gov_gr/templates/header.html:57
 msgid "Log in / Register"
 msgstr "Σύνδεση / Εγγραφή"
+
+msgid ""
+"Data portal organizations are the entities that create, manage and publish "
+"datasets. The portal includes both public administration bodies that are "
+"required to publish open data under the institutional framework, and "
+"organizations that choose to make data available on their own initiative, "
+"strengthening the open data ecosystem."
+msgstr ""
+"Οι οργανισμοί της πύλης δεδομένων αποτελούν τους φορείς που δημιουργούν, "
+"διαχειρίζονται και δημοσιεύουν σύνολα δεδομένων. Στην πύλη συμμετέχουν τόσο "
+"φορείς της δημόσιας διοίκησης που έχουν υποχρέωση δημοσίευσης ανοικτών "
+"δεδομένων βάσει του θεσμικού πλαισίου, όσο και οργανισμοί που επιλέγουν να "
+"διαθέσουν δεδομένα με δική τους πρωτοβουλία, ενισχύοντας το οικοσύστημα των "
+"ανοικτών δεδομένων."
+
+msgid "The dataset activity stream is restricted to authorized users."
+msgstr "Η ροή δραστηριότητας του συνόλου δεδομένων είναι διαθέσιμη μόνο σε εξουσιοδοτημένους χρήστες."

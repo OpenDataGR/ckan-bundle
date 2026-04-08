@@ -1,0 +1,10 @@
+*.pyc
+__pycache__/
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+*.swp
+*.swo
+.idea/

@@ -1,0 +1,11 @@
+.idea/
+.pytest_cache/
+__pycache__/
+*.py[cod]
+*.swp
+*.swo
+*.egg-info/
+.coverage
+.mypy_cache/
+.ruff_cache/
+.DS_Store

@@ -7,11 +7,16 @@
 
 {% block subtitle %}{{ _("Welcome") }}{% endblock %}
 
+{% block skip %}
+  <div class="visually-hidden-focusable"><a href="#main-content">{{ _('Skip to main content') }}</a></div>
+{% endblock %}
+
 {% block maintag %}{% endblock %}
 {% block toolbar %}{% endblock %}
 
 {% block content %}
-<div class="homepage homepage-proposal">
+<main id="main-content" class="homepage homepage-proposal">
+  {% set opens_in_new_tab_suffix = ' (ανοίγει σε νέα καρτέλα)' if h.lang() == 'el' else ' (opens in a new tab)' %}
   {% set home_showcases = h.get_home_showcases(4) %}
   {% set show_reuse_stats = h.get_config_as_bool('ckanext.data_gov_gr.home.reuse_stats.enabled', False) %}
   {% set show_home_registries = h.get_config_as_bool('ckanext.data_gov_gr.home.registries.enabled', True) %}
@@ -61,23 +66,6 @@
   <section class="proposal-key-stats" aria-label="{{ _('Platform statistics') }}">
     <div class="container">
       <div class="proposal-key-stats-grid">
-        {% if pn_datasets %}
-        <a href="{{ pn_datasets.link }}" class="proposal-key-stat-card"
-           data-matomo-category="Home"
-           data-matomo-action="ClickStatTile"
-           data-matomo-name="{{ pn_datasets.label }}">
-          <div class="proposal-key-stat-head">
-            <span class="proposal-key-stat-icon"><i class="fa fa-database" aria-hidden="true"></i></span>
-            <div class="proposal-key-stat-meta">
-              <div class="proposal-key-stat-titleline">
-                <span class="proposal-key-stat-value">{{ pn_datasets.value }}</span>
-                <span class="proposal-key-stat-label">{{ pn_datasets.label }}</span>
-              </div>
-              <span class="proposal-key-stat-desc">{{ _('Explore and access data.') }}</span>
-            </div>
-          </div>
-        </a>
-        {% endif %}
         {% if pn_orgs %}
         <a href="{{ pn_orgs.link }}" class="proposal-key-stat-card"
            data-matomo-category="Home"
@@ -91,6 +79,31 @@
                 <span class="proposal-key-stat-label">{{ pn_orgs.label }}</span>
               </div>
               <span class="proposal-key-stat-desc">{{ 'Εξερευνήστε οργανισμούς που έχουν αναρτήσει δεδομένα.' if h.lang() == 'el' else 'Explore organizations that publish data.' }}</span>
+            </div>
+          </div>
+        </a>
+        {% endif %}
+        {% if pn_datasets %}
+        <a href="{{ pn_datasets.link }}" class="proposal-key-stat-card proposal-key-stat-card--datasets"
+           data-matomo-category="Home"
+           data-matomo-action="ClickStatTile"
+           data-matomo-name="{{ pn_datasets.label }}">
+          <div class="proposal-key-stat-head">
+            <span class="proposal-key-stat-icon"><i class="fa fa-database" aria-hidden="true"></i></span>
+            <div class="proposal-key-stat-meta">
+              <div class="proposal-key-stat-metrics">
+                <div class="proposal-key-stat-titleline">
+                  <span class="proposal-key-stat-value">{{ pn_datasets.value }}</span>
+                  <span class="proposal-key-stat-label">{{ pn_datasets.label }}</span>
+                </div>
+                {% if pn_datasets.resource_value %}
+                <div class="proposal-key-stat-titleline proposal-key-stat-titleline--stacked">
+                  <span class="proposal-key-stat-value">{{ pn_datasets.resource_value }}</span>
+                  <span class="proposal-key-stat-label">{{ pn_datasets.resource_label }}</span>
+                </div>
+                {% endif %}
+              </div>
+              <span class="proposal-key-stat-desc">{{ _('Explore and access data.') }}</span>
             </div>
           </div>
         </a>
@@ -119,9 +132,9 @@
 
   <section class="proposal-discovery">
     <div class="container proposal-discovery-grid">
-      <aside class="proposal-theme-panel">
+      <section class="proposal-theme-panel">
         <h2>{{ _('Thematic categories') }}</h2>
-        <div class="proposal-theme-links">
+        <nav class="proposal-theme-links" aria-label="{{ _('Thematic categories') }}">
           <a href="/dataset?q=theme:*AGRI*" class="proposal-theme-link"><i class="fa fa-leaf"></i><span>{{ _('Agriculture, fisheries, forestry and food') }}</span></a>
           <a href="/dataset?q=theme:*ECON*" class="proposal-theme-link">
             <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -146,7 +159,7 @@
           <a href="/dataset?q=theme:*SOCI*" class="proposal-theme-link"><i class="fa fa-users"></i><span>{{ _('Population and society') }}</span></a>
           <a href="/dataset?q=theme:*TECH*" class="proposal-theme-link"><i class="fa fa-flask"></i><span>{{ _('Science and technology') }}</span></a>
           <a href="/dataset?q=theme:*TRAN*" class="proposal-theme-link"><i class="fa fa-bus"></i><span>{{ _('Transport') }}</span></a>
-          <span class="proposal-theme-link proposal-theme-link-ai" role="button" tabindex="0" aria-disabled="true">
+          <span class="proposal-theme-link proposal-theme-link-ai" aria-disabled="true">
             <svg class="proposal-ai-chip-icon" viewBox="0 0 24 24" aria-hidden="true">
               <rect class="proposal-ai-chip-shell" x="6.5" y="6.5" width="11" height="11" rx="2.2"></rect>
               <rect class="proposal-ai-chip-core" x="9.1" y="9.1" width="5.8" height="5.8" rx="1.2"></rect>
@@ -158,8 +171,8 @@
             <span>{{ _('Artificial Intelligence') }}</span>
             <em class="proposal-coming-soon">{{ _('coming soon...') }}</em>
           </span>
-        </div>
-      </aside>
+        </nav>
+      </section>
 
       <article class="proposal-hvd-panel">
         <h2>{{ _('High Value Datasets') }}</h2>
@@ -234,11 +247,10 @@
         </div>
 
         {% if show_reuse_stats %}
-	        <aside class="proposal-snapshot-stats">
+	        <section class="proposal-snapshot-stats">
 	          <div class="proposal-section-head">
 	            <h2>{{ _('Reuse Statistics') }}</h2>
 	          </div>
-	          <p class="proposal-snapshot-lead"></p>
 
 	          {% set reuse_spark_options = {
 	            'grid': {'left': 4, 'right': 4, 'top': 6, 'bottom': 2, 'containLabel': False},
@@ -319,7 +331,7 @@
 		          </div>
 
           <a class="proposal-snapshot-btn" href="{{ stats_url }}">{{ _('View statistics') }}</a>
-        </aside>
+        </section>
         {% endif %}
       </div>
     </div>
@@ -472,32 +484,36 @@
         <h2>{{ _('Start creating with datasets') }}</h2>
         <p>{{ _('Access comprehensive user guides and learn how to publish and use datasets.') }}</p>
         <div class="proposal-guides-actions">
-          <a href="{{ getting_started_url }}" class="proposal-guide-item" target="_blank" rel="noopener noreferrer">
+          <a href="{{ getting_started_url }}" class="proposal-guide-item" target="_blank" rel="noopener noreferrer"
+             aria-label="{{ _('Quick guides') ~ opens_in_new_tab_suffix }}">
             <span class="proposal-guide-item-icon"><i class="fa fa-shield" aria-hidden="true"></i></span>
             <span class="proposal-guide-item-content">
-              <strong>{{ _('Getting started') }}</strong>
-              <small>{{ _('Basic guide to using the platform') }}</small>
+              <strong>{{ _('Quick guides') }}</strong>
+              <small>{{ _('Quick guides for using the platform') }}</small>
             </span>
           </a>
-          <a href="{{ api_guide_url }}" class="proposal-guide-item" target="_blank" rel="noopener noreferrer">
+          <a href="{{ api_guide_url }}" class="proposal-guide-item" target="_blank" rel="noopener noreferrer"
+             aria-label="{{ _('API Documentation') ~ opens_in_new_tab_suffix }}">
             <span class="proposal-guide-item-icon"><i class="fa fa-puzzle-piece" aria-hidden="true"></i></span>
             <span class="proposal-guide-item-content">
-              <strong>API Documentation</strong>
+              <strong>{{ _('API Documentation') }}</strong>
               <small>{{ _('API user guide') }}</small>
             </span>
           </a>
-          <a href="{{ data_publishing_guide_url }}" class="proposal-guide-item" target="_blank" rel="noopener noreferrer">
+          <a href="{{ data_publishing_guide_url }}" class="proposal-guide-item" target="_blank" rel="noopener noreferrer"
+             aria-label="{{ _('Add dataset') ~ opens_in_new_tab_suffix }}">
             <span class="proposal-guide-item-icon"><i class="fa fa-cloud-upload" aria-hidden="true"></i></span>
             <span class="proposal-guide-item-content">
-              <strong>{{ _('Data publishing') }}</strong>
-              <small>{{ _('How to publish your data') }}</small>
+              <strong>{{ _('Add dataset') }}</strong>
+              <small>{{ _('How to add a dataset') }}</small>
             </span>
           </a>
-          <a href="{{ quality_guide_url }}" class="proposal-guide-item" target="_blank" rel="noopener noreferrer">
+          <a href="{{ quality_guide_url }}" class="proposal-guide-item" target="_blank" rel="noopener noreferrer"
+             aria-label="{{ _('Metadata Quality Assessment Criteria (MQA)') ~ opens_in_new_tab_suffix }}">
             <span class="proposal-guide-item-icon"><i class="fa fa-check-circle" aria-hidden="true"></i></span>
             <span class="proposal-guide-item-content">
-              <strong>{{ _('Quality') }}</strong>
-              <small>{{ _('Data and metadata quality guides') }}</small>
+              <strong>{{ _('Metadata Quality Assessment Criteria (MQA)') }}</strong>
+              <small>{{ _('Metadata quality assessment criteria guide') }}</small>
             </span>
           </a>
         </div>
@@ -538,7 +554,7 @@
 
   {% block primary_content %}
   {% endblock %}
-</div>
+</main>
 {% endblock %}
 
 {% block scripts %}

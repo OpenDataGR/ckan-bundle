@@ -11,6 +11,19 @@ except ImportError:
 
 from ckanext.report import lib
 
+YES_LABEL = u'Ναι'
+NO_LABEL = u'Όχι'
+
+
+def _organization_title(pkg, cache):
+    owner_org = getattr(pkg, 'owner_org', None)
+    if not owner_org:
+        return u'(κενό)'
+    if owner_org not in cache:
+        org = model.Group.get(owner_org)
+        cache[owner_org] = (org.title or org.name) if org else u'(κενό)'
+    return cache[owner_org]
+
 
 def tagless_report(organization):
     '''
@@ -36,16 +49,11 @@ def tagless_report(organization):
     # Filter to include only active datasets (excluding harvest sources)
     q = q.filter(model.Package.state == 'active')
     q = lib.filter_datasets_only(q)
-    
+
     if organization:
         q = lib.filter_by_organizations(q, organization, False)
-    tagless_pkgs = [OrderedDict((
-        ('name', pkg.name),
-        ('title', lib.resolve_dataset_title(pkg)),
-        ('notes', lib.dataset_notes(pkg)),
-        ('user', pkg.creator_user_id),
-        ('created', pkg.metadata_created.isoformat()),
-    )) for pkg in q.slice(0, 100)]  # First 100 only for this demo
+
+    tagless_names = set(pkg.name for pkg in q.all())
 
     # Average number of tags per package
     q = model.Session.query(model.Package)
@@ -53,18 +61,42 @@ def tagless_report(organization):
     q = lib.filter_datasets_only(q)
     if organization:
         q = lib.filter_by_organizations(q, organization, False)
-    num_packages = q.count()
+    packages = q.all()
+    num_packages = len(packages)
+    organization_cache = {}
+
+    all_pkgs = [OrderedDict((
+        ('name', pkg.name),
+        ('title', lib.resolve_dataset_title(pkg)),
+        ('has_tags', YES_LABEL if pkg.name not in tagless_names else NO_LABEL),
+        ('organization', _organization_title(pkg, organization_cache)),
+        ('notes', lib.dataset_notes(pkg) or u'(κενό)'),
+        ('created', pkg.metadata_created.isoformat()),
+    )) for pkg in packages]
+
+    all_pkgs.sort(key=lambda row: (0 if row['has_tags'] == NO_LABEL else 1,
+                                   (row['title'] or '').lower(),
+                                   row['name']))
+
+    q = model.Session.query(model.Package)
+    q = q.filter(model.Package.state == 'active')
+    q = lib.filter_datasets_only(q)
+    if organization:
+        q = lib.filter_by_organizations(q, organization, False)
     q = q.join(model.PackageTag)
     num_taggings = q.count()
     if num_packages:
         average_tags_per_package = round(float(num_taggings) / num_packages, 1)
     else:
         average_tags_per_package = None
-    packages_without_tags_percent = lib.percent(len(tagless_pkgs), num_packages)
+    tagless_count = len(tagless_names)
+    packages_without_tags_percent = lib.percent(tagless_count, num_packages)
 
     return {
-        'table': tagless_pkgs,
+        'table': all_pkgs,
         'num_packages': num_packages,
+        'tagless_count': tagless_count,
+        'tagged_count': num_packages - tagless_count,
         'packages_without_tags_percent': packages_without_tags_percent,
         'average_tags_per_package': average_tags_per_package,
     }
@@ -77,10 +109,14 @@ def tagless_report_option_combinations():
 
 def tagless_post_access_filter(data, context):
     table = data.get('table', [])
-    # The filtered output only contains tagless rows, so total dataset counts
-    # and ratio cannot be safely recomputed from this data alone.
-    data['num_packages'] = None
-    data['packages_without_tags_percent'] = None
+    num_packages = len(table)
+    tagless_count = sum(1 for row in table if row.get('has_tags') == NO_LABEL)
+    data['num_packages'] = num_packages
+    data['tagless_count'] = tagless_count
+    data['tagged_count'] = num_packages - tagless_count
+    data['packages_without_tags_percent'] = (
+        lib.percent(tagless_count, num_packages) if num_packages else None
+    )
     data['average_tags_per_package'] = None
     return data
 
@@ -89,8 +125,8 @@ from ckan.plugins import toolkit
 
 tagless_report_info = {
     'name': 'tagless-datasets',
-    'title': toolkit._('Tagless Datasets'),
-    'description': toolkit._('Datasets which have no tags.'),
+    'title': u'Κάλυψη ετικετών συνόλων δεδομένων',
+    'description': u'Σύνοψη ανά σύνολο δεδομένων για την ύπαρξη ετικετών.',
     'option_defaults': OrderedDict((('organization', None),
                                     )),
     'option_combinations': tagless_report_option_combinations,

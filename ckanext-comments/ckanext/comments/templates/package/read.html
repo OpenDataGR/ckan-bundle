@@ -4,6 +4,8 @@
   {{ super() }}
 
 {% set params = {"var" : "hello"} %}
+{% set current_dataset_type = dataset_type or (pkg.type if pkg else 'dataset') %}
+{% set feedback_subject = _('Data Service Feedback') if current_dataset_type == 'data-service' else _('Dataset Feedback') %}
 
 <a class="btn btn-primary"
    data-module="modal-contact"
@@ -16,7 +18,7 @@
    data-module-scroll-on-flash="true"
    data-module-data-name="{{ c.userobj.fullname }}"
    data-module-data-email="{{ c.userobj.email }}"
-   data-module-data-subject="{{ _('Dataset Feedback') }}"
+   data-module-data-subject="{{ feedback_subject }}"
    data-module-data-content="{{ _('Hi, I wanted to ask about...') }}"
    data-module-package-id="{{ pkg.id }}"
    title="{{ _('Contact') }}">

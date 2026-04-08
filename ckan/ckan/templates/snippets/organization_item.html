@@ -5,7 +5,7 @@
       <header class="module-heading">
         {% block organization_item_header_image %}
         <a class="module-image" href="{{ url }}">
-          <img src="{{ organization.image_display_url or h.url_for_static('/base/images/placeholder-organization.png') }}" alt="{{ organization.name }}" />
+          <img src="{{ organization.image_display_url or h.url_for_static('/base/images/placeholder-organization.png') }}" alt="{{ organization.name if organization.image_display_url else '' }}" />
         </a>
         {% endblock %}
         {% block organization_item_header_title %}

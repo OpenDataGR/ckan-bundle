@@ -1,8 +1,9 @@
 {% extends "page.html" %}
+{% set opens_in_new_tab_suffix = ' (ανοίγει σε νέα καρτέλα)' if h.lang() == 'el' else ' (opens in a new tab)' %}
 
 {# Render the /more page using base.html to get header/footer/assets without the page.html default tabs #}
 
-{% block subtitle %}{% set more_label = 'Περισσότερα' if h.lang() == 'el' else _('More') %}{{ more_label }}{% endblock %}
+{% block subtitle %}{% set more_label = 'Εργαλεία' if h.lang() == 'el' else _('Tools') %}{{ more_label }}{% endblock %}
 
 {% block custom_styles %}
   {{ super() }}
@@ -39,6 +40,7 @@
 
 {% block page %}
   {# Use the same overall page structure as page.html but without its default header/tabs #}
+  <div class="visually-hidden-focusable"><a href="#main-content">{{ _('Skip to main content') }}</a></div>
   {% block header %}
     {% include "header.html" %}
   {% endblock %}
@@ -48,48 +50,50 @@
       <div class="toolbar" role="navigation" aria-label="{{ _('Breadcrumb') }}">
         <ol class="breadcrumb">
           {% snippet 'snippets/home_breadcrumb_item.html' %}
-          {% set more_label = 'Περισσότερα' if h.lang() == 'el' else _('More') %}
+          {% set more_label = 'Εργαλεία' if h.lang() == 'el' else _('Tools') %}
           <li class="breadcrumb-item">{% link_for more_label, named_route='dataset_type.more_page' %}</li>
         </ol>
       </div>
 
       <div class="row wrapper">
         <aside class="secondary col-md-3">
-          <aside class="module module-narrow module-shallow">
-            <h2 class="module-heading"><i class="fa fa-question-circle"></i> Βοήθεια</h2>
+          <section class="module module-narrow module-shallow">
+            <p class="module-heading"><i class="fa fa-question-circle"></i> Βοήθεια</p>
             <div class="module-content">
               <p>Χρειάζεστε βοήθεια με κάποια από τις ενότητες;</p>
               <ul class="list-unstyled">
                 <li><a href="{{ h.url_for('pages.show', page='about-portal', locale=h.lang()) }}"><i class="fa fa-info"></i> Σχετικά με την Πύλη</a></li>
-                <li><a href="{{ config.get('guides_base_url') or '/pages' }}" target="_blank" rel="noopener"><i class="fa fa-book"></i> Οδηγοί Χρήσης</a></li>
+                <li><a href="{{ config.get('guides_base_url') or '/pages' }}" target="_blank" rel="noopener"
+                       aria-label="{{ 'Οδηγοί Χρήσης' ~ opens_in_new_tab_suffix }}"><i class="fa fa-book"></i> Οδηγοί Χρήσης</a></li>
                 <li><a href="{{ h.url_for('/contact') }}"><i class="fa fa-envelope"></i> Επικοινωνία</a></li>
               </ul>
             </div>
-          </aside>
-          <aside class="module module-narrow module-shallow">
-            <h2 class="module-heading"><i class="fa fa-rss"></i> Τελευταίες Ενημερώσεις</h2>
+          </section>
+          <section class="module module-narrow module-shallow">
+            <p class="module-heading"><i class="fa fa-rss"></i> Τελευταίες Ενημερώσεις</p>
             <div class="module-content">
               <p>Μείνετε ενημερωμένοι με τις τελευταίες αναρτήσεις στο blog.</p>
               <a href="{{ h.url_for('/blog') }}" class="btn btn-primary btn-sm"><i class="fa fa-newspaper-o"></i> Δείτε το Blog</a>
             </div>
-          </aside>
+          </section>
           {% if h.has_gitbook_pdf_export() %}
             {% set pdf_module_title = 'Κατεβάστε τους οδηγούς (PDF)' if h.lang() == 'el' else _('Download guides (PDF)') %}
             {% set pdf_module_description = 'Ανοίξτε σε νέα καρτέλα το αρχείο PDF που περιλαμβάνει όλους τους οδηγούς της πλατφόρμας.' if h.lang() == 'el' else _('Open in a new tab the PDF that contains all platform guides.') %}
             {% set pdf_module_button = 'Λήψη PDF' if h.lang() == 'el' else _('Download PDF') %}
-            <aside class="module module-narrow module-shallow pdf-guides-module">
-              <h2 class="module-heading"><i class="fa fa-file-pdf-o"></i> {{ pdf_module_title }}</h2>
+            <section class="module module-narrow module-shallow pdf-guides-module">
+              <p class="module-heading"><i class="fa fa-file-pdf-o"></i> {{ pdf_module_title }}</p>
               <div class="module-content">
                 <p>{{ pdf_module_description }}</p>
-                <a href="{{ h.url_for('dataset_type.download_guides_pdf') }}" class="btn btn-primary btn-sm" target="_blank" rel="noopener">
+                <a href="{{ h.url_for('dataset_type.download_guides_pdf') }}" class="btn btn-primary btn-sm" target="_blank" rel="noopener"
+                   aria-label="{{ pdf_module_button ~ opens_in_new_tab_suffix }}">
                   {{ pdf_module_button }} <i class="fa fa-external-link"></i>
                 </a>
               </div>
-            </aside>
+            </section>
           {% endif %}
         </aside>
 
-        <div class="primary col-md-9 col-xs-12" role="main">
+        <main id="main-content" class="primary col-md-9 col-xs-12" role="main">
           <article class="module">
             <div class="module-content">
               <h1 class="page-heading">{{ page_title }}</h1>
@@ -101,12 +105,12 @@
                     <div class="col-md-4 col-sm-6">
                       <div class="section-card">
                         <div class="section-icon"><i class="fa {{ section.icon }} fa-2x"></i></div>
-                        <h3 class="section-title">{{ section.title }}</h3>
+                        <h2 class="section-title">{{ section.title }}</h2>
                         <p class="section-description">{{ section.description }}</p>
                         <div class="section-action">
-                          {% if section.title == 'Αναφορές' %}
+                          {% if section.title == 'Αναφορές ποιότητας Συνόλων Δεδομένων' %}
                             <a href="{{ h.url_for('report.index', locale=h.lang()) }}" class="btn btn-primary btn-sm">Μετάβαση <i class="fa fa-arrow-right"></i></a>
-                          {% elif section.title == 'Στατιστικά' %}
+                          {% elif section.title == 'Στατιστικά χρήσης της Εθνικής Πύλης' %}
                             <a href="{{ h.url_for(section.url) }}" class="btn btn-primary btn-sm">Μετάβαση <i class="fa fa-arrow-right"></i></a>
                           {% elif section.title == 'Blog' %}
                             <a href="{{ h.url_for('/blog') }}" class="btn btn-primary btn-sm">Μετάβαση <i class="fa fa-arrow-right"></i></a>
@@ -116,6 +120,9 @@
                             <a href="{{ h.url_for('pages.show', page='anoikta', locale=h.lang()) }}" class="btn btn-primary btn-sm">Μετάβαση <i class="fa fa-arrow-right"></i></a>
                           {% elif section.title == 'Προστατευόμενα Δεδομένα' %}
                             <a href="{{ h.url_for('pages.show', page='prostateumena', locale=h.lang()) }}" class="btn btn-primary btn-sm">Μετάβαση <i class="fa fa-arrow-right"></i></a>
+                          {% elif section.title == 'Οδηγοί' %}
+                            <a href="{{ section.url }}" target="_blank" class="btn btn-primary btn-sm"
+                               aria-label="{{ 'Μετάβαση' ~ opens_in_new_tab_suffix }}">Μετάβαση <i class="fa fa-arrow-right"></i></a>
                           {% else %}
                             <a href="{{ section.url }}" class="btn btn-primary btn-sm">Μετάβαση <i class="fa fa-arrow-right"></i></a>
                           {% endif %}
@@ -127,7 +134,7 @@
               </div>
             </div>
           </article>
-        </div>
+        </main>
       </div>
     </div>
   </div>

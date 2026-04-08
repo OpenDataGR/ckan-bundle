@@ -42,7 +42,13 @@ def showcase_update(context, data_dict):
     elif ('approval_status' in data_dict) and (data_dict['approval_status'] == 'approved'):
 
         #result = toolkit.get_action('showcase_package_list')(context, data_dict)
-        packages = toolkit.get_action('ckanext_showcase_package_list')(context, {'showcase_id': data_dict['id']})
+        packages = toolkit.get_action('ckanext_showcase_package_list')(
+            context,
+            {
+                'showcase_id': data_dict['id'],
+                'package_type': 'dataset',
+            },
+        )
         #org_ids = [pkg['organization']['id'] for pkg in packages]
 
         #organizations = [
@@ -92,6 +98,6 @@ def send_approved_showcase_dataset_email(context, recipient, data_dict, showcase
     mail_recipient(
             recipient_name="",
             recipient_email=recipient,
-            subject=f"DATA GOV GR: Σύνολο Δεδομένων σε εγκεκριμένη εφαρμογή: '{dataset_name}'",
-            body=f"Η Εφαρμογή '{data_dict['title']}' εγκρίθηκε για το Σύνολο Δεδομένων '{dataset_name}'. Η εφαρμογή είναι διαθέσιμη εδώ. URL: '{showcase_url}'"
+            subject=f"DATA GOV GR: Σύνολο Δεδομένων σε εγκεκριμένη επανάχρηση: '{dataset_name}'",
+            body=f"Η Επανάχρηση '{data_dict['title']}' εγκρίθηκε για το Σύνολο Δεδομένων '{dataset_name}'. Η επανάχρηση είναι διαθέσιμη εδώ. URL: '{showcase_url}'"
     )

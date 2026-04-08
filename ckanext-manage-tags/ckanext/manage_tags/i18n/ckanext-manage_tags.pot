@@ -1,0 +1,191 @@
+# Translations template for ckanext-manage-tags.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: ckanext-manage-tags 0.0.1\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-03-24 00:00+0200\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.15.0\n"
+
+msgid "Tag not found."
+msgstr ""
+
+msgid "Only global free tags can be edited from this page."
+msgstr ""
+
+msgid "A free tag with this name already exists."
+msgstr ""
+
+msgid "Need to be system administrator to administer"
+msgstr ""
+
+msgid "Error updating tag: {0}"
+msgstr ""
+
+msgid "Tag updated successfully."
+msgstr ""
+
+msgid "Tag name was unchanged."
+msgstr ""
+
+msgid "Tag name was unchanged, so no reindex job was queued."
+msgstr ""
+
+msgid "The tag was renamed, but the background reindex job could not be queued: {0}"
+msgstr ""
+
+msgid "Background reindex was queued for {0} affected datasets (job id: {1})."
+msgstr ""
+
+msgid "The Rebuild Index job could not be queued: {0}"
+msgstr ""
+
+msgid "Rebuild Index job was queued (job id: {0})."
+msgstr ""
+
+msgid "The tag was renamed without reindex. Use the Rebuild Index tab if you want search results to be refreshed immediately."
+msgstr ""
+
+msgid "Dataset"
+msgstr ""
+
+msgid "Data Service"
+msgstr ""
+
+msgid "Decision"
+msgstr ""
+
+msgid "Manage Tags"
+msgstr ""
+
+msgid "Rebuild Index"
+msgstr ""
+
+msgid "About Manage Tags"
+msgstr ""
+
+msgid "This area manages CKAN free tags that are shared across multiple datasets, data services or decisions."
+msgstr ""
+
+msgid "Renaming a tag updates the shared keyword. Reindex can be launched selectively from the edit form or as a full rebuild from the dedicated tab."
+msgstr ""
+
+msgid "About Tag Management"
+msgstr ""
+
+msgid "This page lists the shared free tags used across datasets, data services and decisions."
+msgstr ""
+
+msgid "Open a tag to rename it. If you plan many changes, you can postpone reindex and run one full rebuild from the dedicated tab afterwards."
+msgstr ""
+
+msgid "About Tag Rename"
+msgstr ""
+
+msgid "Use this page to rename one shared free tag and review the affected datasets before saving."
+msgstr ""
+
+msgid "Selective reindex is optional. For isolated changes you can enable it here, while for bulk changes it is usually better to finish all edits first and run one full rebuild from the dedicated tab."
+msgstr ""
+
+msgid "About Rebuild Index"
+msgstr ""
+
+msgid "Use this page when many tag changes have been made and one final Rebuild Index is preferable to multiple selective reindex jobs."
+msgstr ""
+
+msgid "The rebuild runs in the background and refreshes the whole search index. It is the safest option after bulk tag maintenance."
+msgstr ""
+
+msgid "View and rename global free tags used as shared keywords across packages."
+msgstr ""
+
+msgid "Search tags"
+msgstr ""
+
+msgid "Search by tag name"
+msgstr ""
+
+msgid "Search"
+msgstr ""
+
+msgid "Clear"
+msgstr ""
+
+msgid "Tag"
+msgstr ""
+
+msgid "Usage count"
+msgstr ""
+
+msgid "Package types"
+msgstr ""
+
+msgid "Action"
+msgstr ""
+
+msgid "Edit"
+msgstr ""
+
+msgid "No free tags matched the current filter."
+msgstr ""
+
+msgid "Edit Free Tag"
+msgstr ""
+
+msgid "Saving this form will rename the shared free tag. Reindex is optional and can run as a background job for the affected datasets."
+msgstr ""
+
+msgid "Current tag"
+msgstr ""
+
+msgid "New tag name"
+msgstr ""
+
+msgid "The shared keyword that will replace the current free tag."
+msgstr ""
+
+msgid "Selective reindex"
+msgstr ""
+
+msgid "Run background reindex only for the datasets affected by this tag change."
+msgstr ""
+
+msgid "If you are making many tag changes, you can skip this step and use the Rebuild Index tab once at the end."
+msgstr ""
+
+msgid "Save"
+msgstr ""
+
+msgid "Cancel"
+msgstr ""
+
+msgid "Affected datasets"
+msgstr ""
+
+msgid "Name"
+msgstr ""
+
+msgid "Title"
+msgstr ""
+
+msgid "Type"
+msgstr ""
+
+msgid "This tag is not currently attached to any active dataset."
+msgstr ""
+
+msgid "Use this option after many tag changes when you prefer one full search index rebuild instead of multiple selective reindex jobs."
+msgstr ""
+
+msgid "This action will enqueue a background job that rebuilds the whole search index. The page will return immediately, but the rebuild may take time to finish."
+msgstr ""
+
+msgid "Start Rebuild Index"
+msgstr ""

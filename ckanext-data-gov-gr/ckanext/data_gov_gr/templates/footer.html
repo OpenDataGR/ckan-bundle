@@ -1,7 +1,9 @@
 {% set stats_destination_url = config.get('ckanext.data_gov_gr.stats.destination.url', '/') %}
 {% set footer_source_code_url = config.get('ckanext.data_gov_gr.footer.source_code_url') %}
 {% set user_survey_url = config.get('ckanext.data_gov_gr.user_survey.url') %}
-{% set terms_page = config.get('ckanext.data_gov_gr.pages.terms_of_use') %}
+{% set terms_page = (config.get('ckanext.data_gov_gr.pages.terms_of_use') or '').strip().strip('/') %}
+{% set accessibility_page = (config.get('ckanext.data_gov_gr.pages.accessibility_statement') or '').strip().strip('/') %}
+{% set opens_in_new_tab_suffix = ' (ανοίγει σε νέα καρτέλα)' if h.lang() == 'el' else ' (opens in a new tab)' %}
 
 <footer class="site-footer" role="contentinfo">
   <div class="container">
@@ -9,7 +11,7 @@
     <div class="row">
       {% block footer_nav %}
       <div class="col-md-3 footer-section">
-        <h5>{{ _('About') }}</h5>
+        <h2 class="footer-section-title">{{ _('About') }}</h2>
         <ul class="list-unstyled">
           {% block footer_about %}
             <li><a href="{{ h.url_for('/pages/about-portal') }}">{{ _('About {0}').format(g.site_title) }}</a></li>
@@ -25,12 +27,19 @@
                 </a>
               </li>
             {% endif %}
+            {% if accessibility_page %}
+              <li>
+                <a href="{{ h.url_for('/pages/' ~ accessibility_page) }}">
+                  {{ _('Accessibility') }}
+                </a>
+              </li>
+            {% endif %}
           {% endblock %}
         </ul>
       </div>
 
       <div class="col-md-3 footer-section">
-        <h5>{{ _('Menu') }}</h5>
+        <h2 class="footer-section-title">{{ _('Menu') }}</h2>
         <ul class="list-unstyled">
           {% block footer_data %}
             <li><a href="{{ h.url_for('dataset.search') }}">{{ _('Datasets') }}</a></li>
@@ -43,7 +52,7 @@
       </div>
 
       <div class="col-md-3 footer-section">
-        <h5>{{ _('Community') }}</h5>
+        <h2 class="footer-section-title">{{ _('Community') }}</h2>
         <ul class="list-unstyled">
           {% block footer_community %}
             <li><a href="{{ h.url_for('/contact') }}">{{ _('Contact Us') }}</a></li>
@@ -52,7 +61,8 @@
             <li><a href="{{ h.url_for(stats_destination_url) }}">{{ _('Statistics') }}</a></li>
             {% if user_survey_url %}
               <li>
-                <a href="{{ user_survey_url }}" target="_blank" rel="noopener noreferrer">
+                <a href="{{ user_survey_url }}" target="_blank" rel="noopener noreferrer"
+                   aria-label="{{ _('Πείτε μας τη γνώμη σας για την πύλη') ~ opens_in_new_tab_suffix }}">
                   {{ _('Πείτε μας τη γνώμη σας για την πύλη') }}
                 </a>
               </li>
@@ -63,7 +73,7 @@
       {% endblock %}
 
       <div class="col-md-3 footer-section">
-        <h5>{{ _('Language') }}</h5>
+        <h2 class="footer-section-title">{{ _('Language') }}</h2>
         <ul class="list-unstyled">
            <li>
               {% block footer_lang %}
@@ -195,14 +205,15 @@
     <div id="user-survey-backdrop" class="user-survey-backdrop" role="dialog" aria-modal="true" aria-labelledby="user-survey-title">
       <div class="user-survey-modal">
         <button type="button" class="user-survey-close" aria-label="{{ _('Κλείσιμο') }}">&times;</button>
-        <h5 id="user-survey-title" class="user-survey-modal-title">{{ _('Πείτε μας τη γνώμη σας για την πύλη') }}</h5>
+        <p id="user-survey-title" class="user-survey-modal-title">{{ _('Πείτε μας τη γνώμη σας για την πύλη') }}</p>
 	        <p>{{ _('Βοηθήστε μας να βελτιώσουμε την Πύλη με τη συμμετοχή σας σε ένα σύντομο ερωτηματολόγιο.') }}</p>
 	        <div class="user-survey-actions">
 	          <a id="user-survey-participate"
 	             class="user-survey-link"
 	             href="{{ user_survey_url }}"
 	             target="_blank"
-	             rel="noopener noreferrer">
+	             rel="noopener noreferrer"
+               aria-label="{{ _('Άνοιγμα ερωτηματολογίου') ~ opens_in_new_tab_suffix }}">
 	            {{ _('Άνοιγμα ερωτηματολογίου') }}
 	          </a>
 	          <button type="button"

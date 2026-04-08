@@ -65,6 +65,13 @@ Optional settings:
     # (optional, default: yes)
     ckanext.data_gov_gr.data_service.hide_resources_section = yes
 
+    # Footer: σελίδα δήλωσης προσβασιμότητας.
+    # Δηλώστε μόνο το slug και όχι πλήρες URL ή /pages path.
+    # Παράδειγμα: αν η σελίδα είναι /pages/accessibility, η τιμή είναι accessibility.
+    # (προαιρετικό, default: κενό)
+    # Αν λείπει ή είναι κενό, το link "Προσβασιμότητα" δεν εμφανίζεται στο footer.
+    ckanext.data_gov_gr.pages.accessibility_statement = accessibility
+
     # Εμφάνιση/απόκρυψη του ενημερωτικού κειμένου για την άδεια μεταδεδομένων
     # στο κάτω μέρος της φόρμας δημιουργίας/επεξεργασίας dataset.
     # (προαιρετικό, default: no)

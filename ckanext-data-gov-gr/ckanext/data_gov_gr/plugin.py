@@ -27,8 +27,9 @@ from ckan import model
 import requests
 from urllib.parse import urlparse
 import re
+from sqlalchemy import or_
 
-from ckanext.data_gov_gr import views
+from ckanext.data_gov_gr import views, cli
 from ckanext.data_gov_gr.logic import validators, actions, auth
 import json
 
@@ -56,6 +57,7 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IFacets)
     plugins.implements(plugins.IBlueprint)
     plugins.implements(IDCATRDFHarvester)
+    plugins.implements(plugins.IClick)
 
     def _get_clean_license_id(self, license_uri_or_id):
         """
@@ -89,6 +91,7 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         This defines runtime-editable configuration options for:
         - ``ckanext.data_gov_gr.powerbi_embed_url`` (Power BI)
         - ``ckanext.data_gov_gr.user_survey.url`` (user survey popup/link URL)
+        - ``ckanext.data_gov_gr.showcase.intro_text`` (apps/showcases intro text)
         - ``ckanext.data_gov_gr.showcase.disclaimer`` (apps/showcases disclaimer)
         - ``ckanext.data_gov_gr.dataset.legislation.open`` (default applicable legislation for open datasets)
         - ``ckanext.data_gov_gr.dataset.legislation.protected`` (default applicable legislation for protected datasets)
@@ -112,6 +115,7 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
             'ckanext.data_gov_gr.powerbi_embed_url': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.user_survey.url': [ignore_missing, unicode_safe],
             'ckanext.geonames.username': [ignore_missing, unicode_safe],
+            'ckanext.data_gov_gr.showcase.intro_text': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.showcase.disclaimer': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.dataset.legislation.open': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.dataset.legislation.protected': [ignore_missing, unicode_safe],
@@ -141,6 +145,7 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
             'ckanext.data_gov_gr.home.registries.enabled': [ignore_missing, boolean_validator],
             'ckanext.data_gov_gr.home.showcases.ids': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.botakis.enabled': [ignore_missing, boolean_validator],
+            'ckanext.data_gov_gr.activity_stream.dataset.restrict_visibility': [ignore_missing, boolean_validator],
         })
 
         return schema
@@ -171,11 +176,25 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         declaration.declare(root.user_survey.url, "").set_description(
             "User survey URL (supports {locale} placeholder)."
         )
+        declaration.declare(root.pages.terms_of_use, "").set_description(
+            "CKAN Pages slug for the Terms of Use footer link."
+        )
+        declaration.declare(root.pages.accessibility_statement, "").set_description(
+            "CKAN Pages slug for the Accessibility footer link."
+        )
         declaration.declare(geonames.username, "").set_description(
             "GeoNames username used by geonames_search / geonames_get actions."
         )
+        declaration.declare(root.showcase.intro_text, "").set_description(
+            "Showcases intro text (HTML allowed)."
+        )
         declaration.declare(root.showcase.disclaimer, "").set_description(
             "Showcases disclaimer text (HTML allowed)."
+        )
+        declaration.declare(
+            root.activity_stream.dataset.restrict_visibility, "yes"
+        ).set_description(
+            "Restrict the dataset activity stream to sysadmins and organization admins."
         )
         declaration.declare(root.dataset.legislation.open, "").set_description(
             "Default applicable legislation URL for open datasets."
@@ -210,16 +229,16 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         declaration.declare(key.guides_base_url, "").set_description(
             "External guides base URL (e.g. GitBook /guides)."
         )
-        declaration.declare(root.getting_started.url, "https://data-gov-gr.gitbook.io/guides/eisagogika").set_description(
+        declaration.declare(root.getting_started.url, "https://data-gov-gr.gitbook.io/guides/grigoroi-odigoi").set_description(
             "Home page: getting started guide URL."
         )
-        declaration.declare(root.api_guide.url, "https://data-gov-gr.gitbook.io/guides/texnika-egxeiridia").set_description(
+        declaration.declare(root.api_guide.url, "https://data-gov-gr.gitbook.io/guides/texnika-egxeiridia/data.gov.gr/metadedomena/tekmiriosi-api").set_description(
             "Home page: API documentation guide URL."
         )
         declaration.declare(root.data_publishing_guide.url, "https://data-gov-gr.gitbook.io/guides/diaxeirisi-dedomenon/synola-dedomenon/dimioyrgia-synoloy-dedomenon").set_description(
             "Home page: data publishing guide URL."
         )
-        declaration.declare(root.quality_guide.url, "https://data-gov-gr.gitbook.io/guides/xrisi-dedomenon/synola-dedomenon/aksiologisi-poiotitas-metadedomenon").set_description(
+        declaration.declare(root.quality_guide.url, "https://data-gov-gr.gitbook.io/guides/xrisi-dedomenon/synola-dedomenon/aksiologisi-poiotitas-metadedomenon/kritiria-aksiologisis-mqa").set_description(
             "Home page: data quality guide URL."
         )
         declaration.declare(contact.gitbook_embed_items, json.dumps([
@@ -300,7 +319,7 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
             "Show 'Επιλεγμένα datasets στην αρχική σελίδα' section in /ckan-admin/config."
         )
         declaration.declare(config_ui.home_showcases.enabled, "no").set_description(
-            "Show 'Εφαρμογές στην αρχική σελίδα (Showcases)' section in /ckan-admin/config."
+            "Show 'Επαναχρήσεις στην αρχική σελίδα' section in /ckan-admin/config."
         )
         declaration.declare(config_ui.dataset_menu.enabled, "no").set_description(
             "Show 'Μενού Συνόλων Δεδομένων (Dropdown)' section in /ckan-admin/config."
@@ -313,6 +332,11 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
 
     def get_blueprint(self):
         return views.get_blueprint()
+
+    # IClick
+
+    def get_commands(self):
+        return cli.get_commands()
 
     # IDCATRDFHarvester
 
@@ -632,6 +656,152 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
 
         return pkg_dict
 
+    def _extract_publisher_name(self, publisher_value):
+        """
+        Επιστρέφει το πρώτο διαθέσιμο publisher name από search result payload.
+        """
+        if isinstance(publisher_value, list):
+            for item in publisher_value:
+                if isinstance(item, dict):
+                    name = (item.get('name') or '').strip()
+                    if name:
+                        return name
+        elif isinstance(publisher_value, dict):
+            name = (publisher_value.get('name') or '').strip()
+            if name:
+                return name
+        elif isinstance(publisher_value, str):
+            publisher_name = publisher_value.strip()
+            if publisher_name:
+                return publisher_name
+        return ''
+
+    def _extract_organization_name(self, organization_value):
+        """
+        Επιστρέφει το organization name από search result payload.
+        """
+        if isinstance(organization_value, dict):
+            organization_name = (organization_value.get('name') or '').strip()
+            if organization_name:
+                return organization_name
+        elif isinstance(organization_value, str):
+            organization_name = organization_value.strip()
+            if organization_name:
+                return organization_name
+        return ''
+
+    def after_dataset_search(self, search_results, search_params):
+        """
+        Εμπλουτίζει τα search results με human-friendly organization metadata
+        για χρήση στα dataset/data-service cards του index.
+        """
+        results = search_results.get('results') or []
+        if not results:
+            return search_results
+
+        owner_org_ids = set()
+        organization_names = set()
+        publisher_names = set()
+        organization_names_by_result_index = {}
+        publisher_names_by_result_index = {}
+
+        for index, result in enumerate(results):
+            if not isinstance(result, dict):
+                continue
+
+            result.pop('organization_card', None)
+
+            owner_org = result.get('owner_org')
+            if owner_org:
+                owner_org_ids.add(owner_org)
+
+            organization_name = self._extract_organization_name(result.get('organization'))
+            organization_names_by_result_index[index] = organization_name
+            if organization_name:
+                organization_names.add(organization_name)
+
+            publisher_name = self._extract_publisher_name(result.get('publisher'))
+            publisher_names_by_result_index[index] = publisher_name
+            if publisher_name:
+                publisher_names.add(publisher_name)
+
+        if not owner_org_ids and not organization_names and not publisher_names:
+            return search_results
+
+        query = model.Session.query(model.Group).filter(
+            model.Group.state == 'active',
+            model.Group.is_organization.is_(True),
+        )
+
+        filters = []
+        if owner_org_ids:
+            filters.append(model.Group.id.in_(owner_org_ids))
+        if organization_names:
+            filters.append(model.Group.name.in_(organization_names))
+        if publisher_names:
+            filters.append(model.Group.title.in_(publisher_names))
+
+        if not filters:
+            return search_results
+
+        organizations = query.filter(or_(*filters)).all()
+        organizations_by_id = {organization.id: organization for organization in organizations}
+        organizations_by_name = {organization.name: organization for organization in organizations}
+
+        organizations_by_title = {}
+        ambiguous_titles = set()
+        for organization in organizations:
+            title = (organization.title or '').strip()
+            if not title:
+                continue
+            if title in organizations_by_title:
+                ambiguous_titles.add(title)
+                continue
+            organizations_by_title[title] = organization
+
+        for ambiguous_title in ambiguous_titles:
+            organizations_by_title.pop(ambiguous_title, None)
+
+        for index, result in enumerate(results):
+            if not isinstance(result, dict):
+                continue
+
+            owner_org = result.get('owner_org')
+            organization_name = organization_names_by_result_index.get(index, '')
+            publisher_name = publisher_names_by_result_index.get(index, '')
+
+            organization = None
+            if owner_org:
+                organization = organizations_by_id.get(owner_org)
+            if organization is None and organization_name:
+                organization = organizations_by_name.get(organization_name)
+            if organization is None and publisher_name:
+                organization = organizations_by_title.get(publisher_name)
+
+            if organization is not None:
+                organization_title = (
+                    (organization.title or '').strip()
+                    or (organization.name or '').strip()
+                    or publisher_name
+                )
+                if organization_title:
+                    result['organization_card'] = {
+                        'title': organization_title,
+                        'name': organization.name,
+                        'type': organization.type or 'organization',
+                        'is_linkable': True,
+                    }
+                continue
+
+            if publisher_name:
+                result['organization_card'] = {
+                    'title': publisher_name,
+                    'name': None,
+                    'is_linkable': False,
+                }
+
+        return search_results
+
     def _extract_label_from_uri(self, uri):
         """Εξάγει το τελευταίο μέρος του URI για καλύτερη αναζήτηση"""
         if uri and isinstance(uri, str) and '/' in uri:
@@ -658,7 +828,7 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         if package_type == 'dataset':
             facets_dict['is_hvd'] = toolkit._('High-Value Dataset')
             if not helpers.should_disable_protected_data():
-                facets_dict['is_nsip'] = toolkit._('NSIP Dataset')
+                facets_dict['is_nsip'] = toolkit._('Protected Dataset')
             else:
                 facets_dict.pop('is_nsip', None)
             facets_dict['publishertype'] = toolkit._('Organization Type')
@@ -698,7 +868,7 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
             facets['qa_openness_score'] = toolkit._('Openness score')
 
         if not helpers.should_disable_protected_data():
-            facets['is_nsip'] = toolkit._('NSIP Dataset')
+            facets['is_nsip'] = toolkit._('Protected Dataset')
         else:
             facets.pop('is_nsip', None)
 
@@ -720,7 +890,8 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
             'check_user_org_permission': auth.check_user_org_permission,
             'user_organization_capacity': auth.user_organization_capacity_auth,
             'user_reset': auth.user_reset_override,
-            'organization_list_with_user_extras': auth.organization_list_with_user_extras_auth
+            'organization_list_with_user_extras': auth.organization_list_with_user_extras_auth,
+            'package_activity_list': auth.package_activity_list,
         }
 
     # IActions

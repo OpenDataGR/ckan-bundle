@@ -1,66 +1,422 @@
 {#
 Stale Datasets Report Template
-
 table - main data, as a list of rows, each row is a dict
 data - other data values, as a dict
 #}
-
 {% set ckan_29_or_higher = h.check_ckan_version(min_version="2.9.0", max_version="3.0.0") %}
 {% set dataset_read_route = 'dataset.read' if ckan_29_or_higher else 'dataset_read' %}
 
-<ul>
-    <li><strong>{% trans %}Total datasets checked{% endtrans %}:</strong> {{ data['num_packages'] }}</li>
-    <li><strong>{% trans %}Stale datasets{% endtrans %}:</strong> {{ data['num_stale'] }} ({{ data['stale_percentage'] }}%)</li>
-    <li><strong>{% trans %}Up-to-date datasets{% endtrans %}:</strong> {{ data['num_packages'] - data['num_stale'] }}</li>
-    <li><strong>{% trans %}Total datasets in scope{% endtrans %}:</strong> {{ data['total_datasets'] }}</li>
-</ul>
+{# --- Υπολογισμός OK / N/A μετρητών στο Jinja (χωρίς αλλαγή στην Python) --- #}
+{% set ns = namespace(ok_count=0, na_count=0) %}
+{% for row in table %}
+  {% if row.is_stale %}
+  {% elif row.days_since_update is not none %}
+    {% set ns.ok_count = ns.ok_count + 1 %}
+  {% else %}
+    {% set ns.na_count = ns.na_count + 1 %}
+  {% endif %}
+{% endfor %}
 
-{% if table|length > 0 %}
-<div class="report-table-wrapper">
-    <table class="table table-striped table-bordered table-condensed tablesorter" id="report-table">
-      <thead>
-        <tr>
-          <th>{% trans %}Dataset{% endtrans %}</th>
-          <th>{% trans %}Organization{% endtrans %}</th>
-          <th>{% trans %}Frequency{% endtrans %}</th>
-          <th>{% trans %}Status{% endtrans %}</th>
-          <th>{% trans %}Last Modified{% endtrans %}</th>
-          <th>{% trans %}Days Since Update{% endtrans %}</th>
-          <th>{% trans %}Notes{% endtrans %}</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for row in table %}
-          <tr>
-            <td>
-              <a href="{{ h.url_for(dataset_read_route, id=row.name) }}" title="{{ row.title }}">
-                {{ row.title }}
-              </a>
-            </td>
-            <td>{{ row.organization or _('N/A') }}</td>
-            <td>{{ row.frequency }}</td>
-            <td>{{ row.status }}</td>
-            <td>{{ row.last_modified }}</td>
-            <td>
-              {% if row.days_since_update is not none %}
-                {{ row.days_since_update }}
-              {% else %}
-                {% trans %}N/A{% endtrans %}
-              {% endif %}
-            </td>
-            <td>{{ row.notes or _('No description') }}</td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+{# --- Styles --- #}
+<style>
+  .pagination > li > a,
+  .pagination > li > span {
+    margin: 0 3px;
+    padding: 6px 12px;
+    border-radius: 4px !important;
+  }
+  .pagination > li:first-child > a,
+  .pagination > li:last-child > a {
+    border-radius: 4px !important;
+  }
+  th.sortable {
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    padding-right: 20px !important;
+  }
+  th.sortable:hover {
+    background-color: #eaeaea;
+  }
+  th.sortable .sort-icon {
+    margin-left: 5px;
+    color: #999;
+    font-size: 12px;
+  }
+  th.sortable.sort-asc .sort-icon,
+  th.sortable.sort-desc .sort-icon {
+    color: #333;
+  }
+  div.pull-right {
+    margin-top: 15px !important;
+  }
+  .pagination > li.active > a,
+  .pagination > li.active > a:hover,
+  .pagination > li.active > a:focus {
+    background-color: #337ab7;
+    border-color: #337ab7;
+    color: #fff;
+    font-weight: bold;
+  }
+  .status-stale { color: #d9534f; font-weight: bold; }
+  .status-ok { color: #5cb85c; font-weight: bold; }
+  .status-na { color: #777; }
+</style>
+
+{# --- Σύνοψη --- #}
+<div class="row" style="margin-bottom: 20px;">
+  <div class="col-md-4">
+    <div class="well text-center">
+      <h2>{{ data['num_packages'] }}</h2>
+      <p>{% trans %}Total datasets{% endtrans %}</p>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="well text-center" style="border-left: 4px solid #d9534f;">
+      <h2 style="color: #d9534f;">{{ data['num_stale'] }}</h2>
+      <p>{% trans %}Stale datasets{% endtrans %} ({{ data['stale_percentage'] }}%)</p>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="well text-center" style="border-left: 4px solid #5cb85c;">
+      <h2 style="color: #5cb85c;">{{ data['num_packages'] - data['num_stale'] }}</h2>
+      <p>{% trans %}OK datasets (up-to-date and non-evaluable){% endtrans %}</p>
+    </div>
+  </div>
 </div>
 
-<p><strong>{% trans %}Status Legend{% endtrans %}:</strong></p>
+{% if table|length > 0 %}
+
+{# --- Toolbar: φίλτρο + items per page --- #}
+<div style="margin-bottom: 15px;">
+  <div style="margin-bottom: 10px;">
+    <div class="btn-group" role="group">
+      <button type="button" class="btn btn-default active" data-filter="all">
+        {% trans %}All{% endtrans %} ({{ data['num_packages'] }})
+      </button>
+      <button type="button" class="btn btn-default" data-filter="stale">
+        <i class="fa fa-exclamation-triangle text-danger"></i>
+        {% trans %}Stale{% endtrans %} ({{ data['num_stale'] }})
+      </button>
+      <button type="button" class="btn btn-default" data-filter="ok">
+        <i class="fa fa-check text-success"></i>
+        {% trans %}Up-to-date{% endtrans %} ({{ ns.ok_count }})
+      </button>
+      <button type="button" class="btn btn-default" data-filter="na">
+        <i class="fa fa-minus text-muted"></i>
+        {% trans %}Non-evaluable datasets{% endtrans %} ({{ ns.na_count }})
+      </button>
+    </div>
+  </div>
+  <div>
+    <label style="font-weight: normal; margin-right: 5px;">{% trans %}Per page{% endtrans %}</label>
+    <select id="stale-per-page-select" class="form-control" style="width: auto; display: inline-block;">
+      <option value="20" selected>20</option>
+      <option value="50">50</option>
+      <option value="100">100</option>
+      <option value="all">{% trans %}All{% endtrans %}</option>
+    </select>
+  </div>
+</div>
+
+{# --- Πίνακας --- #}
+<div class="report-table-wrapper">
+  <table class="table table-striped table-bordered table-hover table-condensed"
+         id="stale-report-table"
+         style="width: 100%; margin-top: 8px;">
+    <thead>
+      <tr>
+        <th style="width: 40px;">#</th>
+        <th class="sortable" data-sort="title">
+          {% trans %}Dataset{% endtrans %}
+          <i class="fa fa-sort sort-icon"></i>
+        </th>
+        <th class="sortable" data-sort="organization">
+          {% trans %}Organization{% endtrans %}
+          <i class="fa fa-sort sort-icon"></i>
+        </th>
+        <th class="sortable" data-sort="frequency">
+          {% trans %}Frequency{% endtrans %}
+          <i class="fa fa-sort sort-icon"></i>
+        </th>
+        <th class="sortable" data-sort="status">
+          {% trans %}Status{% endtrans %}
+          <i class="fa fa-sort sort-icon"></i>
+        </th>
+        <th class="sortable" data-sort="last_modified">
+          {% trans %}Last Modified{% endtrans %}
+          <i class="fa fa-sort sort-icon"></i>
+        </th>
+        <th class="sortable" data-sort="days">
+          {% trans %}Days Since Update{% endtrans %}
+          <i class="fa fa-sort sort-icon"></i>
+        </th>
+        <th>{% trans %}Notes{% endtrans %}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in table %}
+        {# Filter classes βασισμένα σε is_stale + days_since_update (δεν εξαρτώνται από μετάφραση) #}
+        <tr class="stale-row
+            {% if row.is_stale %}filter-stale
+            {% elif row.days_since_update is not none %}filter-ok
+            {% else %}filter-na{% endif %}"
+            data-sort-title="{{ row.title|lower }}"
+            data-sort-organization="{{ (row.organization or '')|lower }}"
+            data-sort-frequency="{{ row.frequency|lower }}"
+            data-sort-status="{% if row.is_stale %}0{% elif row.days_since_update is not none %}1{% else %}2{% endif %}"
+            data-sort-last_modified="{{ row.last_modified or '' }}"
+            data-sort-days="{{ row.days_since_update if row.days_since_update is not none else -1 }}">
+          <td class="row-index">{{ loop.index }}</td>
+          <td>
+            <a href="{{ h.url_for(dataset_read_route, id=row.name) }}" title="{{ row.title }}">
+              <strong>{{ row.title }}</strong>
+            </a>
+          </td>
+          <td>{{ row.organization or _('N/A') }}</td>
+          <td>{{ row.frequency }}</td>
+          <td>
+            {% if row.is_stale %}
+              <span class="label label-danger">{% trans %}STALE{% endtrans %}</span>
+            {% elif row.days_since_update is not none %}
+              <span class="label label-success">{% trans %}OK{% endtrans %}</span>
+            {% else %}
+              <span class="label label-default">{% trans %}Non-evaluable{% endtrans %}</span>
+            {% endif %}
+          </td>
+          <td>{{ row.last_modified or _('N/A') }}</td>
+          <td>
+            {% if row.days_since_update is not none %}
+              {{ row.days_since_update }}
+            {% else %}
+              -
+            {% endif %}
+          </td>
+          <td>{{ row.notes or _('No description') }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{# --- Pagination controls --- #}
+<nav class="text-center" id="stale-pagination-nav" style="margin-top: 25px;">
+  <ul class="pagination" id="stale-pagination-controls">
+    {# Populated by JS #}
+  </ul>
+  <p class="text-muted" id="stale-pagination-info" style="margin-top: 5px;"></p>
+</nav>
+
+{# --- Επεξήγηση Κατάστασης --- #}
+<p><strong>{% trans %}Status Legend{% endtrans %}</strong></p>
 <ul>
-  <li><strong>{% trans %}STALE{% endtrans %}</strong> - {% trans %}Dataset has not been updated within its expected frequency schedule{% endtrans %}</li>
-  <li><strong>{% trans %}OK{% endtrans %}</strong> - {% trans %}Dataset is up-to-date according to its frequency schedule{% endtrans %}</li>
-  <li><strong>{% trans %}N/A{% endtrans %}</strong> - {% trans %}Dataset has irregular, continuous, or unknown update frequency{% endtrans %}</li>
+  <li><strong class="status-stale">{% trans %}STALE{% endtrans %}</strong> - {% trans %}Dataset has not been updated within its expected frequency schedule{% endtrans %}</li>
+  <li><strong class="status-ok">{% trans %}OK{% endtrans %}</strong> - {% trans %}Dataset is up-to-date according to its frequency schedule{% endtrans %}</li>
+  <li><strong class="status-na">{% trans %}Non-evaluable{% endtrans %}</strong> - {% trans %}Dataset has irregular, continuous, or unknown update frequency{% endtrans %}</li>
+  <li><strong>{% trans %}N/A (Not Available){% endtrans %}</strong> - {% trans %}Information is not available (e.g. frequency not declared){% endtrans %}</li>
 </ul>
+
+{# --- JavaScript: sorting + filtering + pagination --- #}
+<script>
+(function() {
+  'use strict';
+
+  var ROWS_SELECTOR = '#stale-report-table tbody .stale-row';
+  var currentFilter = 'all';
+  var perPage = 20;
+  var currentPage = 1;
+  var currentSort = { column: null, direction: 'asc' };
+
+  // ===================== SORTING =====================
+  function sortRows(column) {
+    if (currentSort.column === column) {
+      currentSort.direction = (currentSort.direction === 'asc') ? 'desc' : 'asc';
+    } else {
+      currentSort.column = column;
+      currentSort.direction = 'asc';
+    }
+
+    var tbody = document.querySelector('#stale-report-table tbody');
+    var rows = Array.prototype.slice.call(tbody.querySelectorAll('.stale-row'));
+
+    rows.sort(function(a, b) {
+      var valA = a.getAttribute('data-sort-' + column) || '';
+      var valB = b.getAttribute('data-sort-' + column) || '';
+
+      if (column === 'days' || column === 'status') {
+        valA = parseFloat(valA);
+        valB = parseFloat(valB);
+        if (isNaN(valA)) valA = -1;
+        if (isNaN(valB)) valB = -1;
+      }
+
+      var result;
+      if (typeof valA === 'number') {
+        result = valA - valB;
+      } else {
+        result = valA.localeCompare(valB, 'el');
+      }
+      return (currentSort.direction === 'desc') ? -result : result;
+    });
+
+    rows.forEach(function(row) {
+      tbody.appendChild(row);
+    });
+
+    updateSortHeaders();
+    currentPage = 1;
+    render();
+  }
+
+  function updateSortHeaders() {
+    var headers = document.querySelectorAll('#stale-report-table th.sortable');
+    headers.forEach(function(th) {
+      var col = th.getAttribute('data-sort');
+      var icon = th.querySelector('.sort-icon');
+      th.classList.remove('sort-asc', 'sort-desc');
+      icon.className = 'fa sort-icon';
+      if (col === currentSort.column) {
+        if (currentSort.direction === 'asc') {
+          th.classList.add('sort-asc');
+          icon.classList.add('fa-sort-up');
+        } else {
+          th.classList.add('sort-desc');
+          icon.classList.add('fa-sort-down');
+        }
+      } else {
+        icon.classList.add('fa-sort');
+      }
+    });
+  }
+
+  // ===================== FILTERING =====================
+  function getFilteredRows() {
+    var rows = Array.prototype.slice.call(
+      document.querySelectorAll(ROWS_SELECTOR)
+    );
+    if (currentFilter === 'all') return rows;
+    var cls = 'filter-' + currentFilter;
+    return rows.filter(function(r) { return r.classList.contains(cls); });
+  }
+
+  // ===================== RENDER =====================
+  function render() {
+    var allRows = Array.prototype.slice.call(
+      document.querySelectorAll(ROWS_SELECTOR)
+    );
+    var filtered = getFilteredRows();
+    var totalFiltered = filtered.length;
+    var totalPages = (perPage === 'all')
+      ? 1
+      : Math.ceil(totalFiltered / perPage) || 1;
+
+    if (currentPage > totalPages) currentPage = totalPages;
+
+    var startIdx = (perPage === 'all') ? 0 : (currentPage - 1) * perPage;
+    var endIdx = (perPage === 'all') ? totalFiltered : startIdx + perPage;
+    var visibleSet = new Set(filtered.slice(startIdx, endIdx));
+
+    var visibleIndex = startIdx;
+    allRows.forEach(function(row) {
+      if (visibleSet.has(row)) {
+        row.style.display = '';
+        visibleIndex++;
+        row.querySelector('.row-index').textContent = visibleIndex;
+      } else {
+        row.style.display = 'none';
+      }
+    });
+
+    var info = document.getElementById('stale-pagination-info');
+    if (perPage === 'all') {
+      info.textContent = 'Εμφάνιση ' + totalFiltered + ' συνόλων δεδομένων';
+    } else {
+      var showStart = totalFiltered > 0 ? startIdx + 1 : 0;
+      var showEnd = Math.min(endIdx, totalFiltered);
+      info.textContent = 'Εμφάνιση ' + showStart + '-' + showEnd +
+                         ' από ' + totalFiltered + ' σύνολα δεδομένων';
+    }
+    renderPaginationButtons(totalPages);
+  }
+
+  // ===================== PAGINATION =====================
+  function renderPaginationButtons(totalPages) {
+    var nav = document.getElementById('stale-pagination-controls');
+    nav.innerHTML = '';
+
+    if (totalPages <= 1 || perPage === 'all') {
+      document.getElementById('stale-pagination-nav').style.display = 'none';
+      return;
+    }
+    document.getElementById('stale-pagination-nav').style.display = '';
+
+    var prevLi = document.createElement('li');
+    if (currentPage <= 1) prevLi.className = 'disabled';
+    prevLi.innerHTML = '<a href="#">&laquo;</a>';
+    prevLi.addEventListener('click', function(e) {
+      e.preventDefault();
+      if (currentPage > 1) { currentPage--; render(); }
+    });
+    nav.appendChild(prevLi);
+
+    var startPage = Math.max(1, currentPage - 3);
+    var endPage = Math.min(totalPages, startPage + 6);
+    if (endPage - startPage < 6) startPage = Math.max(1, endPage - 6);
+
+    for (var p = startPage; p <= endPage; p++) {
+      var li = document.createElement('li');
+      if (p === currentPage) li.className = 'active';
+      li.innerHTML = '<a href="#">' + p + '</a>';
+      (function(page) {
+        li.addEventListener('click', function(e) {
+          e.preventDefault();
+          currentPage = page;
+          render();
+        });
+      })(p);
+      nav.appendChild(li);
+    }
+
+    var nextLi = document.createElement('li');
+    if (currentPage >= totalPages) nextLi.className = 'disabled';
+    nextLi.innerHTML = '<a href="#">&raquo;</a>';
+    nextLi.addEventListener('click', function(e) {
+      e.preventDefault();
+      if (currentPage < totalPages) { currentPage++; render(); }
+    });
+    nav.appendChild(nextLi);
+  }
+
+  // ===================== EVENT LISTENERS =====================
+  var sortHeaders = document.querySelectorAll('#stale-report-table th.sortable');
+  sortHeaders.forEach(function(th) {
+    th.addEventListener('click', function() {
+      sortRows(this.getAttribute('data-sort'));
+    });
+  });
+
+  var buttons = document.querySelectorAll('[data-filter]');
+  buttons.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      buttons.forEach(function(b) { b.classList.remove('active'); });
+      this.classList.add('active');
+      currentFilter = this.getAttribute('data-filter');
+      currentPage = 1;
+      render();
+    });
+  });
+
+  var perPageSelect = document.getElementById('stale-per-page-select');
+  perPageSelect.addEventListener('change', function() {
+    var val = this.value;
+    perPage = (val === 'all') ? 'all' : parseInt(val, 10);
+    currentPage = 1;
+    render();
+  });
+
+  render();
+})();
+</script>
 
 {% else %}
 <p>{% trans %}No datasets with defined frequencies found in the selected scope.{% endtrans %}</p>
