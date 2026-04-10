@@ -132,7 +132,7 @@ def build_subject(
     prefix = toolkit.config.get('ckanext.contact.subject_prefix', '')
 
     return f'{prefix}{" " if prefix else ""}{subject}'
-from flask import jsonify
+
 import ckan.model as model   # 👈 import model explicitly
 
 def submit():
@@ -271,19 +271,19 @@ def submit():
             dataset_url = f'{site_url}/dataset/{pkg_dict["name"]}'
 
             # Στοιχεία Συντάκτη
-            author_email = pkg_dict.get("publisher")[0].get('email')
+            publishers = pkg_dict.get("publisher") or []
+            if publishers and isinstance(publishers[0], dict):
+                author_email = publishers[0].get('email')
 
             body_parts.append(f'  Dataset URL : {dataset_url}')
 
             # --------------Ανάκτηση email Οργανισμού--------
             org_summary = pkg_dict.get('organization')
-            if not org_summary:
-                return jsonify({'error': 'Package has no organization'}), 404
-
-            org_id = org_summary['id']
-            org_dict = toolkit.get_action('organization_show')(context, {'id': org_id})
-            org_email = org_dict.get('email')
-
+            if org_summary and org_summary.get('id'):
+                org_dict = toolkit.get_action('organization_show')(
+                    context, {'id': org_summary['id']}
+                )
+                org_email = (org_dict.get('email') or '').strip() or None
 
         # Δημιουργία Λίστας από παραλήπτες = Υπεύθυνος Επικοινωνίας + Συντάκτης + Λίστα από Διαχειριστών οργανισμού συνόλου δεδομένων
         recipients = []
