@@ -56,7 +56,20 @@
   </section>
 
   {% block package_search_results_api %}
-    {{ super() }}
+    {% set custom_api_doc_url = (config.get('ckanext.data_gov_gr.search.api_doc_url') or '') | trim %}
+    {% if custom_api_doc_url %}
+      <section class="module">
+        <div class="module-content">
+          <small>
+            {% set api_link = _('API') %}
+            {% set api_doc_link = h.link_to(_('API Docs'), custom_api_doc_url, target='_blank', rel='noopener noreferrer') %}
+            {% trans %} You can also access this registry using the {{ api_link }} (see {{ api_doc_link }}). {% endtrans %}
+          </small>
+        </div>
+      </section>
+    {% else %}
+      {{ super() }}
+    {% endif %}
   {% endblock %}
 {% endblock %}
 

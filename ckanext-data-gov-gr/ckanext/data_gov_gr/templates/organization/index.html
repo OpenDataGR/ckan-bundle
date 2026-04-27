@@ -1,5 +1,33 @@
 {% ckan_extends %}
 
+{% block organizations_search_form %}
+  {% set show_default_sort_label = (not q and sort_by_selected is none) %}
+  {% set default_sort = sort_by_selected if sort_by_selected else ('relevance' if q else '') %}
+  {% set sorting = [] %}
+  {% if q %}
+    {% set sorting = sorting + [(_('Relevance'), 'relevance')] %}
+  {% endif %}
+  {% if not show_default_sort_label %}
+    {% set sorting = sorting + [(_('Most Datasets'), 'dataset_count desc')] %}
+  {% endif %}
+  {% set sorting = sorting + [
+    (_('Fewest Datasets'), 'dataset_count asc'),
+    (_('Name Ascending'), 'title asc'),
+    (_('Name Descending'), 'title desc')
+  ] %}
+  {% snippet 'data_gov_gr/organization/snippets/search_form.html',
+    form_id='organization-search-form',
+    type=group_type,
+    query=q,
+    sorting_selected=default_sort,
+    default_sort_label=_('Most Datasets') if show_default_sort_label else none,
+    count=page.item_count,
+    placeholder=h.humanize_entity_type('organization', group_type, 'search placeholder') or _('Search organizations...'),
+    show_empty=request.args,
+    no_bottom_border=true if page.items,
+    sorting=sorting %}
+{% endblock %}
+
 {% block organizations_list %}
   {% if page.items or request.args %}
     {% if page.items %}

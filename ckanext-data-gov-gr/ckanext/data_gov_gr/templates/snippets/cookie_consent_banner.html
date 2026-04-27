@@ -1,0 +1,162 @@
+{% set consent_mode = h.matomo_consent_mode() %}
+{% if consent_mode and consent_mode != 'disabled' %}
+  {% set cookies_policy_page = (config.get('ckanext.data_gov_gr.pages.cookies_policy') or '').strip().strip('/') %}
+
+  <div id="cookie-consent-banner"
+       class="cookie-consent-banner"
+       role="dialog"
+       aria-modal="false"
+       aria-label="{{ _('Cookie consent') }}"
+       data-consent-mode="{{ consent_mode }}"
+       style="display: none;">
+    <div class="cookie-consent-inner">
+      <div class="cookie-consent-text">
+        {% if consent_mode == 'opt_out' %}
+          <p>
+            {{ _('This portal uses cookies and analytics to improve your experience. You can opt out of tracking at any time.') }}
+            {% if cookies_policy_page %}
+              <a href="{{ h.url_for('/pages/' ~ cookies_policy_page) }}" class="cookie-consent-policy-link">{{ _('Cookies Policy') }}</a>
+            {% endif %}
+          </p>
+        {% else %}
+          <p>
+            {{ _('This portal uses cookies and analytics to improve your experience. Please choose whether to accept or decline.') }}
+            {% if cookies_policy_page %}
+              <a href="{{ h.url_for('/pages/' ~ cookies_policy_page) }}" class="cookie-consent-policy-link">{{ _('Cookies Policy') }}</a>
+            {% endif %}
+          </p>
+        {% endif %}
+      </div>
+      <div class="cookie-consent-actions">
+        {% if consent_mode in ('tracking_consent', 'cookie_consent') %}
+          <button type="button" id="cookie-consent-accept" class="btn cookie-consent-btn-accept">
+            {{ _('Accept') }}
+          </button>
+          <button type="button" id="cookie-consent-decline" class="btn cookie-consent-btn-decline">
+            {{ _('Decline') }}
+          </button>
+        {% elif consent_mode == 'opt_out' %}
+          <button type="button" id="cookie-consent-optout" class="btn cookie-consent-btn-decline">
+            {{ _('Opt Out of Tracking') }}
+          </button>
+          <button type="button" id="cookie-consent-close" class="btn cookie-consent-btn-close" aria-label="{{ _('Close') }}">
+            &times;
+          </button>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    var banner = document.getElementById('cookie-consent-banner');
+    if (!banner) return;
+    var mode = banner.getAttribute('data-consent-mode');
+    var _paq = window._paq = window._paq || [];
+
+    function hasCookie(name) {
+      return document.cookie.split(';').some(function (c) {
+        return c.trim().indexOf(name + '=') === 0;
+      });
+    }
+
+    function setCookie(name, value, days) {
+      var expires = '';
+      if (days) {
+        var d = new Date();
+        d.setTime(d.getTime() + (days * 24 * 60 * 60 * 1000));
+        expires = '; expires=' + d.toUTCString();
+      }
+      document.cookie = name + '=' + (value || '') + expires + '; path=/; SameSite=Lax';
+    }
+
+    if (mode === 'tracking_consent' || mode === 'cookie_consent') {
+      var consentCookie = (mode === 'tracking_consent') ? 'mtm_consent' : 'mtm_cookie_consent';
+      var declineCookie = (mode === 'tracking_consent') ? 'mtm_tracking_declined' : 'mtm_cookie_declined';
+
+      if (hasCookie(consentCookie) || hasCookie(declineCookie)) {
+        return;
+      }
+
+      banner.style.display = 'flex';
+
+      var acceptBtn = document.getElementById('cookie-consent-accept');
+      var declineBtn = document.getElementById('cookie-consent-decline');
+
+      if (acceptBtn) {
+        acceptBtn.addEventListener('click', function () {
+          if (mode === 'tracking_consent') {
+            _paq.push(['rememberConsentGiven']);
+          } else {
+            _paq.push(['rememberCookieConsentGiven']);
+          }
+          setCookie(consentCookie, '1', 365);
+          banner.style.display = 'none';
+        });
+      }
+
+      if (declineBtn) {
+        declineBtn.addEventListener('click', function () {
+          if (mode === 'tracking_consent') {
+            _paq.push(['forgetConsentGiven']);
+          } else {
+            _paq.push(['forgetCookieConsentGiven']);
+          }
+          setCookie(declineCookie, '1', 365);
+          banner.style.display = 'none';
+        });
+      }
+
+    } else if (mode === 'opt_out') {
+      try {
+        if (window.sessionStorage && sessionStorage.getItem('cookieConsentBannerDismissed') === '1') {
+          return;
+        }
+      } catch (e) {}
+
+      var optoutBtn = document.getElementById('cookie-consent-optout');
+      var closeBtn = document.getElementById('cookie-consent-close');
+
+      function showBanner() {
+        _paq.push([function () {
+          if (optoutBtn) {
+            if (this.isUserOptedOut()) {
+              optoutBtn.textContent = '{{ _("Resume Tracking") }}';
+            } else {
+              optoutBtn.textContent = '{{ _("Opt Out of Tracking") }}';
+            }
+          }
+          banner.style.display = 'flex';
+        }]);
+      }
+
+      showBanner();
+
+      if (optoutBtn) {
+        optoutBtn.addEventListener('click', function () {
+          _paq.push([function () {
+            if (this.isUserOptedOut()) {
+              _paq.push(['forgetUserOptOut']);
+              optoutBtn.textContent = '{{ _("Opt Out of Tracking") }}';
+            } else {
+              _paq.push(['optUserOut']);
+              optoutBtn.textContent = '{{ _("Resume Tracking") }}';
+            }
+          }]);
+        });
+      }
+
+      if (closeBtn) {
+        closeBtn.addEventListener('click', function () {
+          banner.style.display = 'none';
+          try {
+            if (window.sessionStorage) {
+              sessionStorage.setItem('cookieConsentBannerDismissed', '1');
+            }
+          } catch (e) {}
+        });
+      }
+    }
+  })();
+  </script>
+{% endif %}

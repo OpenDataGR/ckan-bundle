@@ -46,6 +46,45 @@
           field_clear='clear_logo_upload'
         ) }}
 
+        {# Preset logo dropdown — χρησιμοποιείται μόνο όταν το ckan.site_logo είναι άδειο #}
+        {% set logo_preset_options = [
+          {'value': 'white-gradient-blue-trimmed-transparent.png', 'text': 'white-gradient-blue'},
+          {'value': 'data.gov.gr-cyan-trimmed-transparent.png',    'text': 'data.gov.gr-cyan'},
+          {'value': 'data.gov.gr-gray-trimmed-transparent.png',    'text': 'data.gov.gr-gray'},
+          {'value': 'data.gov.gr-orange-trimmed-transparent.png',  'text': 'data.gov.gr-orange'},
+          {'value': 'data.gov.gr-turquoise-trimmed-transparent.png', 'text': 'data.gov.gr-turquoise'},
+          {'value': 'data.gov.gr-white-trimmed-transparent.png',   'text': 'data.gov.gr-white'}
+        ] %}
+        {% set logo_preset_selected = data.get('ckanext.data_gov_gr.header.logo_preset', 'white-gradient-blue-trimmed-transparent.png') %}
+        {{ form.select(
+          'ckanext.data_gov_gr.header.logo_preset',
+          id='field-ckanext.data_gov_gr.header.logo_preset',
+          label=_('Preset λογότυπο header (από /images/data-gov-gr/)'),
+          options=logo_preset_options,
+          selected=logo_preset_selected,
+          error=errors.get('ckanext.data_gov_gr.header.logo_preset'),
+          classes=['control-medium']
+        ) }}
+        <p class="help-block" style="margin-top: -10px; margin-bottom: 4px;">
+          {{ _('Χρησιμοποιείται μόνο αν το «Site logo» παραπάνω είναι άδειο. Προεπιλογή: white-gradient-blue.') }}
+        </p>
+        <div id="dg-logo-preset-preview" style="margin-bottom: 16px; background: #1a3d7c; display: inline-block; padding: 8px 16px; border-radius: 4px;">
+          <img id="dg-logo-preset-img" src="" alt="preview" style="height: 36px; display: block;" />
+        </div>
+        <script>
+          (function () {
+            var BASE = '{{ h.url_for_static("/images/data-gov-gr/") }}';
+            var select = document.getElementById('field-ckanext.data_gov_gr.header.logo_preset');
+            var img = document.getElementById('dg-logo-preset-img');
+            if (!select || !img) return;
+            function update() {
+              img.src = BASE + select.value;
+            }
+            select.addEventListener('change', update);
+            update();
+          })();
+        </script>
+
           {% set botakis_enabled = h.get_config_as_bool('ckanext.data_gov_gr.botakis.enabled', False) %}
             <input
               type="hidden"
@@ -79,6 +118,137 @@
                 syncHidden();
               });
             </script>
+
+          <hr>
+          <h4>{{ _('Header') }}</h4>
+
+          {% set secretariat_logo_enabled = h.get_config_as_bool('ckanext.data_gov_gr.header.secretariat_logo.enabled', False) %}
+            <input
+              type="hidden"
+              id="field-ckanext.data_gov_gr.header.secretariat_logo.enabled-hidden"
+              name="ckanext.data_gov_gr.header.secretariat_logo.enabled"
+              value="false"
+              {% if secretariat_logo_enabled %}disabled="disabled"{% endif %}
+            />
+            {% call form.checkbox(
+              'ckanext.data_gov_gr.header.secretariat_logo.enabled',
+              id='field-ckanext.data_gov_gr.header.secretariat_logo.enabled',
+              label=_('Εμφάνιση λογοτύπου Γραμματείας στο header'),
+              value='true',
+              checked=secretariat_logo_enabled
+            ) %}
+              <p class="help-block">
+                {{ _('Εμφανίζει το λογότυπο της Γραμματείας Διακυβέρνησης Δεδομένων AI δεξιά του λογοτύπου data.gov.gr στο header.') }}
+              </p>
+            {% endcall %}
+            <script>
+              document.addEventListener('DOMContentLoaded', function () {
+                var checkbox = document.getElementById('field-ckanext.data_gov_gr.header.secretariat_logo.enabled');
+                var hidden = document.getElementById('field-ckanext.data_gov_gr.header.secretariat_logo.enabled-hidden');
+                if (!checkbox || !hidden) {
+                  return;
+                }
+                function syncHidden() {
+                  hidden.disabled = !!checkbox.checked;
+                }
+                checkbox.addEventListener('change', syncHidden);
+                syncHidden();
+              });
+            </script>
+
+          <hr>
+          <h4>{{ _('Matomo — Συγκατάθεση Cookies') }}</h4>
+
+          {% set consent_mode_options = [
+            {'value': 'disabled', 'text': _('Απενεργοποιημένο (χωρίς banner)')},
+            {'value': 'tracking_consent', 'text': _('Πλήρης συγκατάθεση (tracking consent)')},
+            {'value': 'cookie_consent', 'text': _('Συγκατάθεση cookies μόνο (cookie consent)')},
+            {'value': 'opt_out', 'text': _('Opt-out (ο χρήστης μπορεί να εξαιρεθεί)')}
+          ] %}
+          {{ form.select(
+            'ckanext.matomo.consent_mode',
+            id='field-ckanext.matomo.consent_mode',
+            label=_('Λειτουργία συγκατάθεσης Matomo'),
+            options=consent_mode_options,
+            selected=data.get('ckanext.matomo.consent_mode', 'disabled'),
+            error=errors.get('ckanext.matomo.consent_mode'),
+            classes=['control-medium']
+          ) }}
+          <p class="help-block" style="margin-top: -10px; margin-bottom: 16px">
+            {{ _('Επιλέξτε τη λειτουργία banner συγκατάθεσης cookies/tracking για το Matomo. «Απενεργοποιημένο» = καμία αλλαγή (τρέχουσα συμπεριφορά).') }}
+          </p>
+
+          <hr>
+          <h4>{{ _('Footer') }}</h4>
+
+          {{ form.input(
+            'ckanext.data_gov_gr.pages.faq',
+            id='field-ckanext.data_gov_gr.pages.faq',
+            label=_('Σελίδα Συχνών Ερωτήσεων (FAQ) — όνομα σελίδας'),
+            value=data.get('ckanext.data_gov_gr.pages.faq', ''),
+            error=errors.get('ckanext.data_gov_gr.pages.faq'),
+            placeholder='faq',
+            classes=['control-medium']
+          ) }}
+          <p class="help-block" style="margin-top: -24px; margin-bottom: 16px">
+            {{ _('Αν συμπληρωθεί, εμφανίζεται στη στήλη «Κοινότητα» του footer σύνδεσμος «Συχνές Ερωτήσεις» που παραπέμπει στο /pages/{slug}. Αφήστε κενό για να μη φαίνεται.') }}
+          </p>
+
+          {{ form.input(
+            'ckanext.data_gov_gr.pages.cookies_policy',
+            id='field-ckanext.data_gov_gr.pages.cookies_policy',
+            label=_('Σελίδα Πολιτικής Cookies — όνομα σελίδας'),
+            value=data.get('ckanext.data_gov_gr.pages.cookies_policy', ''),
+            error=errors.get('ckanext.data_gov_gr.pages.cookies_policy'),
+            placeholder='cookies-policy',
+            classes=['control-medium']
+          ) }}
+          <p class="help-block" style="margin-top: -24px; margin-bottom: 16px">
+            {{ _('Αν συμπληρωθεί, εμφανίζεται στη στήλη «Σχετικά» του footer σύνδεσμος «Πολιτική Cookies» που παραπέμπει στο /pages/{slug}. Αφήστε κενό για να μη φαίνεται.') }}
+          </p>
+
+          {{ form.input(
+            'ckanext.data_gov_gr.pages.privacy_policy',
+            id='field-ckanext.data_gov_gr.pages.privacy_policy',
+            label=_('Σελίδα Πολιτικής Απορρήτου — όνομα σελίδας'),
+            value=data.get('ckanext.data_gov_gr.pages.privacy_policy', ''),
+            error=errors.get('ckanext.data_gov_gr.pages.privacy_policy'),
+            placeholder='privacy-policy',
+            classes=['control-medium']
+          ) }}
+          <p class="help-block" style="margin-top: -24px; margin-bottom: 16px">
+            {{ _('Αν συμπληρωθεί, εμφανίζεται στη στήλη «Σχετικά» του footer σύνδεσμος «Πολιτική Απορρήτου» που παραπέμπει στο /pages/{slug}. Αφήστε κενό για να μη φαίνεται.') }}
+          </p>
+
+          {% set mindigital_logo_options = [
+            {'value': 'light', 'text': _('Light (ανοιχτή απόχρωση μπλε)')},
+            {'value': 'dark',  'text': _('Dark (σκοτεινή απόχρωση μπλε)')}
+          ] %}
+          {{ form.select(
+            'ckanext.data_gov_gr.footer.mindigital_logo_variant',
+            id='field-ckanext.data_gov_gr.footer.mindigital_logo_variant',
+            label=_('Λογότυπο Footer (Υπ. Ψηφιακής Διακυβέρνησης)'),
+            options=mindigital_logo_options,
+            selected=data.get('ckanext.data_gov_gr.footer.mindigital_logo_variant', 'light'),
+            error=errors.get('ckanext.data_gov_gr.footer.mindigital_logo_variant'),
+            classes=['control-medium']
+          ) }}
+
+          <hr>
+          <h4>{{ _('Διάφορα') }}</h4>
+
+          {{ form.input(
+            'ckanext.data_gov_gr.search.api_doc_url',
+            id='field-ckanext.data_gov_gr.search.api_doc_url',
+            label=_('Σύνδεσμος τεκμηρίωσης API (API Docs URL)'),
+            value=data.get('ckanext.data_gov_gr.search.api_doc_url', ''),
+            error=errors.get('ckanext.data_gov_gr.search.api_doc_url'),
+            placeholder='https://...',
+            classes=['control-medium']
+          ) }}
+          <p class="help-block" style="margin-top: -24px; margin-bottom: 16px">
+            {{ _('Αν συμπληρωθεί, εμφανίζεται στη σελίδα αναζήτησης συνόλων δεδομένων σύνδεσμος «API Docs» που ανοίγει σε νέα καρτέλα. Αφήστε κενό για να χρησιμοποιηθεί η προεπιλεγμένη τεκμηρίωση του CKAN.') }}
+          </p>
 
           {% set activity_stream_restricted = h.get_config_as_bool('ckanext.data_gov_gr.activity_stream.dataset.restrict_visibility', True) %}
           <input
@@ -172,7 +342,7 @@
 		            checked=portal_numbers_checked
 		          ) %}
 		            <p class="help-block">
-		              {{ _('Εμφανίζει τις 3 κάρτες με αριθμούς (Σύνολα δεδομένων, Οργανισμοί, Υπηρεσίες Δεδομένων) στην αρχική σελίδα.') }}
+		              {{ _('Εμφανίζει τις 3 κάρτες με αριθμούς (Σύνολα Δεδομένων, Οργανισμοί, Υπηρεσίες Δεδομένων) στην αρχική σελίδα.') }}
 		            </p>
 		          {% endcall %}
 		          <script>
@@ -201,7 +371,7 @@
 	          {% call form.checkbox(
 	            'ckanext.data_gov_gr.home.reuse_stats.enabled',
 	            id='field-ckanext.data_gov_gr.home.reuse_stats.enabled',
-	            label=_('Εμφάνιση ενότητας «Στατιστικά Επανάχρησης» στην αρχική'),
+	            label=_('Εμφάνιση ενότητας «Στατιστικά Επανάχρησης Δεδομένων» στην αρχική'),
 	            value='true',
 	            checked=reuse_stats_checked
 	          ) %}
@@ -263,12 +433,12 @@
 
 	          {% set stats_items = [
 	            {'value': '', 'text': _('— Καμία επιλογή —')},
-	            {'value': 'datasets_by_theme', 'text': _('Σύνολα δεδομένων ανά θεματική κατηγορία')},
-	            {'value': 'datasets_by_publisher_type', 'text': _('Σύνολα δεδομένων ανά τύπο εκδότη')},
-            {'value': 'datasets_by_organization', 'text': _('Σύνολα δεδομένων ανά οργανισμό')},
-            {'value': 'datasets_vs_services', 'text': _('Σύνολα δεδομένων vs Υπηρεσίες δεδομένων')},
-            {'value': 'datasets_by_hvd_category', 'text': _('Σύνολα δεδομένων ανά κατηγορία HVD')},
-            {'value': 'organizations_by_publisher_type', 'text': _('Οργανισμοί ανά τύπο εκδότη')},
+	            {'value': 'datasets_by_theme', 'text': _('Σύνολα Δεδομένων ανά Θεματική Κατηγορία')},
+	            {'value': 'datasets_by_publisher_type', 'text': _('Σύνολα Δεδομένων ανά Τύπο Εκδότη')},
+            {'value': 'datasets_by_organization', 'text': _('Σύνολα Δεδομένων ανά Οργανισμό')},
+            {'value': 'datasets_vs_services', 'text': _('Σύνολα Δεδομένων vs Υπηρεσίες Δεδομένων')},
+            {'value': 'datasets_by_hvd_category', 'text': _('Σύνολα Δεδομένων ανά Κατηγορία HVD')},
+            {'value': 'organizations_by_publisher_type', 'text': _('Οργανισμοί ανά Τύπο Εκδότη')},
             {'value': 'total_datasets', 'text': _('Συνολικός αριθμός πακέτων')},
             {'value': 'dataset_revisions', 'text': _('Εξελίξεις πακέτων ανά εβδομάδα')},
             {'value': 'most_edited', 'text': _('Περισσότερο επεξεργασμένα πακέτα')},
@@ -516,7 +686,7 @@
           <h4>{{ _('Μενού Συνόλων Δεδομένων (Dropdown)') }}</h4>
 
           <p class="help-block">
-            {{ _('Ορίστε παραμετρικές επιλογές για το dropdown «Σύνολα δεδομένων» στην κεφαλίδα.') }}
+            {{ _('Ορίστε παραμετρικές επιλογές για το dropdown «Σύνολα Δεδομένων» στην κεφαλίδα.') }}
             {{ _('Κάθε γραμμή στον πίνακα αντιστοιχεί σε μία επιλογή (Ετικέτα + Query).') }}
             {{ _('Χρησιμοποιήστε το κουμπί \"+\" για να προσθέσετε νέες επιλογές μία-μία και το \"−\" για να αφαιρέσετε κάποια. ') }}
             {{ _('Στο πεδίο \"Query\" μπορείτε είτε να επικολλήσετε απευθείας το URL από τη σελίδα αναζήτησης (π.χ. /dataset/?is_hvd=Yes), είτε μόνο το query μέρος (π.χ. fq=is_hvd:true).') }}
@@ -686,6 +856,217 @@
 	          error=errors['guides_base_url'],
 	          placeholder='https://data-gov-gr.gitbook.io/guides'
 	        ) }}
+
+        <hr>
+
+        {% set pdf_auto_print_checked = h.get_config_as_bool('ckanext.data_gov_gr.gitbook.pdf_auto_print', False) %}
+        <input
+          type="hidden"
+          id="field-ckanext.data_gov_gr.gitbook.pdf_auto_print-hidden"
+          name="ckanext.data_gov_gr.gitbook.pdf_auto_print"
+          value="false"
+          {% if pdf_auto_print_checked %}disabled="disabled"{% endif %}
+        />
+        {% call form.checkbox(
+          'ckanext.data_gov_gr.gitbook.pdf_auto_print',
+          id='field-ckanext.data_gov_gr.gitbook.pdf_auto_print',
+          label=_('Αυτόματο print dialog κατά τη λήψη PDF οδηγών'),
+          value='true',
+          checked=pdf_auto_print_checked
+        ) %}
+          <p class="help-block">
+            {{ _('Όταν είναι ενεργό, το κουμπί «Λήψη PDF» ανοίγει αυτόματα το παράθυρο εκτύπωσης του browser αντί να παραπέμπει απευθείας στη σελίδα.') }}
+          </p>
+        {% endcall %}
+        <script>
+          document.addEventListener('DOMContentLoaded', function () {
+            var checkbox = document.getElementById('field-ckanext.data_gov_gr.gitbook.pdf_auto_print');
+            var hidden = document.getElementById('field-ckanext.data_gov_gr.gitbook.pdf_auto_print-hidden');
+            if (!checkbox || !hidden) {
+              return;
+            }
+            function syncHidden() {
+              hidden.disabled = !!checkbox.checked;
+            }
+            checkbox.addEventListener('change', syncHidden);
+            syncHidden();
+          });
+        </script>
+
+        {% set pdf_per_page_auto_print_checked = h.get_config_as_bool('ckanext.data_gov_gr.gitbook.pdf_per_page_auto_print', True) %}
+        <input
+          type="hidden"
+          id="field-ckanext.data_gov_gr.gitbook.pdf_per_page_auto_print-hidden"
+          name="ckanext.data_gov_gr.gitbook.pdf_per_page_auto_print"
+          value="false"
+          {% if pdf_per_page_auto_print_checked %}disabled="disabled"{% endif %}
+        />
+        {% call form.checkbox(
+          'ckanext.data_gov_gr.gitbook.pdf_per_page_auto_print',
+          id='field-ckanext.data_gov_gr.gitbook.pdf_per_page_auto_print',
+          label=_('Αυτόματο print dialog κατά τη λήψη PDF μεμονωμένης ενότητας'),
+          value='true',
+          checked=pdf_per_page_auto_print_checked
+        ) %}
+          <p class="help-block">
+            {{ _('Όταν είναι ενεργό, η λήψη PDF από το dropdown «Λήψη οδηγού ανά ενότητα» ανοίγει αυτόματα το παράθυρο εκτύπωσης. Ανεξάρτητο από τη ρύθμιση για τη λήψη όλων των οδηγών.') }}
+          </p>
+        {% endcall %}
+        <script>
+          document.addEventListener('DOMContentLoaded', function () {
+            var checkbox = document.getElementById('field-ckanext.data_gov_gr.gitbook.pdf_per_page_auto_print');
+            var hidden = document.getElementById('field-ckanext.data_gov_gr.gitbook.pdf_per_page_auto_print-hidden');
+            if (!checkbox || !hidden) {
+              return;
+            }
+            function syncHidden() {
+              hidden.disabled = !!checkbox.checked;
+            }
+            checkbox.addEventListener('change', syncHidden);
+            syncHidden();
+          });
+        </script>
+
+        <hr>
+        <h4>{{ _('Εμφάνιση πλαισίων λήψης PDF στη σελίδα Εργαλείων') }}</h4>
+
+        {% set pdf_all_guides_panel_checked = h.get_config_as_bool('ckanext.data_gov_gr.gitbook.pdf_all_guides_panel.enabled', True) %}
+        <input
+          type="hidden"
+          id="field-ckanext.data_gov_gr.gitbook.pdf_all_guides_panel.enabled-hidden"
+          name="ckanext.data_gov_gr.gitbook.pdf_all_guides_panel.enabled"
+          value="false"
+          {% if pdf_all_guides_panel_checked %}disabled="disabled"{% endif %}
+        />
+        {% call form.checkbox(
+          'ckanext.data_gov_gr.gitbook.pdf_all_guides_panel.enabled',
+          id='field-ckanext.data_gov_gr.gitbook.pdf_all_guides_panel.enabled',
+          label=_('Εμφάνιση πλαισίου «Κατεβάστε τους οδηγούς (PDF)»'),
+          value='true',
+          checked=pdf_all_guides_panel_checked
+        ) %}
+          <p class="help-block">
+            {{ _('Εμφανίζει/αποκρύπτει το πλαίσιο λήψης PDF για όλους τους οδηγούς στη σελίδα Εργαλείων (/more).') }}
+          </p>
+        {% endcall %}
+        <script>
+          document.addEventListener('DOMContentLoaded', function () {
+            var checkbox = document.getElementById('field-ckanext.data_gov_gr.gitbook.pdf_all_guides_panel.enabled');
+            var hidden = document.getElementById('field-ckanext.data_gov_gr.gitbook.pdf_all_guides_panel.enabled-hidden');
+            if (!checkbox || !hidden) {
+              return;
+            }
+            function syncHidden() {
+              hidden.disabled = !!checkbox.checked;
+            }
+            checkbox.addEventListener('change', syncHidden);
+            syncHidden();
+          });
+        </script>
+
+        {% set pdf_per_page_panel_checked = h.get_config_as_bool('ckanext.data_gov_gr.gitbook.pdf_per_page_panel.enabled', True) %}
+        <input
+          type="hidden"
+          id="field-ckanext.data_gov_gr.gitbook.pdf_per_page_panel.enabled-hidden"
+          name="ckanext.data_gov_gr.gitbook.pdf_per_page_panel.enabled"
+          value="false"
+          {% if pdf_per_page_panel_checked %}disabled="disabled"{% endif %}
+        />
+        {% call form.checkbox(
+          'ckanext.data_gov_gr.gitbook.pdf_per_page_panel.enabled',
+          id='field-ckanext.data_gov_gr.gitbook.pdf_per_page_panel.enabled',
+          label=_('Εμφάνιση πλαισίου «Λήψη οδηγού ανά ενότητα»'),
+          value='true',
+          checked=pdf_per_page_panel_checked
+        ) %}
+          <p class="help-block">
+            {{ _('Εμφανίζει/αποκρύπτει το πλαίσιο λήψης PDF ανά ενότητα (dropdown) στη σελίδα Εργαλείων (/more).') }}
+          </p>
+        {% endcall %}
+        <script>
+          document.addEventListener('DOMContentLoaded', function () {
+            var checkbox = document.getElementById('field-ckanext.data_gov_gr.gitbook.pdf_per_page_panel.enabled');
+            var hidden = document.getElementById('field-ckanext.data_gov_gr.gitbook.pdf_per_page_panel.enabled-hidden');
+            if (!checkbox || !hidden) {
+              return;
+            }
+            function syncHidden() {
+              hidden.disabled = !!checkbox.checked;
+            }
+            checkbox.addEventListener('change', syncHidden);
+            syncHidden();
+          });
+        </script>
+
+        <hr>
+
+        {% set guides_embed_checked = h.get_config_as_bool('ckanext.contact.guides_embed.enabled', True) %}
+        <input
+          type="hidden"
+          id="field-ckanext.contact.guides_embed.enabled-hidden"
+          name="ckanext.contact.guides_embed.enabled"
+          value="false"
+          {% if guides_embed_checked %}disabled="disabled"{% endif %}
+        />
+        {% call form.checkbox(
+          'ckanext.contact.guides_embed.enabled',
+          id='field-ckanext.contact.guides_embed.enabled',
+          label=_('Εμφάνιση embedded οδηγών στη σελίδα επικοινωνίας'),
+          value='true',
+          checked=guides_embed_checked
+        ) %}
+          <p class="help-block">
+            {{ _('Ενεργοποιεί/απενεργοποιεί την εμφάνιση του iframe με τους οδηγούς (GitBook) στη σελίδα επικοινωνίας/υποστήριξης.') }}
+          </p>
+        {% endcall %}
+        <script>
+          document.addEventListener('DOMContentLoaded', function () {
+            var checkbox = document.getElementById('field-ckanext.contact.guides_embed.enabled');
+            var hidden = document.getElementById('field-ckanext.contact.guides_embed.enabled-hidden');
+            if (!checkbox || !hidden) {
+              return;
+            }
+            function syncHidden() {
+              hidden.disabled = !!checkbox.checked;
+            }
+            checkbox.addEventListener('change', syncHidden);
+            syncHidden();
+          });
+        </script>
+
+        {% set contact_support_faq_checked = h.get_config_as_bool('ckanext.contact.support_faq.enabled', False) %}
+        <input
+          type="hidden"
+          id="field-ckanext.contact.support_faq.enabled-hidden"
+          name="ckanext.contact.support_faq.enabled"
+          value="false"
+          {% if contact_support_faq_checked %}disabled="disabled"{% endif %}
+        />
+        {% call form.checkbox(
+          'ckanext.contact.support_faq.enabled',
+          id='field-ckanext.contact.support_faq.enabled',
+          label=_('Εμφάνιση ενότητας «Συχνές Ερωτήσεις» στη σελίδα επικοινωνίας'),
+          value='true',
+          checked=contact_support_faq_checked
+        ) %}
+          <p class="help-block">
+            {{ _('Ενεργοποιεί/απενεργοποιεί την εμφάνιση της ενσωματωμένης ενότητας FAQ (GitBook) στη σελίδα επικοινωνίας/υποστήριξης.') }}
+          </p>
+        {% endcall %}
+        <script>
+          document.addEventListener('DOMContentLoaded', function () {
+            var checkbox = document.getElementById('field-ckanext.contact.support_faq.enabled');
+            var hidden = document.getElementById('field-ckanext.contact.support_faq.enabled-hidden');
+            if (!checkbox || !hidden) {
+              return;
+            }
+            function syncHidden() {
+              hidden.disabled = !!checkbox.checked;
+            }
+            checkbox.addEventListener('change', syncHidden);
+            syncHidden();
+          });
+        </script>
 
 	        <p class="help-block">
 	          {{ _('Ορίστε λίστα επιλογών (dropdown) για το embedded περιεχόμενο στη σελίδα επικοινωνίας. ') }}
@@ -1112,7 +1493,14 @@
         <li><strong>{{ _('Site Title') }}:</strong> {{ _('Ο τίτλος της πύλης, όπως εμφανίζεται στην κεφαλίδα και σε διάφορα σημεία του CKAN.') }}</li>
         <li><strong>{{ _('Site logo') }}:</strong> {{ _('Το λογότυπο που εμφανίζεται στην κεφαλίδα όλων των σελίδων της πύλης (μπορεί να δοθεί ως URL ή να ανέβει ως εικόνα).') }}</li>
         <li><strong>{{ _('Εμφάνιση Botaki (webchat)') }}:</strong> {{ _('Ενεργοποιεί/απενεργοποιεί την εμφάνιση του Botaki στο site.') }}</li>
+        <li><strong>{{ _('Εμφάνιση λογοτύπου Γραμματείας στο header') }}:</strong> {{ _('Εμφανίζει το λογότυπο της Γραμματείας Διακυβέρνησης Δεδομένων AI δεξιά του λογοτύπου data.gov.gr, με λευκή κάθετη γραμμή ως διαχωριστικό.') }}</li>
+        <li><strong>{{ _('Λειτουργία συγκατάθεσης Matomo') }}:</strong> {{ _('Ελέγχει αν εμφανίζεται banner συγκατάθεσης cookies/tracking. Απενεργοποιημένο = τρέχουσα συμπεριφορά χωρίς banner. Tracking consent = πλήρης συναίνεση πριν οποιοδήποτε tracking. Cookie consent = tracking χωρίς cookies μέχρι αποδοχή. Opt-out = tracking by default, ο χρήστης μπορεί να εξαιρεθεί.') }}</li>
+        <li><strong>{{ _('Σελίδα Συχνών Ερωτήσεων (FAQ)') }}:</strong> {{ _('Αν συμπληρωθεί με το slug της CKAN σελίδας (π.χ. faq), εμφανίζεται σύνδεσμος «Συχνές Ερωτήσεις» στη στήλη Κοινότητας του footer.') }}</li>
+        <li><strong>{{ _('Σελίδα Πολιτικής Cookies') }}:</strong> {{ _('Αν συμπληρωθεί με το slug της CKAN σελίδας (π.χ. cookies-policy), εμφανίζεται σύνδεσμος «Πολιτική Cookies» στη στήλη Σχετικά του footer.') }}</li>
+        <li><strong>{{ _('Σελίδα Πολιτικής Απορρήτου') }}:</strong> {{ _('Αν συμπληρωθεί με το slug της CKAN σελίδας (π.χ. privacy-policy), εμφανίζεται σύνδεσμος «Πολιτική Απορρήτου» στη στήλη Σχετικά του footer.') }}</li>
+        <li><strong>{{ _('Λογότυπο Footer (Υπ. Ψηφιακής Διακυβέρνησης)') }}:</strong> {{ _('Επιλέγει την παραλλαγή του λογοτύπου του Υπουργείου Ψηφιακής Διακυβέρνησης που εμφανίζεται κάτω αριστερά στο footer (light ή dark).') }}</li>
         <li><strong>{{ _('Περιορισμός ορατότητας της ροής δραστηριότητας') }}:</strong> {{ _('Ενεργοποιεί ή απενεργοποιεί τον περιορισμό της ροής δραστηριότητας μόνο σε sysadmins και admins του αντίστοιχου φορέα.') }}</li>
+        <li><strong>{{ _('Σύνδεσμος τεκμηρίωσης API') }}:</strong> {{ _('Αν συμπληρωθεί, αντικαθιστά τον προεπιλεγμένο σύνδεσμο «API Docs» στη σελίδα αναζήτησης. Ανοίγει σε νέα καρτέλα.') }}</li>
       </ul>
     </div>
 
@@ -1120,7 +1508,7 @@
 		      <h4>{{ _('Αρχική') }}</h4>
 		      <ul>
 		        <li><strong>{{ _('Οδηγοί στην αρχική σελίδα') }}:</strong> {{ _('Ορίστε τα URLs που εμφανίζονται στην ενότητα οδηγών στην αρχική σελίδα.') }}</li>
-		        <li><strong>{{ _('Στατιστικά Επανάχρησης') }}:</strong> {{ _('Εμφανίζει/αποκρύπτει τα στατιστικά επανάχρησης στην αρχική σελίδα.') }}</li>
+		        <li><strong>{{ _('Στατιστικά Επανάχρησης Δεδομένων') }}:</strong> {{ _('Εμφανίζει/αποκρύπτει τα στατιστικά επανάχρησης στην αρχική σελίδα.') }}</li>
 			        {% if show_home_stats_section %}
 			          <li><strong>{{ _('Στατιστικά αρχικής σελίδας') }}:</strong> {{ _('Επιλέξτε μέχρι τέσσερα πλακίδια στατιστικών για την αρχική σελίδα.') }}</li>
 			        {% endif %}
@@ -1145,7 +1533,7 @@
       <h4>{{ _('Μενού / Αναζήτηση') }}</h4>
       <ul>
         {% if show_dataset_menu_section %}
-          <li><strong>{{ _('Μενού Συνόλων Δεδομένων (Dropdown)') }}:</strong> {{ _('Οι επιλογές που ορίζονται εδώ εμφανίζονται ως υπο-μενού κάτω από το «Σύνολα δεδομένων».') }}</li>
+          <li><strong>{{ _('Μενού Συνόλων Δεδομένων (Dropdown)') }}:</strong> {{ _('Οι επιλογές που ορίζονται εδώ εμφανίζονται ως υπο-μενού κάτω από το «Σύνολα Δεδομένων».') }}</li>
         {% endif %}
       </ul>
     </div>
@@ -1155,6 +1543,11 @@
 	      <h4>{{ _('Οδηγοί (GitBook)') }}</h4>
 	      <ul>
 	        <li><strong>{{ _('Σύνδεσμος οδηγών (base URL)') }}:</strong> {{ _('Ο βασικός σύνδεσμος προς τους οδηγούς (GitBook).') }}</li>
+	        <li><strong>{{ _('Αυτόματο print dialog κατά τη λήψη PDF') }}:</strong> {{ _('Όταν είναι ενεργό, το κουμπί «Λήψη PDF» στη σελίδα Εργαλείων ανοίγει τη σελίδα οδηγών μέσω proxy και εμφανίζει αυτόματα το παράθυρο εκτύπωσης του browser (ο χρήστης μπορεί να επιλέξει «Αποθήκευση ως PDF»). Όταν είναι ανενεργό, ο χρήστης ανακατευθύνεται απευθείας στη σελίδα οδηγών του GitBook.') }}</li>
+        <li><strong>{{ _('Αυτόματο print dialog — μεμονωμένη ενότητα') }}:</strong> {{ _('Ίδια λειτουργία με το παραπάνω, αλλά αφορά αποκλειστικά τη λήψη PDF μεμονωμένης ενότητας (dropdown «Λήψη οδηγού ανά ενότητα»). Ανεξάρτητο από τη γενική ρύθμιση.') }}</li>
+        <li><strong>{{ _('Εμφάνιση πλαισίου «Κατεβάστε τους οδηγούς (PDF)»') }}:</strong> {{ _('Εμφανίζει ή αποκρύπτει το πλαίσιο λήψης PDF για όλους τους οδηγούς στη σελίδα Εργαλείων (/more).') }}</li>
+        <li><strong>{{ _('Εμφάνιση πλαισίου «Λήψη οδηγού ανά ενότητα»') }}:</strong> {{ _('Εμφανίζει ή αποκρύπτει το πλαίσιο λήψης PDF ανά ενότητα (dropdown) στη σελίδα Εργαλείων (/more).') }}</li>
+	        <li><strong>{{ _('Εμφάνιση ενότητας «Συχνές Ερωτήσεις»') }}:</strong> {{ _('Ενεργοποιεί/απενεργοποιεί την ενσωματωμένη ενότητα FAQ (GitBook) στη σελίδα επικοινωνίας/υποστήριξης.') }}</li>
 	        <li><strong>{{ _('Επιλογές embed στη σελίδα επικοινωνίας') }}:</strong> {{ _('Η λίστα καθορίζει τις κατηγορίες που εμφανίζονται στο dropdown. Αν μείνει κενή, δεν θα εμφανιστεί dropdown.') }}</li>
 	      </ul>
 	    </div>

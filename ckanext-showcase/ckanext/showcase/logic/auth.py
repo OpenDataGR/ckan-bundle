@@ -31,12 +31,14 @@ def get_auth_functions():
 
 def _is_showcase_admin(context):
     '''
-    Determines whether user in context is in the showcase admin list.
+    Determines whether user in context can act as a showcase admin.
     '''
     user = context.get('user', '')
     userobj = model.User.get(user)
     if userobj == None:
         return False
+    if getattr(userobj, 'sysadmin', False):
+        return True
     return ShowcaseAdmin.is_user_showcase_admin(userobj)
 
 

@@ -46,6 +46,11 @@
             </button>
           </form>
         </li>
+        {% endblock %}
+        {% block header_account_language %}
+        <li class="account-language-switcher">
+          {% snippet "snippets/language_switcher.html" %}
+        </li>
         {% endblock %} {% endblock %}
       </ul>
     </div>
@@ -56,6 +61,9 @@
         <li class="account-login-register">
           {% set login_label = _('Login') %}
           {% link_for login_label, named_route='user.login' %}
+        </li>
+        <li class="account-language-switcher">
+          {% snippet "snippets/language_switcher.html" %}
         </li>
 	        {% endblock %}
 	      </ul>
@@ -79,14 +87,31 @@
           title="{{ g.site_title }}" />
       </a>
       {% else %}
-      <h1>
-        <a href="{{ h.url_for('home.index') }}">{{ g.site_title }}</a>
-      </h1>
-      {% if g.site_description %}
-      <h2>{{ g.site_description }}</h2>
-      {% endif %}
+        {% set _logo_preset = config.get('ckanext.data_gov_gr.header.logo_preset', 'white-gradient-blue-trimmed-transparent.png') %}
+        {% if _logo_preset %}
+        <a class="logo" href="{{ h.url_for('home.index') }}">
+          <img src="{{ h.url_for_static('/images/data-gov-gr/' ~ _logo_preset) }}" alt="{{ g.site_title }}"
+            title="{{ g.site_title }}" />
+        </a>
+        {% else %}
+        <h1>
+          <a href="{{ h.url_for('home.index') }}">{{ g.site_title }}</a>
+        </h1>
+        {% if g.site_description %}
+        <h2>{{ g.site_description }}</h2>
+        {% endif %}
+        {% endif %}
       {% endif %}
       {% endblock %}
+
+      {% if h.get_config_as_bool('ckanext.data_gov_gr.header.secretariat_logo.enabled', False) %}
+      <div class="header-secretariat-block">
+        <img class="header-secretariat-logo"
+             src="{{ h.url_for_static('/images/ai-data-governance-secretariat/ai-data-governance-secretariat-logo-white-trimmed.png') }}"
+             alt="Ειδική Γραμματεία Τεχνητής Νοημοσύνης και Διακυβέρνησης Δεδομένων"
+             title="Ειδική Γραμματεία Τεχνητής Νοημοσύνης και Διακυβέρνησης Δεδομένων" />
+      </div>
+      {% endif %}
 
        </div>
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#main-navigation-toggle"
@@ -159,7 +184,7 @@
           <form class="d-flex site-search" action="{% url_for dataset_type ~ '.search' %}" method="get">
               <label class="visually-hidden" for="field-sitewide-search">{% block header_site_search_label %}{{ h.humanize_entity_type('package', dataset_type, 'search_placeholder') or _('Search Datasets...') }}{% endblock %}</label>
               <input id="field-sitewide-search" class="form-control me-2"  type="text" name="q" placeholder="{{ _('Search') }}" aria-label="{{ h.humanize_entity_type('package', dataset_type, 'search_placeholder') or _('Search datasets...') }}"/>
-              <button class="btn" type="submit" aria-label="{{ _('Submit') }}"><i class="fa fa-search"></i></button>
+              <button class="btn" type="submit" aria-label="{{ _('Submit') }}" style="background: white; border-color: white;"><i class="fa fa-search"></i></button>
           </form>
       {% endblock %}
       </div>
@@ -167,6 +192,7 @@
   </div>
 </header>
 {% endblock %}
+
 
 {# Συμπεριφορά dropdown για \"Σύνολα Δεδομένων\":
    - Ανοίγει με κλικ στο tab (Bootstrap dropdown)

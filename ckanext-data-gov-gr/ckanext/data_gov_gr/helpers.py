@@ -19,6 +19,7 @@ from typing import (cast, Union)
 from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import aliased
 
+from ckanext.data_gov_gr import organization_stats
 from ckanext.data_gov_gr.stats import DataGovStats
 try:
     from ckanext.showcase.model import ShowcasePackageAssociation
@@ -105,92 +106,92 @@ def _get_home_stats_catalog():
             'route': 'stats.datasets_by_theme',
             'icon': 'fa fa-chart-pie',
             'title': _('Datasets Per Theme'),
-            'description': _('Πλήθος συνόλων δεδομένων ανά θεματική κατηγορία.')
+            'description': _('Number of Datasets per Thematic Category.')
         },
         {
             'id': 'datasets_by_publisher_type',
             'route': 'dataset_type.stats_datasets_by_publisher_type',
             'icon': 'fa fa-sitemap',
             'title': _('Datasets Per Publisher Type'),
-            'description': _('Πλήθος συνόλων δεδομένων ανά τύπο εκδότη.')
+            'description': _('Number of Datasets per Publisher Type.')
         },
         {
             'id': 'datasets_by_organization',
             'route': 'dataset_type.stats_datasets_per_organization',
             'icon': 'fa fa-building',
             'title': _('Datasets Per Organization'),
-            'description': _('Πλήθος συνόλων δεδομένων ανά οργανισμό.')
+            'description': _('Number of Datasets per Organization.')
         },
         {
             'id': 'datasets_vs_services',
             'route': 'dataset_type.stats_datasets_vs_services',
             'icon': 'fa fa-balance-scale',
             'title': _('Datasets vs Data Services'),
-            'description': _('Σύγκριση μεταξύ συνόλων δεδομένων και υπηρεσιών δεδομένων.')
+            'description': _('Comparison between Datasets and Data Services.')
         },
         {
             'id': 'datasets_by_hvd_category',
             'route': 'dataset_type.stats_datasets_by_hvd_category',
             'icon': 'fa fa-star',
             'title': _('Datasets Per High-Value Category'),
-            'description': _('Πλήθος HVD συνόλων δεδομένων ανά κατηγορία.')
+            'description': _('Number of HVD Datasets per Category.')
         },
         {
             'id': 'organizations_by_publisher_type',
             'route': 'stats.organizations_by_publisher_type',
             'icon': 'fa fa-building',
             'title': _('Organizations Per Publisher Type'),
-            'description': _('Πλήθος οργανισμών ανά τύπο εκδότη.')
+            'description': _('Number of Organizations per Publisher Type.')
         },
         {
             'id': 'total_datasets',
             'route': 'dataset_type.stats_total_datasets',
             'icon': 'fa fa-chart-line',
             'title': _('Total Number of Packages'),
-            'description': _('Εξέλιξη του συνολικού αριθμού πακέτων στο χρόνο.')
+            'description': _('Trend of the Total Number of Packages over Time.')
         },
         {
             'id': 'dataset_revisions',
             'route': 'dataset_type.stats_dataset_revisions',
             'icon': 'fa fa-chart-area',
             'title': _('Package Revisions per Week'),
-            'description': _('Μεταβολές και νέες δημοσιεύσεις πακέτων ανά εβδομάδα.')
+            'description': _('Package Updates and New Publications per Week.')
         },
         {
             'id': 'most_edited',
             'route': 'dataset_type.stats_most_edited',
             'icon': 'fa fa-edit',
             'title': _('Most Edited Packages'),
-            'description': _('Πακέτα με τις περισσότερες τροποποιήσεις.')
+            'description': _('Packages with the Most Changes.')
         },
         {
             'id': 'largest_groups',
             'route': 'dataset_type.stats_largest_groups',
             'icon': 'fa fa-users',
             'title': _('Largest Groups'),
-            'description': _('Ομάδες με τα περισσότερα συνδεδεμένα πακέτα.')
+            'description': _('Groups with the Most Connected Packages.')
         },
         {
             'id': 'top_tags',
             'route': 'dataset_type.stats_top_tags',
             'icon': 'fa fa-tags',
             'title': _('Top Tags'),
-            'description': _('Δημοφιλέστερες ετικέτες συνόλων δεδομένων.')
+            'description': _('Most Popular Dataset Tags.')
         },
         {
             'id': 'top_creators',
             'route': 'dataset_type.stats_top_creators',
             'icon': 'fa fa-user',
             'title': _('Users Creating Most Datasets'),
-            'description': _('Χρήστες που έχουν δημιουργήσει τα περισσότερα σύνολα δεδομένων.'),
+            'description': _('Users who Have Created the Most Datasets.'),
             'requires_sysadmin': True,
         },
         {
             'id': 'powerbi',
             'route': 'dataset_type.stats_powerbi',
             'icon': 'fa fa-chart-bar',
-            'title': _('Power BI Αναφορές'),
-            'description': _('Σύνθετες αναφορές και dashboards από Power BI.')
+            'title': _('Power BI Reports'),
+            'description': _('Advanced Reports and Dashboards from Power BI.')
         },
     ]
 
@@ -2170,7 +2171,7 @@ def get_home_reuse_stats() -> dict:
 
                     visitors_total = _get_total_visits(matomo_period, matomo_date_visitors)
                     if visitors_total is not None:
-                        visitors_label = 'Total visits'
+                        visitors_label = 'Total Visits'
                 except Exception:
                     log.warning(
                         "Matomo visitors metric failed (url=%s site_id=%s period=%s date=%s).",
@@ -2209,7 +2210,7 @@ def get_home_reuse_stats() -> dict:
                         )
 
                     if downloads_total is not None:
-                        downloads_label = 'Total downloads'
+                        downloads_label = 'Total Downloads'
                 except Exception:
                     log.warning(
                         "Matomo downloads metric failed (url=%s site_id=%s period=%s date=%s).",
@@ -2386,16 +2387,16 @@ def get_home_portal_numbers():
 
     datasets_tile = {
         'value': _format_counter(datasets_count),
-        'label': _('Σύνολα δεδομένων'),
+        'label': 'Σύνολα Δεδομένων' if lang() == 'el' else 'Datasets',
         'link': _safe_url_for('dataset.search') or f'/{lang()}/dataset',
     }
     if dataset_resources_snapshot:
         datasets_tile.update({
             'resource_value': _format_counter(dataset_resources_snapshot['count']),
             'resource_label': (
-                'Πόροι δεδομένων'
+                'Πόροι Δεδομένων'
                 if lang() == 'el'
-                else 'Data resources'
+                else 'Data Resources'
             ),
         })
 
@@ -2403,7 +2404,7 @@ def get_home_portal_numbers():
         datasets_tile,
         {
             'value': _format_counter(orgs_count),
-            'label': _('Οργανισμοί'),
+            'label': 'Οργανισμοί' if lang() == 'el' else 'Organizations',
             'link': _safe_url_for('organization.index') or f'/{lang()}/organization',
         },
         {
@@ -2412,42 +2413,6 @@ def get_home_portal_numbers():
             'link': _safe_url_for('data-service.search') or f'/{lang()}/data-service',
         },
     ]
-
-
-def _organization_index_facet_counts(org_ids, dataset_type):
-    counts = {org_id: 0 for org_id in org_ids}
-    if not org_ids:
-        return counts
-
-    owner_filter = ' OR '.join([f'"{org_id}"' for org_id in org_ids])
-    fq = (
-        f'+dataset_type:{dataset_type} '
-        '+state:active +private:false '
-        f'+owner_org:({owner_filter})'
-    )
-
-    try:
-        response = toolkit.get_action('package_search')(
-            {'ignore_auth': True},
-            {
-                'q': '*:*',
-                'fq': fq,
-                'rows': 0,
-                'facet': True,
-                'facet.field': ['owner_org'],
-                'facet.limit': -1,
-                'facet.mincount': 1,
-            },
-        )
-        facet_items = (((response.get('search_facets') or {}).get('owner_org') or {}).get('items') or [])
-        for item in facet_items:
-            org_id = item.get('name')
-            if org_id in counts:
-                counts[org_id] = int(item.get('count') or 0)
-    except Exception as e:
-        log.error('Error loading %s counts for organization index: %s', dataset_type, e)
-
-    return counts
 
 
 def _organization_index_apps_counts(org_ids):
@@ -2503,14 +2468,7 @@ def _organization_index_apps_counts(org_ids):
 
 
 def organization_index_stats(org_ids):
-    normalized_org_ids = []
-    seen = set()
-    for org_id in org_ids or []:
-        normalized = str(org_id or '').strip()
-        if not normalized or normalized in seen:
-            continue
-        seen.add(normalized)
-        normalized_org_ids.append(normalized)
+    normalized_org_ids = organization_stats.normalize_org_ids(org_ids)
 
     stats = {
         org_id: {'datasets': 0, 'apis': 0, 'apps': 0}
@@ -2519,8 +2477,12 @@ def organization_index_stats(org_ids):
     if not normalized_org_ids:
         return stats
 
-    datasets_counts = _organization_index_facet_counts(normalized_org_ids, 'dataset')
-    apis_counts = _organization_index_facet_counts(normalized_org_ids, 'data-service')
+    datasets_counts = organization_stats.get_public_dataset_counts_for_orgs(
+        normalized_org_ids
+    )
+    apis_counts = organization_stats.get_public_data_service_counts_for_orgs(
+        normalized_org_ids
+    )
     apps_counts = _organization_index_apps_counts(normalized_org_ids)
 
     for org_id in normalized_org_ids:

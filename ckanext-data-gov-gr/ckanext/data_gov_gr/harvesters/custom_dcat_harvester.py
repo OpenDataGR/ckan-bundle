@@ -2,6 +2,7 @@
 
 import logging
 import json
+import threading
 from urllib.parse import urlparse
 from typing import Optional
 from ckan import model
@@ -15,6 +16,10 @@ log = logging.getLogger(__name__)
 
 # Cache for vocabulary data to avoid repeated database queries
 _vocabulary_cache = {}
+
+# Thread-local storage για να περνάμε το user_agent από το gather_stage
+# στο DataGovGrPlugin.update_session που καλείται από το _get_content_and_type
+harvest_local = threading.local()
 
 class CustomDcatHarvester(DCATRDFHarvester, IHarvester):
     """
@@ -266,6 +271,18 @@ class CustomDcatHarvester(DCATRDFHarvester, IHarvester):
             'form_config_interface': 'Text',
             'show_config': False
         }
+
+    def gather_stage(self, harvest_job):
+        config = {}
+        if harvest_job.source.config:
+            config = json.loads(harvest_job.source.config)
+        user_agent = config.get('user_agent')
+        harvest_local.user_agent = user_agent
+        if user_agent:
+            log.debug("[HARVESTER] User-Agent από config: %s", user_agent)
+        else:
+            log.debug("[HARVESTER] Δεν ορίστηκε user_agent στο config — χρήση default")
+        return super().gather_stage(harvest_job)
 
     def modify_package_dict(self, package_dict, temp_dict, harvest_object):
         """

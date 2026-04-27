@@ -1,19 +1,24 @@
-from flask import Blueprint, Response, redirect, stream_with_context
+from flask import Blueprint, Response, redirect, stream_with_context, jsonify
 from flask.views import MethodView
 from typing import Dict, Any
+import json
 import time
 import logging
 
 from ckan.common import request, current_user, config
 from ckan.lib.base import render, abort
-from ckan.lib.helpers import lang
+from ckan.lib.helpers import lang, Page
+from ckan.lib.helpers import helper_functions as h
 from ckan.plugins import toolkit
 from ckan.logic import NotFound, NotAuthorized, get_action
+from ckan.views.user import _extra_template_variables
 from ckanext.data_gov_gr.helpers import get_config_as_bool, get_powerbi_embed_url
+from ckan import model
 
 from ckanext.data_gov_gr.logic.mqa_calculator import MQACalculator
 from ckanext.data_gov_gr.stats import DataGovStats
 import requests
+from urllib.parse import urlparse, urlencode, parse_qs, urlunparse
 
 from ckanext.data_gov_gr.admin_views import admin_blueprint
 
@@ -22,7 +27,23 @@ log = logging.getLogger(__name__)
 blueprint = Blueprint('dataset_type', __name__)
 
 GITBOOK_PDF_ENDPOINT = 'https://api.gitbook.com/v1/spaces/{space_id}/pdf'
+GITBOOK_PAGES_ENDPOINT = 'https://api.gitbook.com/v1/spaces/{space_id}/content/pages'
 GITBOOK_PDF_TIMEOUT = 60
+GITBOOK_PDF_PAGE_LIMIT_KEY = 'ckanext.data_gov_gr.gitbook.pdf_page_limit'
+GITBOOK_PDF_PAGE_LIMIT_DEFAULT = 1000
+GITBOOK_PAGES_CACHE_TTL_KEY = 'ckanext.data_gov_gr.gitbook.pages_cache_ttl'
+GITBOOK_PAGES_CACHE_TTL_DEFAULT = 86400
+GITBOOK_PER_PAGE_PRINT_DELAY_KEY = 'ckanext.data_gov_gr.gitbook.pdf_per_page_print_delay_ms'
+GITBOOK_PER_PAGE_PRINT_DELAY_DEFAULT = 0
+
+
+def _add_gitbook_pdf_params(url):
+    limit = config.get(GITBOOK_PDF_PAGE_LIMIT_KEY, GITBOOK_PDF_PAGE_LIMIT_DEFAULT)
+    parsed = urlparse(url)
+    params = parse_qs(parsed.query)
+    params['limit'] = [str(limit)]
+    params['back'] = ['false']
+    return urlunparse(parsed._replace(query=urlencode(params, doseq=True)))
 
 
 def _require_sysadmin_for_stats():
@@ -83,49 +104,84 @@ def download_guides_pdf():
 
         download_url = payload.get('url')
         if download_url:
-            # Για εμφάνιση σε iframe θέλουμε inline PDF από το δικό μας origin.
-            if not inline_requested:
-                response.close()
+            response.close()
+            download_url = _add_gitbook_pdf_params(download_url)
+            auto_print = get_config_as_bool(
+                'ckanext.data_gov_gr.gitbook.pdf_auto_print', False
+            )
+
+            if inline_requested:
+                try:
+                    pdf_response = requests.get(
+                        download_url,
+                        stream=True,
+                        timeout=GITBOOK_PDF_TIMEOUT
+                    )
+                except requests.RequestException as exc:
+                    log.error('GitBook PDF download URL request failed: %s', exc)
+                    abort(502, toolkit._('Δεν ήταν δυνατή η λήψη του PDF. Προσπαθήστε ξανά αργότερα.'))
+
+                if pdf_response.status_code >= 400:
+                    try:
+                        error_preview = pdf_response.text[:500]
+                    except Exception:
+                        error_preview = '<binary>'
+                    log.error(
+                        'GitBook PDF download URL request failed (%s): %s',
+                        pdf_response.status_code,
+                        error_preview
+                    )
+                    abort(502, toolkit._('Δεν ήταν δυνατή η λήψη του PDF. Προσπαθήστε ξανά αργότερα.'))
+
+                def generate_pdf():
+                    try:
+                        for chunk in pdf_response.iter_content(chunk_size=8192):
+                            if chunk:
+                                yield chunk
+                    finally:
+                        pdf_response.close()
+
+                filename = f'guides-{space_id.strip()}.pdf'
+                response_headers = {
+                    'Content-Type': pdf_response.headers.get('Content-Type', 'application/pdf') or 'application/pdf',
+                    'Content-Disposition': f'inline; filename="{filename}"',
+                }
+
+                return Response(stream_with_context(generate_pdf()), headers=response_headers)
+
+            if not auto_print:
                 return redirect(download_url)
 
-            response.close()
             try:
-                pdf_response = requests.get(
-                    download_url,
-                    stream=True,
-                    timeout=GITBOOK_PDF_TIMEOUT
-                )
+                html_response = requests.get(download_url, timeout=GITBOOK_PDF_TIMEOUT)
             except requests.RequestException as exc:
-                log.error('GitBook PDF download URL request failed: %s', exc)
+                log.error('GitBook PDF page request failed: %s', exc)
                 abort(502, toolkit._('Δεν ήταν δυνατή η λήψη του PDF. Προσπαθήστε ξανά αργότερα.'))
 
-            if pdf_response.status_code >= 400:
-                try:
-                    error_preview = pdf_response.text[:500]
-                except Exception:
-                    error_preview = '<binary>'
+            if html_response.status_code >= 400:
                 log.error(
-                    'GitBook PDF download URL request failed (%s): %s',
-                    pdf_response.status_code,
-                    error_preview
+                    'GitBook PDF page request failed (%s): %s',
+                    html_response.status_code,
+                    html_response.text[:500]
                 )
                 abort(502, toolkit._('Δεν ήταν δυνατή η λήψη του PDF. Προσπαθήστε ξανά αργότερα.'))
 
-            def generate_pdf():
-                try:
-                    for chunk in pdf_response.iter_content(chunk_size=8192):
-                        if chunk:
-                            yield chunk
-                finally:
-                    pdf_response.close()
+            html_content = html_response.text
+            auto_print_js = (
+                '<script>'
+                'window.addEventListener("load", function() {'
+                '  setTimeout(function() { window.print(); }, 2000);'
+                '});'
+                '</script>'
+            )
+            if '</body>' in html_content:
+                html_content = html_content.replace('</body>', auto_print_js + '</body>', 1)
+            elif '</html>' in html_content:
+                html_content = html_content.replace('</html>', auto_print_js + '</html>', 1)
+            else:
+                html_content += auto_print_js
 
-            filename = f'guides-{space_id.strip()}.pdf'
-            response_headers = {
-                'Content-Type': pdf_response.headers.get('Content-Type', 'application/pdf') or 'application/pdf',
-                'Content-Disposition': f'inline; filename="{filename}"',
-            }
-
-            return Response(stream_with_context(generate_pdf()), headers=response_headers)
+            return Response(html_content, content_type='text/html; charset=utf-8')
 
         response.close()
         log.error('GitBook PDF JSON response did not include a download URL: %s', payload)
@@ -147,6 +203,204 @@ def download_guides_pdf():
     }
 
     return Response(stream_with_context(generate()), headers=response_headers)
+
+
+def _get_gitbook_pages_from_api(space_id, token):
+    api_url = GITBOOK_PAGES_ENDPOINT.format(space_id=space_id.strip())
+    headers = {
+        'Authorization': f'Bearer {token.strip()}',
+        'Accept': 'application/json',
+    }
+    try:
+        resp = requests.get(api_url, headers=headers, timeout=GITBOOK_PDF_TIMEOUT)
+    except requests.RequestException as exc:
+        log.error('GitBook pages API request failed: %s', exc)
+        return None
+
+    if resp.status_code >= 400:
+        log.error('GitBook pages API request failed (%s): %s', resp.status_code, resp.text[:500])
+        return None
+
+    try:
+        payload = resp.json()
+    except ValueError:
+        log.error('GitBook pages API response could not be decoded')
+        return None
+
+    pages = payload.get('pages') or []
+    return [
+        {'id': p['id'], 'title': p.get('title', ''), 'slug': p.get('slug', p['id'])}
+        for p in pages
+        if p.get('id')
+    ]
+
+
+def _get_gitbook_pages_cached(space_id, token):
+    cache_ttl = int(config.get(GITBOOK_PAGES_CACHE_TTL_KEY, GITBOOK_PAGES_CACHE_TTL_DEFAULT))
+    redis_conn = None
+    redis_key = None
+
+    try:
+        from ckan.lib.redis import connect_to_redis
+        redis_conn = connect_to_redis()
+        site_id = (config.get('ckan.site_id') or 'default').strip()
+        redis_key = f'ckan:{site_id}:ckanext:data_gov_gr:gitbook_pages'
+
+        cached = redis_conn.get(redis_key)
+        if cached:
+            return json.loads(cached)
+    except Exception as exc:
+        log.debug('Redis cache read failed for gitbook_pages: %s', exc)
+
+    pages = _get_gitbook_pages_from_api(space_id, token)
+    if pages is None:
+        return None
+
+    if redis_conn and redis_key and cache_ttl > 0:
+        try:
+            redis_conn.setex(redis_key, cache_ttl, json.dumps(pages, ensure_ascii=False))
+        except Exception as exc:
+            log.debug('Redis cache write failed for gitbook_pages: %s', exc)
+
+    return pages
+
+
+@blueprint.route('/guides/pages')
+def list_guide_pages():
+    space_id = config.get('ckanext.data_gov_gr.gitbook.space_id')
+    token = config.get('ckanext.data_gov_gr.gitbook.api_token')
+
+    if not space_id or not token:
+        abort(404)
+
+    pages = _get_gitbook_pages_cached(space_id, token)
+    if pages is None:
+        abort(502, toolkit._('Δεν ήταν δυνατή η φόρτωση των οδηγών. Προσπαθήστε ξανά αργότερα.'))
+
+    return jsonify(pages)
+
+
+@blueprint.route('/guides/pdf/page/<page_id>')
+def download_guide_page_pdf(page_id):
+    space_id = config.get('ckanext.data_gov_gr.gitbook.space_id')
+    token = config.get('ckanext.data_gov_gr.gitbook.api_token')
+
+    if not space_id or not token:
+        log.warning('GitBook per-page PDF download requested without configured credentials')
+        abort(404)
+
+    slug = page_id
+    pages = _get_gitbook_pages_cached(space_id, token)
+    if pages:
+        for p in pages:
+            if p['id'] == page_id:
+                slug = p.get('slug') or page_id
+                break
+
+    api_url = GITBOOK_PDF_ENDPOINT.format(space_id=space_id.strip())
+    api_url += f'?page={page_id}&only=true'
+    headers = {
+        'Authorization': f'Bearer {token.strip()}',
+        'Accept': 'application/json, application/pdf',
+    }
+
+    try:
+        response = requests.get(api_url, headers=headers, stream=True, timeout=GITBOOK_PDF_TIMEOUT)
+    except requests.RequestException as exc:
+        log.error('GitBook per-page PDF request failed: %s', exc)
+        abort(502, toolkit._('Δεν ήταν δυνατή η λήψη του PDF. Προσπαθήστε ξανά αργότερα.'))
+
+    if response.status_code >= 400:
+        try:
+            error_preview = response.text[:500]
+        except Exception:
+            error_preview = '<binary>'
+        log.error('GitBook per-page PDF request failed (%s): %s', response.status_code, error_preview)
+        abort(502, toolkit._('Δεν ήταν δυνατή η λήψη του PDF. Προσπαθήστε ξανά αργότερα.'))
+
+    content_type = response.headers.get('Content-Type', '')
+    filename = f'guide-{slug}.pdf'
+
+    if 'application/json' in content_type.lower():
+        try:
+            payload = response.json()
+        except ValueError:
+            response.close()
+            log.error('GitBook per-page PDF JSON response could not be decoded')
+            abort(502, toolkit._('Δεν ήταν δυνατή η λήψη του PDF. Προσπαθήστε ξανά αργότερα.'))
+
+        download_url = payload.get('url')
+        if download_url:
+            response.close()
+            download_url = _add_gitbook_pdf_params(download_url)
+            auto_print = get_config_as_bool(
+                'ckanext.data_gov_gr.gitbook.pdf_per_page_auto_print', True
+            )
+
+            if not auto_print:
+                return redirect(download_url)
+
+            try:
+                html_response = requests.get(download_url, timeout=GITBOOK_PDF_TIMEOUT)
+            except requests.RequestException as exc:
+                log.error('GitBook per-page PDF page request failed: %s', exc)
+                abort(502, toolkit._('Δεν ήταν δυνατή η λήψη του PDF. Προσπαθήστε ξανά αργότερα.'))
+
+            if html_response.status_code >= 400:
+                log.error(
+                    'GitBook per-page PDF page request failed (%s): %s',
+                    html_response.status_code,
+                    html_response.text[:500],
+                )
+                abort(502, toolkit._('Δεν ήταν δυνατή η λήψη του PDF. Προσπαθήστε ξανά αργότερα.'))
+
+            html_content = html_response.text
+            print_delay = int(config.get(
+                GITBOOK_PER_PAGE_PRINT_DELAY_KEY,
+                GITBOOK_PER_PAGE_PRINT_DELAY_DEFAULT,
+            ))
+            if print_delay > 0:
+                auto_print_js = (
+                    '<script>'
+                    'window.addEventListener("load", function() {'
+                    f'  setTimeout(function() {{ window.print(); }}, {print_delay});'
+                    '});'
+                    '</script>'
+                )
+            else:
+                auto_print_js = (
+                    '<script>'
+                    'window.addEventListener("load", function() { window.print(); });'
+                    '</script>'
+                )
+            if '</body>' in html_content:
+                html_content = html_content.replace('</body>', auto_print_js + '</body>', 1)
+            elif '</html>' in html_content:
+                html_content = html_content.replace('</html>', auto_print_js + '</html>', 1)
+            else:
+                html_content += auto_print_js
+
+            return Response(html_content, content_type='text/html; charset=utf-8')
+
+        response.close()
+        log.error('GitBook per-page PDF JSON response did not include a download URL: %s', payload)
+        abort(502, toolkit._('Δεν ήταν δυνατή η λήψη του PDF. Προσπαθήστε ξανά αργότερα.'))
+
+    def generate():
+        try:
+            for chunk in response.iter_content(chunk_size=8192):
+                if chunk:
+                    yield chunk
+        finally:
+            response.close()
+
+    response_headers = {
+        'Content-Type': content_type or 'application/pdf',
+        'Content-Disposition': f'attachment; filename="{filename}"',
+    }
+
+    return Response(stream_with_context(generate()), headers=response_headers)
+
 
 def redirect_to_dataset_type():
     current_lang = lang()
@@ -530,6 +784,54 @@ def more_page():
 
 # Add the /more route
 blueprint.add_url_rule("/more", view_func=more_page, endpoint='more_page')
+
+
+@blueprint.route('/dashboard/showcases')
+def dashboard_applications():
+    if not current_user.is_authenticated:
+        return redirect(toolkit.url_for('user.login', came_from=request.full_path))
+
+    page = h.get_page_number(request.args)
+    limit = int(config.get('ckan.datasets_per_page'))
+    offset = (page - 1) * limit
+
+    showcase_query = (
+        model.Session.query(model.Package.id)
+        .filter(model.Package.type == 'showcase')
+        .filter(model.Package.state == 'active')
+        .filter(model.Package.creator_user_id == current_user.id)
+        .order_by(model.Package.metadata_modified.desc())
+    )
+
+    showcase_ids = [
+        showcase_id for showcase_id, in showcase_query.limit(limit).offset(offset).all()
+    ]
+
+    context = {
+        'for_view': True,
+        'user': current_user.name,
+        'auth_user_obj': current_user,
+    }
+
+    showcases = [
+        get_action('ckanext_showcase_show')(context, {'id': showcase_id})
+        for showcase_id in showcase_ids
+    ]
+
+    page_obj = Page(
+        collection=showcases,
+        page=page,
+        presliced_list=True,
+        url=h.pager_url,
+        item_count=showcase_query.count(),
+        items_per_page=limit,
+    )
+    page_obj.items = showcases
+
+    extra_vars = _extra_template_variables(context, {'user_obj': current_user})
+    extra_vars['page'] = page_obj
+
+    return render('user/dashboard_showcases.html', extra_vars)
 
 def get_blueprint():
     return [blueprint, admin_blueprint]

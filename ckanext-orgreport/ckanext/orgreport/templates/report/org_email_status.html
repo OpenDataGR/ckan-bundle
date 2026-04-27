@@ -72,6 +72,13 @@ data  - επιπλέον δεδομένα (total, with_email, without_email)
   .status-summary .well p {
     margin-bottom: 0;
   }
+  /* Αποφυγή σύγκρουσης pagination με horizontal scrollbar */
+  #org-report-table {
+    min-width: auto;
+  }
+  #pagination-nav {
+    margin-top: 15px;
+  }
 </style>
 
 {# --- Σύνοψη --- #}
@@ -125,6 +132,7 @@ data  - επιπλέον δεδομένα (total, with_email, without_email)
 </div>
 
 {# --- Πίνακας --- #}
+<div class="report-table-wrapper">
 <table class="table table-striped table-bordered table-hover table-condensed"
        id="org-report-table"
        style="width: 100%; margin-top: 8px;">
@@ -184,6 +192,7 @@ data  - επιπλέον δεδομένα (total, with_email, without_email)
     {% endfor %}
   </tbody>
 </table>
+</div>
 
 {# --- Στοιχεία σελιδοποίησης --- #}
 <nav class="text-center" id="pagination-nav">

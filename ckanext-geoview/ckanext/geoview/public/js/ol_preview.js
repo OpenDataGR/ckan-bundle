@@ -152,6 +152,11 @@
                     mapConfig.attribution = '<a href="https://www.mapbox.com/about/maps/" target="_blank">&copy; Mapbox &copy; OpenStreetMap </a> <a href="https://www.mapbox.com/map-feedback/" target="_blank">Improve this map</a>';
 
                 } else if (mapConfig.type == 'custom') {
+                    // Convert Leaflet-style URL placeholders that OL's XYZ source does not support:
+                    //   {s} -> {a-d} (subdomains), {r} -> '' (retina tag)
+                    if (mapConfig.url) {
+                        mapConfig.url = mapConfig.url.replace(/\{s\}/g, '{a-d}').replace(/\{r\}/g, '');
+                    }
                     mapConfig.type = 'XYZ'
                 } else if (!mapConfig.type || mapConfig.type.toLowerCase() == 'osm') {
 
@@ -396,13 +401,25 @@
 
                 if (!baseMapsConfig) {
                     // deprecated - for backward comp, parse old config format into json config
+                    var mc = this.options.map_config || {};
                     var config = {
-                        type: this.options.map_config['type']
+                        type: mc['type']
                     }
-                    var prefix = config.type+'.'
-                    for (var fieldName in this.options.map_config) {
-                        if (fieldName.startsWith(prefix)) config[fieldName.substring(prefix.length)] = this.options.map_config[fieldName]
+                    // accept both dot- (type.field) and underscore-prefixed (type_field)
+                    // config keys to match the Leaflet common_map.js convention
+                    var dotPrefix = (config.type || '') + '.';
+                    var underPrefix = (config.type || '') + '_';
+                    for (var fieldName in mc) {
+                        if (fieldName.startsWith(dotPrefix)) {
+                            config[fieldName.substring(dotPrefix.length)] = mc[fieldName];
+                        } else if (fieldName.startsWith(underPrefix)) {
+                            config[fieldName.substring(underPrefix.length)] = mc[fieldName];
+                        }
                     }
+                    // pass-through shared fields (no type prefix)
+                    ['attribution', 'subdomains', 'tms'].forEach(function(k) {
+                        if (mc[k] != null) config[k] = mc[k];
+                    });
                     baseMapsConfig = [config]
                 }
 

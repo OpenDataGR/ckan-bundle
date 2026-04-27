@@ -39,7 +39,7 @@
               </p>
             </header>
 
-            {% if guides_embed_url %}
+            {% if h.contact_guides_embed_enabled() and guides_embed_url %}
             <section class="support-guides-embed" aria-label="{% if site_title %}Οδηγοί {{ site_title }}{% else %}Οδηγοί{% endif %}">
               <h2>{% if site_title %}Οδηγοί {{ site_title }}{% else %}Οδηγοί{% endif %}</h2>
               <div class="support-guides-embed-frame">
@@ -97,7 +97,7 @@
                     <p>
                       <a href="{{ h.url_for('dataset_type.more_page') }}"
                          class="btn btn-primary btn-sm">
-                        Μετάβαση στη σελίδα «Περισσότερα» <i class="fa fa-arrow-right"></i>
+                        Μετάβαση στη σελίδα «Εργαλεία» <i class="fa fa-arrow-right"></i>
                       </a>
                     </p>
                   </div>

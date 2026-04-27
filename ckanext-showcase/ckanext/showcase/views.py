@@ -28,7 +28,6 @@ from ckan.lib.search import (
 )
 from ckan.types import Context, Response
 import logging
-import ckan.plugins.toolkit as toolkit
 
 log = logging.getLogger(__name__)
 
@@ -43,7 +42,6 @@ tuplize_dict = dataset.tuplize_dict
 parse_params = dataset.parse_params
 flatten_to_string_key = dataset.flatten_to_string_key
 from ckan.views.home import CACHE_PARAMETERS
-from ckan.lib.mailer import mail_recipient
 from typing import Any, Iterable, Optional, Union
 def index():
     return search_showcases(utils.DATASET_TYPE_NAME)
@@ -486,37 +484,6 @@ class EditView(dataset.EditView):
 
         data_dict['id'] = id
         try:
-
-            # Ανάκτηση του υφιστάμενου showcase
-            pkg = utils.read_showcase(id, context)
-
-            # Το approval_status δεν υπάρχει στο data_dict όταν πολίτης τροποποιεί και υποβάλει δημιουργημένο showcase
-
-            # Safely get approval status with default values to prevent KeyError
-            current_approval_status = pkg.get('approval_status', '')
-            new_approval_status = data_dict.get('approval_status', '')
-
-            # Αν έχει γίνει μεταβολή έγκρισης από όχι εγκεκριμένο σε εγκεκριμένο θα πρέπει να γίνεται από admin
-            if current_approval_status != 'approved' and new_approval_status == 'approved':
-
-                # TODO: Validation οτι ο admin κάνει την έγκριση
-
-                try:
-                    # Αποστολή στον δημιουργό ότι έγινε έγκριση του showcase
-
-                    # Ανάκτηση ονόματος του δημιουργού του showcase
-                    creator_email = get_email_from_id(context, pkg['creator_user_id'])
-
-                    # Δημιουργία του URL του showcase
-                    from ckan.common import config
-                    site_url = config.get('ckan.site_url', 'http://localhost:5000')
-                    showcase_url = f"{site_url}/showcase/{pkg['name']}"
-
-                    send_approved_showcase_email(context, creator_email, data_dict, showcase_url)
-
-                except Exception as e:
-                    tk.error_shout(f"Email sending failed: {e}")
-
             pkg = tk.get_action('ckanext_showcase_update')(context, data_dict)
         except tk.ValidationError as e:
             errors = e.error_dict
@@ -528,21 +495,6 @@ class EditView(dataset.EditView):
         # redirect to showcase details page
         url = h.url_for('showcase_blueprint.read', id=pkg['name'])
         return h.redirect_to(url)
-
-def send_approved_showcase_email(context, recipient, data_dict, showcase_url):
-    mail_recipient(
-        recipient_name="",
-        recipient_email=recipient,
-        subject=f"DATA GOV GR: Εγκεκριμένη Επανάχρηση: '{data_dict['title']}'",
-        body=f"Η επανάχρηση '{data_dict['title']}' εγκρίθηκε. Η επανάχρηση είναι διαθέσιμη εδώ. URL: '{showcase_url}'"
-    )
-
-def get_email_from_id(context, user_id):
-    try:
-        user = toolkit.get_action('user_show')(context, {'id': user_id})
-        return user.get('email')  # or 'fullname' if you want full name
-    except toolkit.ObjectNotFound:
-        return None
 
 
 def dataset_showcase_list(id):

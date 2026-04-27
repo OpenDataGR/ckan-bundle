@@ -10,6 +10,7 @@ import ckan.plugins as p
 from ckanext.report import lib
 from ckanext.archiver.resource_evaluation import (
     BROKEN,
+    DOWNLOADALL_REASON,
     NON_EVALUABLE,
     get_non_evaluable_resource_reason,
     get_resource_evaluation_state,
@@ -74,6 +75,13 @@ def _get_via(pkg):
     return via
 
 
+def _get_non_evaluable_resource_url(resource, pkg):
+    reason = get_non_evaluable_resource_reason(resource)
+    if reason == DOWNLOADALL_REASON:
+        return p.toolkit.url_for('dataset.read', id=pkg.name)
+    return resource.url
+
+
 def _build_row(resource, pkg, org, archival):
     evaluation_state = get_resource_evaluation_state(resource, archival)
     if not evaluation_state:
@@ -82,7 +90,7 @@ def _build_row(resource, pkg, org, archival):
     archived_resource = _get_archived_resource(resource, archival)
 
     if evaluation_state == NON_EVALUABLE:
-        resource_url = resource.url
+        resource_url = _get_non_evaluable_resource_url(resource, pkg)
         status = 'Chose not to download'
         reason = get_non_evaluable_resource_reason(resource)
         failure_count = 0
@@ -303,10 +311,15 @@ def broken_links_post_access_filter(data, context):
     return data
 
 
+def broken_links_authorize(user, options):
+    return bool(user and getattr(user, 'sysadmin', False))
+
+
 broken_links_report_info = {
     'name': 'broken-links',
     'title': _('Resource Links Report'),
     'description': _('Dataset resource URLs that are found to result in errors when resolved.'),
+    'authorize': broken_links_authorize,
     'option_defaults': OrderedDict((('organization', None),
                                     )),
     'option_combinations': broken_links_option_combinations,

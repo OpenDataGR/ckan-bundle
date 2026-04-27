@@ -65,6 +65,9 @@ data - επιπλέον τιμές της αναφοράς, ως λεξικό
   .summary-metrics .well p {
     margin-bottom: 0;
   }
+  div.pull-right {
+    margin-top: 15px !important;
+  }
 </style>
 
 <div class="row summary-metrics">
@@ -120,6 +123,7 @@ data - επιπλέον τιμές της αναφοράς, ως λεξικό
   </div>
 </div>
 
+<div class="report-table-wrapper">
 <table class="table table-bordered table-condensed" id="report-table" style="width: 100%; margin-top: 8px;">
     <thead>
       <tr>
@@ -146,6 +150,7 @@ data - επιπλέον τιμές της αναφοράς, ως λεξικό
       {% endfor %}
     </tbody>
 </table>
+</div>
 
 <nav class="text-center" id="tagless-pagination-nav" style="margin-top: 25px;">
   <ul class="pagination" id="tagless-pagination-controls"></ul>

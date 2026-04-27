@@ -277,16 +277,26 @@
       width: 100%;
     }
     
-    /* Table wrapper for horizontal scrolling */
+    /* Table wrapper: horizontal + vertical scrolling */
     .report-table-wrapper {
       overflow-x: auto;
-      -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+      overflow-y: auto;
+      max-height: 65vh;
+      -webkit-overflow-scrolling: touch;
     }
-    
+
     .report-table-wrapper table {
-      min-width: 960px; /* Prevents column compression on small screens */
+      min-width: 960px;
     }
-    
+
+    /* Sticky column headers while scrolling vertically */
+    .report-table-wrapper thead th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background-color: #f5f7f9;
+    }
+
     /* Responsive table for small screens */
     @media (max-width: 991px) {
       .report-view-section {
@@ -327,4 +337,5 @@
       }
     }
   </style>
+
 {% endblock%}

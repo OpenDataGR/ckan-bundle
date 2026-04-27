@@ -31,6 +31,7 @@ from ckan.common import _, request
 import ckan.logic.schema
 from ckan.logic import _validate
 import ckan.lib.helpers as h
+from ckanext.data_gov_gr import organization_stats
 
 log = logging.getLogger(__name__)
 
@@ -736,14 +737,27 @@ def _group_or_org_list(
         if not data_dict.get('sort'):
             sort = order_by
 
+    requested_relevance = bool(
+        data_dict.get('sort') and data_dict['sort'].strip() == 'relevance'
+    )
+    if requested_relevance:
+        sort = config.get('ckan.default_group_sort')
+    elif not data_dict.get('sort') and is_org and context.get('for_view') and not q:
+        sort = 'dataset_count desc'
+
     # if the sort is packages and no sort direction is supplied we want to do a
     # reverse sort to maintain compatibility.
-    if sort.strip() in ('packages', 'package_count'):
+    if sort.strip() == 'dataset_count':
+        sort = 'dataset_count desc'
+    elif sort.strip() in ('packages', 'package_count'):
         sort = 'package_count desc'
 
+    allowed_sort_fields = ['name', 'packages', 'package_count', 'title']
+    if is_org:
+        allowed_sort_fields.append('dataset_count')
+
     sort_info = _unpick_search(sort,
-                               allowed_fields=['name', 'packages',
-                                               'package_count', 'title'],
+                               allowed_fields=allowed_sort_fields,
                                total=1)
 
     if sort_info and sort_info[0][0] == 'package_count':
@@ -757,7 +771,8 @@ def _group_or_org_list(
             .filter(model.Package.state == 'active')
     else:
         query = model.Session.query(model.Group.id,
-                                    model.Group.name)
+                                    model.Group.name,
+                                    model.Group.title)
 
     query = query.filter(model.Group.state == 'active')
 
@@ -794,7 +809,7 @@ def _group_or_org_list(
             )
             query = query.filter(_or_(base_like, fuzzy_match))
 
-            if not data_dict.get('sort') and is_org:
+            if (not data_dict.get('sort') or requested_relevance) and is_org:
                 query = query.order_by(sqlalchemy.desc(
                     func.greatest(
                         score_title * 1.2,
@@ -807,6 +822,135 @@ def _group_or_org_list(
 
     query = query.filter(model.Group.is_organization == is_org)
     query = query.filter(model.Group.type == group_type)
+
+    uses_dataset_count_sort = bool(
+        sort_info and sort_info[0][0] == 'dataset_count'
+    )
+
+    if uses_dataset_count_sort:
+        sort_direction = sort_info[0][1]
+        cache_key = (
+            '_dataset_count_cache',
+            group_type,
+            is_org,
+            q,
+            tuple(groups) if isinstance(groups, list) else groups,
+        )
+        cache = context.get(cache_key)
+
+        def _normalized_label(value: Any) -> str:
+            return str(value or '').lower().replace('ς', 'σ')
+
+        if cache is None:
+            facet_items = organization_stats.get_public_dataset_facet_items()
+            facet_counts: dict[str, int] = {}
+            for item in facet_items:
+                item = item or {}
+                org_id = item.get('name')
+                if not org_id:
+                    continue
+                facet_counts[org_id] = int(item.get('count') or 0)
+
+            nonzero_rows = []
+            if facet_counts:
+                nonzero_rows = query.with_entities(
+                    model.Group.id,
+                    model.Group.name,
+                    model.Group.title,
+                ).filter(model.Group.id.in_(list(facet_counts.keys()))).all()
+
+            nonzero_desc = sorted(
+                nonzero_rows,
+                key=lambda row: (
+                    -facet_counts.get(row.id, 0),
+                    _normalized_label(row.title or row.name),
+                    _normalized_label(row.name),
+                ),
+            )
+            nonzero_asc = sorted(
+                nonzero_rows,
+                key=lambda row: (
+                    facet_counts.get(row.id, 0),
+                    _normalized_label(row.title or row.name),
+                    _normalized_label(row.name),
+                ),
+            )
+
+            total_count = query.order_by(None).count()
+            cache = {
+                'facet_counts': facet_counts,
+                'nonzero_ids_desc': [row.id for row in nonzero_desc],
+                'nonzero_ids_asc': [row.id for row in nonzero_asc],
+                'nonzero_count': len(nonzero_rows),
+                'total_count': total_count,
+            }
+            context[cache_key] = cache
+
+        total_count = int(cache['total_count'])
+        nonzero_ids_desc = cache['nonzero_ids_desc']
+        nonzero_ids_asc = cache['nonzero_ids_asc']
+        nonzero_count = int(cache['nonzero_count'])
+        zero_count = max(0, total_count - nonzero_count)
+
+        limit_int = int(limit or max_limit)
+        offset_int = int(offset or 0)
+
+        def _zero_ids_page(offset_zero: int, limit_zero: int) -> list[str]:
+            zero_query = query.with_entities(model.Group.id)
+            if nonzero_ids_desc:
+                zero_query = zero_query.filter(~model.Group.id.in_(nonzero_ids_desc))
+            zero_query = zero_query.order_by(
+                sqlalchemy.asc(_norm(func.coalesce(
+                    model.Group.title,
+                    model.Group.name,
+                ))),
+                sqlalchemy.asc(_norm(model.Group.name)),
+            )
+            if offset_zero:
+                zero_query = zero_query.offset(offset_zero)
+            if limit_zero:
+                zero_query = zero_query.limit(limit_zero)
+            return [row.id for row in zero_query.all()]
+
+        page_ids: list[str] = []
+        if sort_direction == 'desc':
+            page_ids = nonzero_ids_desc[offset_int: offset_int + limit_int]
+            if len(page_ids) < limit_int:
+                zero_offset = max(0, offset_int - len(nonzero_ids_desc))
+                page_ids.extend(
+                    _zero_ids_page(zero_offset, limit_int - len(page_ids))
+                )
+        else:
+            if offset_int < zero_count:
+                page_ids = _zero_ids_page(offset_int, limit_int)
+                if len(page_ids) < limit_int:
+                    page_ids.extend(nonzero_ids_asc[: (limit_int - len(page_ids))])
+            else:
+                nonzero_offset = max(0, offset_int - zero_count)
+                page_ids = nonzero_ids_asc[nonzero_offset: nonzero_offset + limit_int]
+
+        if context.get('for_view') and not all_fields:
+            return organization_stats.CountOnlySequence(total_count)
+
+        if all_fields:
+            group_list = []
+            for org_id in page_ids:
+                data_dict['id'] = org_id
+                for key in ('include_extras', 'include_tags', 'include_users',
+                            'include_groups', 'include_followers'):
+                    if key not in data_dict:
+                        data_dict[key] = False
+
+                group_list.append(logic.get_action('organization_show')(context, data_dict))
+            return group_list
+
+        # all_fields=False: return id or name in the correct order
+        rows = model.Session.query(model.Group.id, model.Group.name) \
+            .filter(model.Group.id.in_(page_ids)).all()
+        id_to_name = {row.id: row.name for row in rows}
+        if ref_group_by == 'id':
+            return list(page_ids)
+        return [id_to_name.get(org_id) for org_id in page_ids if id_to_name.get(org_id)]
 
     if sort_info:
         sort_field = sort_info[0][0]

@@ -80,9 +80,9 @@
                 {% call form.textarea('content', label=_('Your Request'), id='field-content',
                                       value=data.content, error=errors.content,
                                       placeholder=_('What do you have to tell us?'),
-                                      attrs={'class': 'form-control', 'minlength': '20', 'maxlength': '250'},
+                                      attrs={'class': 'form-control', 'minlength': '20', 'maxlength': '1000'},
                                       is_required=true) %}
-                    <p class="help-block">Το μήνυμα πρέπει να έχει από 20 έως 250 χαρακτήρες.</p>
+                    <p class="help-block">Το μήνυμα πρέπει να έχει από 20 έως 1000 χαρακτήρες.</p>
                 {% endcall %}
 
               {% if extended_fields and h.contact_accept_terms_enabled() %}

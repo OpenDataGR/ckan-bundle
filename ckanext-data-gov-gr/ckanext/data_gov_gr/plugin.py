@@ -101,6 +101,7 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         - ``ckanext.data_gov_gr.dataset.spatial_coverage.default`` (απλή επιλογή προεπιλεγμένης χωρικής κάλυψης)
         - ``guides_base_url`` (external guides base URL)
         - ``ckanext.data_gov_gr.contact.gitbook_embed_items`` (contact page GitBook dropdown items as JSON)
+        - ``ckanext.data_gov_gr.pages.faq`` (CKAN Pages slug for the FAQ footer link)
         which are independent from their fallback values in the ini file.
 
         Επιπλέον, ορίζει παραμετρικές επιλογές μενού για τα σύνολα δεδομένων:
@@ -132,6 +133,8 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
             'ckanext.data_gov_gr.data_publishing_guide.url': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.quality_guide.url': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.contact.gitbook_embed_items': [ignore_missing, unicode_safe],
+            'ckanext.contact.support_faq.enabled': [ignore_missing, boolean_validator],
+            'ckanext.contact.guides_embed.enabled': [ignore_missing, boolean_validator],
             # Νέα, JSON παραμετρικές επιλογές για dropdown συνόλων δεδομένων
             'ckanext.data_gov_gr.menu.dataset.items': [ignore_missing, unicode_safe],
             # Ρυθμίσεις αρχικής σελίδας (στατιστικά, showcases)
@@ -145,7 +148,19 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
             'ckanext.data_gov_gr.home.registries.enabled': [ignore_missing, boolean_validator],
             'ckanext.data_gov_gr.home.showcases.ids': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.botakis.enabled': [ignore_missing, boolean_validator],
+            'ckanext.data_gov_gr.header.secretariat_logo.enabled': [ignore_missing, boolean_validator],
             'ckanext.data_gov_gr.activity_stream.dataset.restrict_visibility': [ignore_missing, boolean_validator],
+            'ckanext.data_gov_gr.footer.mindigital_logo_variant': [ignore_missing, unicode_safe],
+            'ckanext.data_gov_gr.pages.faq': [ignore_missing, unicode_safe],
+            'ckanext.data_gov_gr.pages.cookies_policy': [ignore_missing, unicode_safe],
+            'ckanext.data_gov_gr.pages.privacy_policy': [ignore_missing, unicode_safe],
+            'ckanext.data_gov_gr.search.api_doc_url': [ignore_missing, unicode_safe],
+            'ckanext.matomo.consent_mode': [ignore_missing, unicode_safe],
+            'ckanext.data_gov_gr.header.logo_preset': [ignore_missing, unicode_safe],
+            'ckanext.data_gov_gr.gitbook.pdf_auto_print': [ignore_missing, boolean_validator],
+            'ckanext.data_gov_gr.gitbook.pdf_per_page_auto_print': [ignore_missing, boolean_validator],
+            'ckanext.data_gov_gr.gitbook.pdf_all_guides_panel.enabled': [ignore_missing, boolean_validator],
+            'ckanext.data_gov_gr.gitbook.pdf_per_page_panel.enabled': [ignore_missing, boolean_validator],
         })
 
         return schema
@@ -168,6 +183,7 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         data_service = root.data_service
         resource = root.resource
         dataset = root.dataset
+        user = root.user
         geonames = key.ckanext.geonames
 
         declaration.declare(root.powerbi_embed_url, "").set_description(
@@ -181,6 +197,21 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         )
         declaration.declare(root.pages.accessibility_statement, "").set_description(
             "CKAN Pages slug for the Accessibility footer link."
+        )
+        declaration.declare(root.pages.faq, "").set_description(
+            "CKAN Pages slug for the FAQ footer link."
+        )
+        declaration.declare(root.pages.cookies_policy, "").set_description(
+            "CKAN Pages slug for the Cookies Policy footer link."
+        )
+        declaration.declare(root.pages.privacy_policy, "").set_description(
+            "CKAN Pages slug for the Privacy Policy footer link."
+        )
+        declaration.declare(key.ckanext.matomo.consent_mode, "disabled").set_description(
+            "Matomo consent mode: 'disabled', 'tracking_consent', 'cookie_consent', or 'opt_out'."
+        )
+        declaration.declare(root.search.api_doc_url, "").set_description(
+            "Custom API documentation URL shown on the dataset search page (opens in new tab)."
         )
         declaration.declare(geonames.username, "").set_description(
             "GeoNames username used by geonames_search / geonames_get actions."
@@ -240,6 +271,30 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         )
         declaration.declare(root.quality_guide.url, "https://data-gov-gr.gitbook.io/guides/xrisi-dedomenon/synola-dedomenon/aksiologisi-poiotitas-metadedomenon/kritiria-aksiologisis-mqa").set_description(
             "Home page: data quality guide URL."
+        )
+        declaration.declare(key.ckanext.contact.support_faq.enabled, False).set_description(
+            "Show the FAQ (GitBook embed) section on the contact/support page."
+        )
+        declaration.declare(root.gitbook.pdf_auto_print, False).set_description(
+            "Auto-trigger the browser print dialog when opening the GitBook PDF page."
+        )
+        declaration.declare(root.gitbook.pages_cache_ttl, 86400).set_description(
+            "Redis cache TTL (seconds) for the GitBook pages list used in per-section PDF download. Default: 86400 (1 day)."
+        )
+        declaration.declare(root.gitbook.pdf_per_page_auto_print, True).set_description(
+            "Auto-trigger the browser print dialog when downloading a single-section GitBook PDF."
+        )
+        declaration.declare(root.gitbook.pdf_per_page_print_delay_ms, 0).set_description(
+            "Delay in milliseconds before the print dialog opens for single-section PDF. 0 = immediate."
+        )
+        declaration.declare(root.gitbook.pdf_all_guides_panel.enabled, True).set_description(
+            "Show/hide the 'Download all guides (PDF)' panel on the /more page."
+        )
+        declaration.declare(root.gitbook.pdf_per_page_panel.enabled, True).set_description(
+            "Show/hide the 'Download guide by section' panel on the /more page."
+        )
+        declaration.declare(key.ckanext.contact.guides_embed.enabled, True).set_description(
+            "Show the guides iframe embed section on the contact/support page."
         )
         declaration.declare(contact.gitbook_embed_items, json.dumps([
             {
@@ -302,10 +357,22 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         declaration.declare(root.botakis.enabled, "no").set_description(
             "Enable/disable the Botakis webchat widget."
         )
+        declaration.declare(root.header.secretariat_logo.enabled, "no").set_description(
+            "Show the AI Data Governance Secretariat logo in the header, next to the site logo."
+        )
+        declaration.declare(root.header.logo_preset, "white-gradient-blue-trimmed-transparent.png").set_description(
+            "Preset logo filename from /images/data-gov-gr/ shown in the header when ckan.site_logo is not set."
+        )
+        declaration.declare(root.footer.mindigital_logo_variant, "light").set_description(
+            "Footer Mindigital logo variant: 'light' (ανοιχτή απόχρωση μπλε) or 'dark' (σκοτεινή απόχρωση μπλε)."
+        )
 
         declaration.annotate("Dataset / data-service view")
         declaration.declare(data_service.hide_resources_section, "yes").set_description(
             "Hide 'Data and Resources' section on data-service (API) pages."
+        )
+        declaration.declare(user.hide_showcase_tab, "no").set_description(
+            "Hide the 'Showcases' tab from the user dashboard."
         )
 
         declaration.annotate("Config UI visibility (ini-only feature flags)")
@@ -348,9 +415,13 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         return url, []
 
     def update_session(self, session):
-        """
-        Leave the HTTP session unchanged (no custom headers/certs needed here).
-        """
+        from ckanext.data_gov_gr.harvesters.custom_dcat_harvester import harvest_local
+        import logging
+        log = logging.getLogger(__name__)
+        user_agent = getattr(harvest_local, 'user_agent', None)
+        if user_agent:
+            session.headers.update({'User-Agent': str(user_agent)})
+        log.debug("[HARVESTER] Session headers: %s", dict(session.headers))
         return session
 
     def after_download(self, content, harvest_job):
@@ -892,6 +963,7 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
             'user_reset': auth.user_reset_override,
             'organization_list_with_user_extras': auth.organization_list_with_user_extras_auth,
             'package_activity_list': auth.package_activity_list,
+            'organization_activity_list': auth.organization_activity_list,
         }
 
     # IActions

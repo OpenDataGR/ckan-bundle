@@ -1,0 +1,19 @@
+{% set current_lang = request.environ.CKAN_LANG %}
+{% set languages = [
+  ('el', 'EL', 'Ελληνικά'),
+  ('en', 'EN', 'English')
+] %}
+
+<div class="language-switcher" role="group" aria-label="{{ _('Language') }}">
+  {% for lang_code, lang_label, lang_name in languages %}
+    <a href="{% url_for h.current_url(), locale=lang_code %}"
+       class="language-switcher-link{% if lang_code == current_lang %} active{% endif %}"
+       hreflang="{{ lang_code }}"
+       lang="{{ lang_code }}"
+       aria-label="{{ lang_name }}"
+       title="{{ lang_name }}"
+       {% if lang_code == current_lang %}aria-current="true"{% endif %}>
+      {{ lang_label }}
+    </a>
+  {% endfor %}
+</div>

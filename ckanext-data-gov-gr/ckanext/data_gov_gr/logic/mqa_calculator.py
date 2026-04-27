@@ -211,10 +211,28 @@ class MQACalculator:
         Προτιμά το ρητό DCAT access URL και, αν αυτό λείπει,
         κάνει fallback στο legacy resource URL για συμβατότητα .
         """
-        access_url = resource.get('access_url') or resource.get('url') or ''
+        access_url = resource.get('access_url') or self._get_resource_url(resource) or ''
         if isinstance(access_url, str):
             return access_url.strip()
         return access_url or ''
+
+    def _get_resource_url(self, resource: Dict[str, Any]) -> str:
+        """
+        Επιστρέφει το κανονικό CKAN resource URL που χρησιμοποιεί το archiver.
+        """
+        resource_url = resource.get('url') or ''
+        if isinstance(resource_url, str):
+            return resource_url.strip()
+        return resource_url or ''
+
+    def _get_resource_download_url(self, resource: Dict[str, Any]) -> str:
+        """
+        Επιστρέφει το ρητό download URL που χρησιμοποιούν οι έλεγχοι προσβασιμότητας του MQA.
+        """
+        download_url = resource.get('download_url') or ''
+        if isinstance(download_url, str):
+            return download_url.strip()
+        return download_url or ''
 
     def calculate_all_scores(self, dataset_dict: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -335,29 +353,27 @@ class MQACalculator:
             if url in self._url_cache:
                 return self._url_cache[url]
 
-            # Προσπαθούμε να βρούμε το resource ID για αυτό το URL
+            # Το archiver παρακολουθεί μόνο το canonical resource.url.
+            # Για access_url / download_url κάνουμε direct check ώστε να μη
+            # κληρονομήσουν status όπως "Resource has no URL".
             resource_id = None
             for resource in self._resources:
-                if (
-                    self._get_resource_access_url(resource) == url
-                    or resource.get('url') == url
-                    or resource.get('download_url') == url
-                ):
+                if self._get_resource_url(resource) == url:
                     resource_id = resource.get('id')
                     break
 
-            # If we found a resource ID, check if it has been archived
+            # Αν βρέθηκε resource ID, ελέγχουμε αν υπάρχει archived αποτέλεσμα.
             if resource_id:
                 archival = Archival.get_for_resource(resource_id)
                 if archival:
-                    # If the resource has been archived, use the archival status
+                    # Αν ο πόρος έχει περάσει από archiver, χρησιμοποιούμε το archival status.
                     is_accessible = Status.is_ok(archival.status_id)
                     log.debug(f"→ Using archiver status: {archival.status} (accessible: {is_accessible})")
 
-                    # Cache the result
+                    # Αποθήκευση του αποτελέσματος στο cache.
                     self._url_cache[url] = is_accessible
 
-                    # Store status code or message for analytics
+                    # Αποθήκευση status code ή μηνύματος για analytics.
                     if archival.reason:
                         self._status_code_cache[url] = archival.reason
 
@@ -421,10 +437,14 @@ class MQACalculator:
             if self._get_resource_access_url(r)
             and self._check_url_accessibility(self._get_resource_access_url(r))
         )
-        # Only check if download_url exists
-        download_url_exists_count = sum(1 for r in resources if r.get('download_url'))
-        download_url_accessible_count = sum(1 for r in resources if r.get('download_url') and
-                                           self._check_url_accessibility(r.get('download_url')))
+        # Έλεγχος μόνο όταν υπάρχει download_url.
+        download_url_exists_count = sum(1 for r in resources if self._get_resource_download_url(r))
+        download_url_accessible_count = sum(
+            1
+            for r in resources
+            if self._get_resource_download_url(r)
+            and self._check_url_accessibility(self._get_resource_download_url(r))
+        )
 
         # 2) Calculate score as (prevalence * sub-criterion weight) for each sub-criterion
         score = (
@@ -1109,12 +1129,12 @@ class MQACalculator:
             if self._check_url_accessibility(access_url):
                 score += 50
 
-        # Check for download URL
-        download_url = resource.get('download_url')
+        # Έλεγχος για download URL.
+        download_url = self._get_resource_download_url(resource)
 
-        # Check if download_url exists
+        # Έλεγχος αν υπάρχει download_url.
         if download_url:
-            # Store download URL for analysis
+            # Αποθήκευση download URL για ανάλυση.
             if download_url not in self._download_urls:
                 self._download_urls.append(download_url)
 
@@ -1250,11 +1270,14 @@ class MQACalculator:
         has_license_in_vocab = bool(resource.get('license'))
 
         criteria = {
-            # Accessibility criteria
+            # Κριτήρια προσβασιμότητας
             'has_access_url': bool(self._get_resource_access_url(resource)),
             'access_url_accessible': self._check_url_accessibility(self._get_resource_access_url(resource)),
-            'has_download_url': bool(resource.get('download_url')),
-            'download_url_accessible': bool(resource.get('download_url') and self._check_url_accessibility(resource.get('download_url'))),
+            'has_download_url': bool(self._get_resource_download_url(resource)),
+            'download_url_accessible': bool(
+                self._get_resource_download_url(resource)
+                and self._check_url_accessibility(self._get_resource_download_url(resource))
+            ),
 
             # Format quality criteria
             'has_format': bool(resource.get('format')),

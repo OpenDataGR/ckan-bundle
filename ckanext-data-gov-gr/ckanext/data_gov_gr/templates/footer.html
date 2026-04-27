@@ -1,8 +1,12 @@
 {% set stats_destination_url = config.get('ckanext.data_gov_gr.stats.destination.url', '/') %}
 {% set footer_source_code_url = config.get('ckanext.data_gov_gr.footer.source_code_url') %}
+{% set mindigital_logo_variant = config.get('ckanext.data_gov_gr.footer.mindigital_logo_variant', 'light') %}
 {% set user_survey_url = config.get('ckanext.data_gov_gr.user_survey.url') %}
 {% set terms_page = (config.get('ckanext.data_gov_gr.pages.terms_of_use') or '').strip().strip('/') %}
 {% set accessibility_page = (config.get('ckanext.data_gov_gr.pages.accessibility_statement') or '').strip().strip('/') %}
+{% set faq_page = (config.get('ckanext.data_gov_gr.pages.faq') or '').strip().strip('/') %}
+{% set cookies_policy_page = (config.get('ckanext.data_gov_gr.pages.cookies_policy') or '').strip().strip('/') %}
+{% set privacy_policy_page = (config.get('ckanext.data_gov_gr.pages.privacy_policy') or '').strip().strip('/') %}
 {% set opens_in_new_tab_suffix = ' (ανοίγει σε νέα καρτέλα)' if h.lang() == 'el' else ' (opens in a new tab)' %}
 
 <footer class="site-footer" role="contentinfo">
@@ -10,15 +14,30 @@
     {% block footer_content %}
     <div class="row">
       {% block footer_nav %}
-      <div class="col-md-3 footer-section">
+      <div class="col-md-6 footer-section">
         <h2 class="footer-section-title">{{ _('About') }}</h2>
         <ul class="list-unstyled">
           {% block footer_about %}
             <li><a href="{{ h.url_for('/pages/about-portal') }}">{{ _('About {0}').format(g.site_title) }}</a></li>
-            <li><a href="{{ 'https://data-gov-gr.gitbook.io/guides/texnika-egxeiridia' }}">{{ _('API Documentation') }}</a></li>
-            <li><a href="{{ 'https://data.europa.eu/en' }}">{{ _('data.europa.eu') }}</a></li>
+            <li>
+              <a href="{{ 'https://data-gov-gr.gitbook.io/guides/texnika-egxeiridia' }}" target="_blank" rel="noopener noreferrer"
+                 aria-label="{{ _('API Documentation') ~ opens_in_new_tab_suffix }}">
+                {{ _('API Documentation') }}
+              </a>
+            </li>
+            <li>
+              <a href="{{ 'https://data.europa.eu/en' }}" target="_blank" rel="noopener noreferrer"
+                 aria-label="{{ _('data.europa.eu') ~ opens_in_new_tab_suffix }}">
+                {{ _('data.europa.eu') }}
+              </a>
+            </li>
             {% if footer_source_code_url %}
-              <li><a href="{{ footer_source_code_url }}">{{ _('Source Code') }}</a></li>
+              <li>
+                <a href="{{ footer_source_code_url }}" target="_blank" rel="noopener noreferrer"
+                   aria-label="{{ _('Source Code') ~ opens_in_new_tab_suffix }}">
+                  {{ _('Source Code') }}
+                </a>
+              </li>
             {% endif %}
             {% if terms_page %}
               <li>
@@ -34,36 +53,41 @@
                 </a>
               </li>
             {% endif %}
+            {% if cookies_policy_page %}
+              <li>
+                <a href="{{ h.url_for('/pages/' ~ cookies_policy_page) }}">
+                  {{ _('Cookies Policy') }}
+                </a>
+              </li>
+            {% endif %}
+            {% if privacy_policy_page %}
+              <li>
+                <a href="{{ h.url_for('/pages/' ~ privacy_policy_page) }}">
+                  {{ _('Privacy Policy') }}
+                </a>
+              </li>
+            {% endif %}
           {% endblock %}
         </ul>
       </div>
 
-      <div class="col-md-3 footer-section">
-        <h2 class="footer-section-title">{{ _('Menu') }}</h2>
-        <ul class="list-unstyled">
-          {% block footer_data %}
-            <li><a href="{{ h.url_for('dataset.search') }}">{{ _('Datasets') }}</a></li>
-            <li><a href="{{ h.url_for('/data-service') }}">{{ _('Data services') }}</a></li>
-            <li><a href="{{ h.url_for('/decision') }}">{{ _('Data Release Decisions') }}</a> </li>
-            <li><a href="{{ h.url_for('organization.index') }}">{{ _('Organizations') }}</a></li>
-            <li><a href="{{ h.url_for('/showcase') }}">{{ _('Showcases') }}</a></li>
-          {% endblock %}
-        </ul>
-      </div>
-
-      <div class="col-md-3 footer-section">
+      <div class="col-md-6 footer-section">
         <h2 class="footer-section-title">{{ _('Community') }}</h2>
         <ul class="list-unstyled">
           {% block footer_community %}
+            {% if faq_page %}
+              <li><a href="{{ h.url_for('/pages/' ~ faq_page) }}">{{ _('Frequently Asked Questions') }}</a></li>
+            {% endif %}
             <li><a href="{{ h.url_for('/contact') }}">{{ _('Contact Us') }}</a></li>
             <li><a href="{{ h.url_for('/more') }}">{{ _('Help') }}</a></li>
             <li><a href="{{ h.url_for('/blog') }}">{{ _('News') }}</a></li>
             <li><a href="{{ h.url_for(stats_destination_url) }}">{{ _('Statistics') }}</a></li>
+            <li><a href="{{ h.url_for('/decision') }}">{{ _('Data Release Decisions') }}</a></li>
             {% if user_survey_url %}
               <li>
                 <a href="{{ user_survey_url }}" target="_blank" rel="noopener noreferrer"
-                   aria-label="{{ _('Πείτε μας τη γνώμη σας για την πύλη') ~ opens_in_new_tab_suffix }}">
-                  {{ _('Πείτε μας τη γνώμη σας για την πύλη') }}
+                   aria-label="{{ _('Tell Us What You Think about the Portal') ~ opens_in_new_tab_suffix }}">
+                  {{ _('Tell Us What You Think about the Portal') }}
                 </a>
               </li>
             {% endif %}
@@ -72,23 +96,14 @@
       </div>
       {% endblock %}
 
-      <div class="col-md-3 footer-section">
-        <h2 class="footer-section-title">{{ _('Language') }}</h2>
-        <ul class="list-unstyled">
-           <li>
-              {% block footer_lang %}
-                {% snippet "snippets/language_selector.html" %}
-              {% endblock %}
-           </li>
-        </ul>
-      </div>
     </div>
 
     <div class="row footer-bottom">
       <div class="col-md-8">
         <div class="footer-logos">
-          <a href="https://www.gov.gr">
-            <img src="{{ h.url_for_static('/images/government/government-logo2.svg') }}" alt="government-logo" height="30">
+          <a href="https://mindigital.gr/" target="_blank" rel="noopener noreferrer">
+            <img src="{{ h.url_for_static('/images/mindigital/logo_mindig_gr_' ~ mindigital_logo_variant ~ '.png') }}"
+                 alt="Υπουργείο Ψηφιακής Διακυβέρνησης" height="40">
           </a>
         </div>
       </div>
@@ -204,27 +219,27 @@
 
     <div id="user-survey-backdrop" class="user-survey-backdrop" role="dialog" aria-modal="true" aria-labelledby="user-survey-title">
       <div class="user-survey-modal">
-        <button type="button" class="user-survey-close" aria-label="{{ _('Κλείσιμο') }}">&times;</button>
-        <p id="user-survey-title" class="user-survey-modal-title">{{ _('Πείτε μας τη γνώμη σας για την πύλη') }}</p>
-	        <p>{{ _('Βοηθήστε μας να βελτιώσουμε την Πύλη με τη συμμετοχή σας σε ένα σύντομο ερωτηματολόγιο.') }}</p>
+        <button type="button" class="user-survey-close" aria-label="{{ _('Close') }}">&times;</button>
+        <p id="user-survey-title" class="user-survey-modal-title">{{ _('Tell Us What You Think about the Portal') }}</p>
+	        <p>{{ _('Help us Improve the Portal by Participating in a Short Questionnaire.') }}</p>
 	        <div class="user-survey-actions">
 	          <a id="user-survey-participate"
 	             class="user-survey-link"
 	             href="{{ user_survey_url }}"
 	             target="_blank"
 	             rel="noopener noreferrer"
-               aria-label="{{ _('Άνοιγμα ερωτηματολογίου') ~ opens_in_new_tab_suffix }}">
-	            {{ _('Άνοιγμα ερωτηματολογίου') }}
+               aria-label="{{ _('Open Questionnaire') ~ opens_in_new_tab_suffix }}">
+	            {{ _('Open Questionnaire') }}
 	          </a>
 	          <button type="button"
 	                  id="user-survey-maybe-later"
 	                  class="user-survey-btn">
-	            {{ _('Ίσως αργότερα') }}
+	            {{ _('Maybe Later') }}
 	          </button>
 	          <button type="button"
 	                  id="user-survey-dont-ask"
 	                  class="user-survey-btn">
-	            {{ _('Να μην ερωτηθώ ξανά') }}
+	            {{ _("Don't Ask Again") }}
 	          </button>
 	        </div>
       </div>
@@ -324,5 +339,7 @@
 	      });
 	    </script>
   {% endif %}
+
+  {% include 'snippets/cookie_consent_banner.html' %}
 
 </footer>

@@ -23,22 +23,22 @@ msgstr ""
 #: ckanext/data_gov_gr/templates/ckanext/stats/index.html:10
 #: ckanext/data_gov_gr/templates/ckanext/stats/datasets_by_publisher_type.html:6
 msgid "Datasets Per Publisher Type"
-msgstr "Σύνολα δεδομένων ανά τύπο οργανισμού"
+msgstr "Σύνολα Δεδομένων ανά Τύπο Οργανισμού"
 
 #: ckanext/data_gov_gr/templates/ckanext/stats/index.html:12
 #: ckanext/data_gov_gr/templates/ckanext/stats/datasets_by_organization.html:6
 msgid "Datasets Per Organization"
-msgstr "Σύνολα δεδομένων ανά οργανισμό"
+msgstr "Σύνολα Δεδομένων ανά Οργανισμό"
 
 #: ckanext/data_gov_gr/templates/ckanext/stats/index.html:14
 #: ckanext/data_gov_gr/templates/ckanext/stats/datasets_vs_services.html:6
 msgid "Datasets vs Data Services"
-msgstr "Σύνολα δεδομένων έναντι Υπηρεσιών δεδομένων"
+msgstr "Σύνολα Δεδομένων έναντι Υπηρεσιών Δεδομένων"
 
 #: ckanext/data_gov_gr/templates/ckanext/stats/index.html:16
 #: ckanext/data_gov_gr/templates/ckanext/stats/datasets_by_hvd_category.html:6
 msgid "Datasets Per High-Value Category"
-msgstr "Σύνολα δεδομένων ανά κατηγορία υψηλής αξίας"
+msgstr "Σύνολα Δεδομένων ανά Κατηγορία Υψηλής Αξίας"
 
 #: ckanext/data_gov_gr/templates/ckanext/stats/datasets_vs_services.html:24
 msgid "Type"
@@ -50,7 +50,7 @@ msgstr "Πλήθος"
 
 #: ckanext/data_gov_gr/templates/ckanext/stats/datasets_vs_services.html:34
 msgid "Datasets"
-msgstr "Σύνολα δεδομένων"
+msgstr "Σύνολα Δεδομένων"
 
 #: JS toggle labels used via data attributes
 msgid "Switch to Chart"
@@ -112,6 +112,26 @@ msgstr "Επιλέξτε Τοποθεσία"
 #: ckanext/data_gov_gr/templates/scheming/form_snippets/location.html:265
 msgid "Location Search"
 msgstr "Αναζήτηση Τοποθεσίας"
+
+#: ckanext/data_gov_gr/templates/organization/index.html:6
+msgid "Relevance"
+msgstr "Συνάφεια"
+
+#: ckanext/data_gov_gr/templates/organization/index.html:9
+msgid "Most Datasets"
+msgstr "Περισσότερα Σύνολα Δεδομένων"
+
+#: ckanext/data_gov_gr/templates/organization/index.html:10
+msgid "Fewest Datasets"
+msgstr "Λιγότερα Σύνολα Δεδομένων"
+
+#: ckanext/data_gov_gr/templates/organization/index.html:11
+msgid "Name Ascending"
+msgstr "Όνομα Αύξουσα"
+
+#: ckanext/data_gov_gr/templates/organization/index.html:12
+msgid "Name Descending"
+msgstr "Όνομα Φθίνουσα"
 
 #: ckanext/data_gov_gr/templates/snippets/package_item.html:17
 msgid "Copied!"
@@ -546,9 +566,36 @@ msgstr "Νέα"
 msgid "Statistics"
 msgstr "Στατιστικά"
 
+msgid "Frequently Asked Questions"
+msgstr "Συχνές Ερωτήσεις"
+
+msgid "Cookies Policy"
+msgstr "Πολιτική Cookies"
+
+msgid "Privacy Policy"
+msgstr "Πολιτική Απορρήτου"
+
+msgid "Tell Us What You Think about the Portal"
+msgstr "Πείτε μας τη Γνώμη σας για την Πύλη"
+
+msgid "Close"
+msgstr "Κλείσιμο"
+
+msgid "Help us Improve the Portal by Participating in a Short Questionnaire."
+msgstr "Βοηθήστε μας να Βελτιώσουμε την Πύλη με τη Συμμετοχή σας σε ένα Σύντομο Ερωτηματολόγιο."
+
+msgid "Open Questionnaire"
+msgstr "Άνοιγμα Ερωτηματολογίου"
+
+msgid "Maybe Later"
+msgstr "Ίσως Αργότερα"
+
+msgid "Don't Ask Again"
+msgstr "Να μην Ερωτηθώ Ξανά"
+
 # High Value Datasets section translations
 msgid "High Value Datasets"
-msgstr "Σύνολα Δεδομένων Υψηλής Αξίας"
+msgstr "Σύνολα Δεδομένων Υψηλής Αξίας (HVD)"
 
 msgid "Discover datasets that have been identified as having high value for society and economy"
 msgstr "Ανακαλύψτε σύνολα δεδομένων που έχουν αναγνωριστεί ως υψηλής αξίας για την κοινωνία και την οικονομία"
@@ -570,6 +617,15 @@ msgstr "Μηχαναγνώσιμη Μορφή"
 
 msgid "Structured formats and metadata following EU standards, enabling automated processing and integration"
 msgstr "Δομημένες μορφές και μεταδεδομένα που ακολουθούν πρότυπα της ΕΕ, επιτρέποντας αυτοματοποιημένη επεξεργασία και ενσωμάτωση"
+
+msgid "What are they: High value datasets consist of geospatial, environmental, meteorological and statistical data, as well as information related to business and mobility"
+msgstr "Ποια είναι: Ως δεδομένα υψηλής αξίας ορίζονται τα γεωχωρικά, περιβαλλοντικά, μετεωρολογικά και στατιστικά στοιχεία, καθώς και πληροφορίες που αφορούν την επιχειρηματικότητα και την κινητικότητα."
+
+msgid "How are they provided: Free of charge, in open and machine-readable formats, through APIs, with the possibility of bulk download and sufficient metadata"
+msgstr "Πώς διατίθενται: Δωρεάν, σε ανοικτούς και μηχαναγνώσιμους μορφότυπους, μέσω API, με δυνατότητα μαζικής λήψης και επαρκή μεταδεδομένα."
+
+msgid "Why are they important: They strengthen innovation, interoperability, research, entrepreneurship and public sector transparency"
+msgstr "Γιατί είναι σημαντικά: Ενισχύουν την καινοτομία, τη διαλειτουργικότητα, την έρευνα, την επιχειρηματικότητα και τη διαφάνεια του δημόσιου τομέα."
 
 msgid "Data Services"
 msgstr "Υπηρεσίες Δεδομένων"
@@ -665,7 +721,7 @@ msgid "Protected Dataset"
 msgstr "Σύνολο προστατευόμενων δεδομένων"
 
 msgid "Datasets/APIs/Decisions"
-msgstr "Σύνολα δεδομένων/APIs/Αποφάσεις"
+msgstr "Σύνολα Δεδομένων/APIs/Αποφάσεις"
 
 msgid "There is no description for this dataset"
 msgstr "Δεν υπάρχει περιγραφή για αυτό το σύνολο δεδομένων"
@@ -738,6 +794,9 @@ msgstr "Πρέπει να συνδεθείτε για να συνεχίσετε.
 msgid "Datasets Per Theme"
 msgstr "Σύνολα Δεδομένων ανά Θέμα"
 
+msgid "Number of Datasets per Thematic Category."
+msgstr "Πλήθος Συνόλων Δεδομένων ανά Θεματική Κατηγορία."
+
 msgid "Switch to Table"
 msgstr "Εμφάνιση ως Πίνακας"
 
@@ -752,6 +811,21 @@ msgstr "Δεν βρέθηκαν θέματα"
 
 msgid "Organizations Per Publisher Type"
 msgstr "Οργανισμοί ανά Τύπο Εκδότη"
+
+msgid "Number of Datasets per Publisher Type."
+msgstr "Πλήθος Συνόλων Δεδομένων ανά Τύπο Εκδότη."
+
+msgid "Number of Datasets per Organization."
+msgstr "Πλήθος Συνόλων Δεδομένων ανά Οργανισμό."
+
+msgid "Comparison between Datasets and Data Services."
+msgstr "Σύγκριση μεταξύ Συνόλων Δεδομένων και Υπηρεσιών Δεδομένων."
+
+msgid "Number of HVD Datasets per Category."
+msgstr "Πλήθος HVD Συνόλων Δεδομένων ανά Κατηγορία."
+
+msgid "Number of Organizations per Publisher Type."
+msgstr "Πλήθος Οργανισμών ανά Τύπο Εκδότη."
 
 msgid "Total Organizations"
 msgstr "Συνολικοί Οργανισμοί"
@@ -778,22 +852,46 @@ msgid "Statistics Menu"
 msgstr "Μενού στατιστικών"
 
 msgid "Total Number of Packages"
-msgstr "Πλήθος συνόλων δεδομένων και APIs"
+msgstr "Πλήθος Συνόλων Δεδομένων και APIs"
+
+msgid "Trend of the Total Number of Packages over Time."
+msgstr "Εξέλιξη του Συνολικού Αριθμού Πακέτων στον Χρόνο."
 
 msgid "Package Revisions per Week"
-msgstr "Αναθεωρήσεις συνόλων δεδομένων και APIs ανά εβδομάδα"
+msgstr "Αναθεωρήσεις Συνόλων Δεδομένων και APIs ανά Εβδομάδα"
+
+msgid "Package Updates and New Publications per Week."
+msgstr "Μεταβολές και Νέες Δημοσιεύσεις Πακέτων ανά Εβδομάδα."
 
 msgid "Most Edited Packages"
-msgstr "Περισσότερο επεξεργασμένα σύνολα δεδομένων και APIs "
+msgstr "Περισσότερο Επεξεργασμένα Σύνολα Δεδομένων και APIs "
+
+msgid "Packages with the Most Changes."
+msgstr "Πακέτα με τις Περισσότερες Τροποποιήσεις."
 
 msgid "Largest Groups"
 msgstr "Μεγαλύτερες ομάδες"
 
+msgid "Groups with the Most Connected Packages."
+msgstr "Ομάδες με τα Περισσότερα Συνδεδεμένα Πακέτα."
+
 msgid "Top Tags"
 msgstr "Κορυφαίες ετικέτες"
 
+msgid "Most Popular Dataset Tags."
+msgstr "Δημοφιλέστερες Ετικέτες Συνόλων Δεδομένων."
+
 msgid "Users Creating Most Datasets"
 msgstr "Χρήστες που δημιουργούν τα περισσότερα σύνολα δεδομένων"
+
+msgid "Users who Have Created the Most Datasets."
+msgstr "Χρήστες που Έχουν Δημιουργήσει τα Περισσότερα Σύνολα Δεδομένων."
+
+msgid "Power BI Reports"
+msgstr "Αναφορές Power BI"
+
+msgid "Advanced Reports and Dashboards from Power BI."
+msgstr "Σύνθετες Αναφορές και Dashboards από Power BI."
 
 msgid "No edited datasets"
 msgstr "Δεν βρέθηκαν επεξεργασμένα σύνολα δεδομένων"
@@ -829,34 +927,34 @@ msgid "New datasets"
 msgstr "Νέα σύνολα δεδομένων"
 
 msgid "Total datasets"
-msgstr "Σύνολα δεδομένων (σύνολο)"
+msgstr "Σύνολα Δεδομένων (Σύνολο)"
 
 msgid "Source Code"
-msgstr "Πηγαίος κώδικας"
+msgstr "Πηγαίος Κώδικας"
 
 msgid "Terms of Use"
-msgstr "Όροι χρήσης"
+msgstr "Όροι Χρήσης"
 
 # Home page (data_gov_gr/templates/home/index.html)
-msgid "Data & Services Portal"
-msgstr "Πύλη Δεδομένων & Υπηρεσιών"
+msgid "Data and Services Portal"
+msgstr "Πύλη Δεδομένων και Υπηρεσιών"
 
 msgid "Discover, use and improve public sector data!"
-msgstr "Ανακαλύψτε, Χρησιμοποιήστε και Βελτιώστε τα δεδομένα του δημοσίου!"
+msgstr "Ανακαλύψτε, χρησιμοποιήστε και βελτιώστε τα δεδομένα του δημοσίου!"
 
 msgid "Explore and access open data."
 msgstr "Εξερευνήστε και αποκτήστε πρόσβαση σε ανοικτά δεδομένα."
 
-msgid "Explore and access data."
+msgid "Explore and Access Data"
 msgstr "Εξερευνήστε και αποκτήστε πρόσβαση σε δεδομένα."
 
 msgid "Discover APIs and data services."
 msgstr "Ανακαλύψτε APIs και υπηρεσίες δεδομένων."
 
 msgid "Platform statistics"
-msgstr "Στατιστικά πλατφόρμας"
+msgstr "Στατιστικά Πλατφόρμας"
 
-msgid "Thematic categories"
+msgid "Thematic Categories"
 msgstr "Θεματικές Κατηγορίες"
 
 msgid "Agriculture, fisheries, forestry and food"
@@ -898,98 +996,143 @@ msgstr "Επιστήμη και τεχνολογία"
 msgid "Transport"
 msgstr "Μεταφορές"
 
-msgid "Artificial Intelligence"
-msgstr "Τεχνητή Νοημοσύνη"
+msgid "Artificial intelligence"
+msgstr "Τεχνητή νοημοσύνη"
 
-msgid "coming soon..."
+msgid "Coming Soon..."
 msgstr "coming soon..."
 
-msgid "Selected applications"
-msgstr "Επιλεγμένες επαναχρήσεις"
+msgid "Selected Applications"
+msgstr "Ανάδειξη Περιπτώσεων Επανάχρησης Δεδομένων"
 
 msgid "There are no selected applications yet."
-msgstr "Δεν υπάρχουν ακόμη επιλεγμένες επαναχρήσεις."
+msgstr "Δεν υπάρχουν ακόμη περιπτώσεις επανάχρησης σε ανάδειξη."
 
-msgid "All applications"
-msgstr "Όλες οι επαναχρήσεις"
+msgid "All Applications"
+msgstr "Όλες οι Επαναχρήσεις"
 
 msgid "Reuse Statistics"
-msgstr "Στατιστικά Επανάχρησης"
+msgstr "Στατιστικά Επανάχρησης Δεδομένων"
+
+msgid "Total Visits"
+msgstr "Συνολικές Επισκέψεις"
 
 msgid "Total visits"
-msgstr "Συνολικές επισκέψεις"
+msgstr "Συνολικές Επισκέψεις"
+
+msgid "Total Visits (Last 30 Days)"
+msgstr "Συνολικές Επισκέψεις (Τελευταίες 30 Ημέρες)"
 
 msgid "Total visits (last 30 days)"
-msgstr "Συνολικές επισκέψεις (τελευταίες 30 ημέρες)"
+msgstr "Συνολικές Επισκέψεις (Τελευταίες 30 Ημέρες)"
+
+msgid "Total Visits (Last 12 Months)"
+msgstr "Συνολικές Επισκέψεις (Τελευταίοι 12 Μήνες)"
 
 msgid "Total visits (last 12 months)"
-msgstr "Συνολικές επισκέψεις (τελευταίοι 12 μήνες)"
+msgstr "Συνολικές Επισκέψεις (Τελευταίοι 12 Μήνες)"
+
+msgid "Total Visits (All Time)"
+msgstr "Συνολικές Επισκέψεις (Συνολικά)"
 
 msgid "Total visits (all time)"
-msgstr "Συνολικές επισκέψεις (all time)"
+msgstr "Συνολικές Επισκέψεις (Συνολικά)"
+
+msgid "Total Downloads"
+msgstr "Αριθμός Λήψεων"
 
 msgid "Total downloads"
 msgstr "Αριθμός Λήψεων"
 
+msgid "Total Downloads (Last 30 Days)"
+msgstr "Αριθμός Λήψεων (Τελευταίες 30 Ημέρες)"
+
 msgid "Total downloads (last 30 days)"
-msgstr "Αριθμός λήψεων (τελευταίες 30 ημέρες)"
+msgstr "Αριθμός Λήψεων (Τελευταίες 30 Ημέρες)"
+
+msgid "Total Downloads (Last 12 Months)"
+msgstr "Αριθμός Λήψεων (Τελευταίοι 12 Μήνες)"
 
 msgid "Total downloads (last 12 months)"
-msgstr "Αριθμός λήψεων (τελευταίοι 12 μήνες)"
+msgstr "Αριθμός Λήψεων (Τελευταίοι 12 Μήνες)"
+
+msgid "Total Downloads (All Time)"
+msgstr "Αριθμός Λήψεων (Συνολικά)"
 
 msgid "Total downloads (all time)"
-msgstr "Αριθμός λήψεων (all time)"
+msgstr "Αριθμός Λήψεων (Συνολικά)"
 
 msgid "Applications"
 msgstr "Επαναχρήσεις"
 
-msgid "View statistics"
+msgid "Reuse"
+msgstr "Επανάχρηση"
+
+msgid "Showcases"
+msgstr "Επαναχρήσεις"
+
+msgid "My Showcases"
+msgstr "Οι επαναχρήσεις μου"
+
+msgid "You have not created any showcases yet."
+msgstr "Δεν έχετε δημιουργήσει ακόμα επαναχρήσεις."
+
+msgid "View Statistics"
 msgstr "Δείτε τα στατιστικά"
 
-msgid "The data.gov.gr mission"
-msgstr "Η αποστολή data.gov.gr"
+msgid "The Mission of data.gov.gr"
+msgstr "Η Αποστολή του data.gov.gr"
 
-msgid "Simplify access to public data"
-msgstr "Απλοποιήστε την πρόσβαση στα δημόσια δεδομένα"
+msgid "We simplify access to public data"
+msgstr "Απλοποιούμε την πρόσβαση στα δημόσια δεδομένα"
 
-msgid "Opening and sharing public data strengthens transparency, improves public action and enables new services."
-msgstr "Το άνοιγμα και η κυκλοφορία δημόσιων δεδομένων ενισχύει τη διαφάνεια, βελτιώνει τη δημόσια δράση και επιτρέπει τη δημιουργία νέων υπηρεσιών."
+msgid "Opening and sharing public data strengthens transparency, improves decision-making and enables the creation of new services for citizens, businesses and researchers."
+msgstr "Το άνοιγμα και η διάθεση δημόσιων δεδομένων ενισχύει τη διαφάνεια, βελτιώνει τη λήψη αποφάσεων και επιτρέπει τη δημιουργία νέων υπηρεσιών για πολίτες, επιχειρήσεις και ερευνητές."
 
-msgid "data.gov.gr ensures the availability of this information by organizing its dissemination and reuse."
-msgstr "Το data.gov.gr διασφαλίζει τη διαθεσιμότητα αυτών των πληροφοριών με την οργάνωση της διάδοσης και της εκμετάλλευσής της."
+msgid "The National Data Portal data.gov.gr, under the supervision of the Special Secretariat for Artificial Intelligence and Data Governance of the Ministry of Digital Governance, ensures the availability of these data and supports their use."
+msgstr "Η Εθνική Πύλη Δεδομένων data.gov.gr, υπό την εποπτεία της Ειδικής Γραμματείας Τεχνητής Νοημοσύνης και Διακυβέρνησης Δεδομένων του Υπουργείου Ψηφιακής Διακυβέρνησης, διασφαλίζει τη διαθεσιμότητα αυτών των δεδομένων και υποστηρίζει την αξιοποίησή τους."
 
 msgid "Our goals"
 msgstr "Οι στόχοι μας"
 
-msgid "Facilitate data discoverability"
-msgstr "Διευκολύνετε τη δυνατότητα ανακάλυψης των δεδομένων"
+msgid "We make data easier to discover"
+msgstr "Διευκολύνουμε την ανακάλυψη των δεδομένων"
 
-msgid "Improve data quality"
-msgstr "Βελτιώστε την ποιότητα των δεδομένων"
+msgid "We make public data easy to access and understand for everyone."
+msgstr "Κάνουμε τα δημόσια δεδομένα εύκολα προσβάσιμα και κατανοητά για όλους."
 
-msgid "Encourage data reuse"
-msgstr "Ενθαρρύνετε την επαναχρησιμοποίηση των δεδομένων"
+msgid "We improve data quality"
+msgstr "Βελτιώνουμε την ποιότητα των δεδομένων"
+
+msgid "We support public bodies in publishing complete, accurate and useful data."
+msgstr "Υποστηρίζουμε τους φορείς να διαθέτουν πλήρη, ακριβή και χρήσιμα δεδομένα."
+
+msgid "We encourage data reuse"
+msgstr "Ενθαρρύνουμε την επαναχρησιμοποίηση των δεδομένων"
+
+msgid "We promote innovation and the creation of value from public data."
+msgstr "Προωθούμε την καινοτομία και τη δημιουργία αξίας από τα δημόσια δεδομένα."
 
 msgid "Learn more about data.gov.gr"
 msgstr "Μάθετε περισσότερα για το data.gov.gr"
 
-msgid "Featured datasets"
-msgstr "Επιλεγμένα σύνολα δεδομένων"
+msgid "Featured Datasets"
+msgstr "Επιλεγμένα Σύνολα Δεδομένων"
 
 msgid "Open view: {0}"
 msgstr "Άνοιγμα προβολής: {0}"
 
-msgid "News & Announcements"
-msgstr "Νέα & Ανακοινώσεις"
+msgid "News and Announcements"
+msgstr "Νέα και Ανακοινώσεις"
 
-msgid "See all news"
+msgid "See All News"
 msgstr "Δείτε όλα τα νέα"
 
 msgid "There are no announcements yet."
 msgstr "Δεν υπάρχουν ακόμη ανακοινώσεις."
 
-msgid "Start creating with datasets"
-msgstr "Ξεκινήστε να δημιουργείτε με τα σύνολα δεδομένων"
+msgid "Start Creating with Datasets"
+msgstr "Ξεκινήστε να Δημιουργείτε με Σύνολα Δεδομένων"
 
 msgid "Access comprehensive user guides and learn how to publish and use datasets."
 msgstr "Αποκτήστε πρόσβαση σε εκτενείς οδηγούς χρήσης και μάθετε πώς να δημοσιεύετε και να χρησιμοποιείτε τα σύνολα δεδομένων σε επαναχρήσεις και αναλύσεις."
@@ -1015,8 +1158,8 @@ msgstr "Ποιότητα"
 msgid "Data and metadata quality guides"
 msgstr "Οδηγοί ποιότητας δεδομένων και μεταδεδομένων"
 
-msgid "Quick guides"
-msgstr "Γρήγοροι οδηγοί"
+msgid "Quick Guides"
+msgstr "Γρήγοροι Οδηγοί"
 
 msgid "Quick guides for using the platform"
 msgstr "Γρήγοροι οδηγοί χρήσης της πλατφόρμας"
@@ -1024,8 +1167,8 @@ msgstr "Γρήγοροι οδηγοί χρήσης της πλατφόρμας"
 msgid "API Documentation"
 msgstr "Τεκμηρίωση API"
 
-msgid "Add dataset"
-msgstr "Προσθήκη συνόλου δεδομένων"
+msgid "Add Dataset"
+msgstr "Προσθήκη Συνόλου Δεδομένων"
 
 msgid "How to add a dataset"
 msgstr "Πώς να προσθέσετε ένα σύνολο δεδομένων"
@@ -1074,3 +1217,53 @@ msgstr ""
 
 msgid "The dataset activity stream is restricted to authorized users."
 msgstr "Η ροή δραστηριότητας του συνόλου δεδομένων είναι διαθέσιμη μόνο σε εξουσιοδοτημένους χρήστες."
+
+msgid "The organization activity stream is restricted to organization admins and sysadmins."
+msgstr "Η ροή δραστηριότητας του φορέα είναι διαθέσιμη μόνο σε διαχειριστές φορέα και κεντρικούς διαχειριστές."
+
+#: cookie consent banner
+msgid "Cookie consent"
+msgstr "Συγκατάθεση cookies"
+
+msgid "This portal uses cookies and analytics to improve your experience. Please choose whether to accept or decline."
+msgstr "Αυτή η πύλη χρησιμοποιεί cookies και analytics για τη βελτίωση της εμπειρίας σας. Παρακαλούμε επιλέξτε αν αποδέχεστε ή απορρίπτετε."
+
+msgid "This portal uses cookies and analytics to improve your experience. You can opt out of tracking at any time."
+msgstr "Αυτή η πύλη χρησιμοποιεί cookies και analytics για τη βελτίωση της εμπειρίας σας. Μπορείτε να εξαιρεθείτε από την παρακολούθηση ανά πάσα στιγμή."
+
+msgid "Accept"
+msgstr "Αποδοχή"
+
+msgid "Decline"
+msgstr "Απόρριψη"
+
+msgid "Opt Out of Tracking"
+msgstr "Εξαίρεση από την παρακολούθηση"
+
+msgid "Resume Tracking"
+msgstr "Επαναφορά παρακολούθησης"
+
+#: admin config - matomo consent
+msgid "Matomo — Συγκατάθεση Cookies"
+msgstr ""
+
+msgid "Απενεργοποιημένο (χωρίς banner)"
+msgstr ""
+
+msgid "Πλήρης συγκατάθεση (tracking consent)"
+msgstr ""
+
+msgid "Συγκατάθεση cookies μόνο (cookie consent)"
+msgstr ""
+
+msgid "Opt-out (ο χρήστης μπορεί να εξαιρεθεί)"
+msgstr ""
+
+msgid "Λειτουργία συγκατάθεσης Matomo"
+msgstr ""
+
+msgid "Επιλέξτε τη λειτουργία banner συγκατάθεσης cookies/tracking για το Matomo. «Απενεργοποιημένο» = καμία αλλαγή (τρέχουσα συμπεριφορά)."
+msgstr ""
+
+msgid "Ελέγχει αν εμφανίζεται banner συγκατάθεσης cookies/tracking. Απενεργοποιημένο = τρέχουσα συμπεριφορά χωρίς banner. Tracking consent = πλήρης συναίνεση πριν οποιοδήποτε tracking. Cookie consent = tracking χωρίς cookies μέχρι αποδοχή. Opt-out = tracking by default, ο χρήστης μπορεί να εξαιρεθεί."
+msgstr ""

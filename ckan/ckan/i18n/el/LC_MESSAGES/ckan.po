@@ -4029,7 +4029,7 @@ msgstr ""
 #: ckanext/activity/views.py:384 ckanext/activity/views.py:462
 #: ckanext/activity/views.py:608 ckanext/activity/views.py:701
 msgid "Unauthorized to view activity data"
-msgstr ""
+msgstr "Δεν επιτρέπεται να δείτε τα δεδομένα δραστηριότητας"
 
 #: ckanext/activity/views.py:252
 msgid "The detail of this dataset activity is not available"

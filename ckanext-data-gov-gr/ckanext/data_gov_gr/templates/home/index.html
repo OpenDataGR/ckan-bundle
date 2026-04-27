@@ -38,9 +38,9 @@
 
   <section class="proposal-hero">
     <div class="container">
-      <h1>{{ _('Data & Services Portal') }}</h1>
+      <h1>{{ _('Data and Services Portal') }}</h1>
       <p class="proposal-hero-lead">{{ _('Discover, use and improve public sector data!') }}</p>
-      {% set hero_search_placeholder = 'Αναζητήστε σύνολα δεδομένων...' if h.lang() == 'el' else 'Search datasets...' %}
+      {% set hero_search_placeholder = 'Αναζητήστε Σύνολα Δεδομένων...' if h.lang() == 'el' else 'Search Datasets...' %}
       <form class="proposal-hero-search" action="{{ h.url_for('dataset.search') }}" method="get" role="search">
         <label class="visually-hidden" for="field-hero-search">{{ _('Search') }}</label>
         <div class="proposal-hero-search-group">
@@ -78,7 +78,7 @@
                 <span class="proposal-key-stat-value">{{ pn_orgs.value }}</span>
                 <span class="proposal-key-stat-label">{{ pn_orgs.label }}</span>
               </div>
-              <span class="proposal-key-stat-desc">{{ 'Εξερευνήστε οργανισμούς που έχουν αναρτήσει δεδομένα.' if h.lang() == 'el' else 'Explore organizations that publish data.' }}</span>
+              <span class="proposal-key-stat-desc">{{ 'Εξερευνήστε οργανισμούς που έχουν αναρτήσει δεδομένα.' if h.lang() == 'el' else 'Explore data publishers' }}</span>
             </div>
           </div>
         </a>
@@ -103,7 +103,7 @@
                 </div>
                 {% endif %}
               </div>
-              <span class="proposal-key-stat-desc">{{ _('Explore and access data.') }}</span>
+              <span class="proposal-key-stat-desc">{{ _('Explore and access data') }}</span>
             </div>
           </div>
         </a>
@@ -133,8 +133,8 @@
   <section class="proposal-discovery">
     <div class="container proposal-discovery-grid">
       <section class="proposal-theme-panel">
-        <h2>{{ _('Thematic categories') }}</h2>
-        <nav class="proposal-theme-links" aria-label="{{ _('Thematic categories') }}">
+        <h2>{{ _('Thematic Categories') }}</h2>
+        <nav class="proposal-theme-links" aria-label="{{ _('Thematic Categories') }}">
           <a href="/dataset?q=theme:*AGRI*" class="proposal-theme-link"><i class="fa fa-leaf"></i><span>{{ _('Agriculture, fisheries, forestry and food') }}</span></a>
           <a href="/dataset?q=theme:*ECON*" class="proposal-theme-link">
             <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -168,8 +168,8 @@
               <circle class="proposal-ai-chip-node" cx="14.2" cy="10.1" r="0.85"></circle>
               <circle class="proposal-ai-chip-node" cx="15.1" cy="13.9" r="0.85"></circle>
             </svg>
-            <span>{{ _('Artificial Intelligence') }}</span>
-            <em class="proposal-coming-soon">{{ _('coming soon...') }}</em>
+            <span>{{ _('Artificial intelligence') }}</span>
+            <em class="proposal-coming-soon">{{ _('Coming Soon...') }}</em>
           </span>
         </nav>
       </section>
@@ -182,15 +182,15 @@
         <div class="proposal-hvd-features">
           <div class="proposal-hvd-feature">
             <span class="proposal-hvd-feature-icon"><i class="fa fa-diamond" aria-hidden="true"></i></span>
-            <p>{{ _('Geospatial, Earth observation, environmental, meteorological, statistics, mobility, and company data') }}.</p>
+            <p>{{ _('What are they: High value datasets consist of geospatial, environmental, meteorological and statistical data, as well as information related to business and mobility') }}</p>
           </div>
           <div class="proposal-hvd-feature">
-            <span class="proposal-hvd-feature-icon"><i class="fa fa-users" aria-hidden="true"></i></span>
-            <p>{{ _('Available free of charge through standardized APIs and bulk downloads, ensuring maximum reusability') }}.</p>
+            <span class="proposal-hvd-feature-icon"><i class="fa fa-download" aria-hidden="true"></i></span>
+            <p>{{ _('How are they provided: Free of charge, in open and machine-readable formats, through APIs, with the possibility of bulk download and sufficient metadata') }}</p>
           </div>
           <div class="proposal-hvd-feature">
-            <span class="proposal-hvd-feature-icon"><i class="fa fa-cube" aria-hidden="true"></i></span>
-            <p>{{ _('Structured formats and metadata following EU standards, enabling automated processing and integration') }}.</p>
+            <span class="proposal-hvd-feature-icon"><i class="fa fa-trophy" aria-hidden="true"></i></span>
+            <p>{{ _('Why are they important: They strengthen innovation, interoperability, research, entrepreneurship and public sector transparency') }}</p>
           </div>
         </div>
         <a href="{{ hvd_page_url }}" class="proposal-hvd-btn">
@@ -206,7 +206,7 @@
       <div class="proposal-snapshot-grid{% if not show_reuse_stats %} proposal-snapshot-grid--single{% endif %}">
         <div class="proposal-snapshot-showcases">
           <div class="proposal-section-head">
-            <h2>{{ _('Selected applications') }}</h2>
+            <h2>{{ _('Selected Applications') }}</h2>
           </div>
           {% if home_showcases %}
           <div class="proposal-showcase-grid proposal-showcase-grid-compact">
@@ -242,7 +242,7 @@
           {% endif %}
 
           <div class="proposal-snapshot-footer">
-            <a class="proposal-snapshot-more" href="{{ h.url_for('showcase_blueprint.index') }}">{{ _('All applications') }}</a>
+            <a class="proposal-snapshot-more" href="{{ h.url_for('showcase_blueprint.index') }}">{{ _('All Applications') }}</a>
           </div>
         </div>
 
@@ -267,7 +267,7 @@
 	            {% if has_visitors %}
 	              <div class="proposal-reuse-card">
 	                <strong class="proposal-reuse-value">{{ '{:,}'.format(reuse_stats.get('visitors_total'))|replace(',', ' ') }}</strong>
-				              <span class="proposal-reuse-label">{{ _(reuse_stats.get('visitors_label') or 'Total visits') }}</span>
+				              <span class="proposal-reuse-label">{{ _(reuse_stats.get('visitors_label') or 'Total Visits') }}</span>
 		                <div class="proposal-reuse-spark"
 		                     aria-hidden="true"
 		                     {% if reuse_stats.get('visitors_spark') %}
@@ -289,7 +289,7 @@
 	            {% if has_downloads %}
 	              <div class="proposal-reuse-card">
 	                <strong class="proposal-reuse-value">{{ '{:,}'.format(reuse_stats.get('downloads_total'))|replace(',', ' ') }}</strong>
-				              <span class="proposal-reuse-label">{{ _(reuse_stats.get('downloads_label') or 'Total downloads') }}</span>
+				              <span class="proposal-reuse-label">{{ _(reuse_stats.get('downloads_label') or 'Total Downloads') }}</span>
 		                <div class="proposal-reuse-spark"
 	                     aria-hidden="true"
 	                     {% if reuse_stats.get('downloads_spark') %}
@@ -330,7 +330,7 @@
 		            </a>
 		          </div>
 
-          <a class="proposal-snapshot-btn" href="{{ stats_url }}">{{ _('View statistics') }}</a>
+          <a class="proposal-snapshot-btn" href="{{ stats_url }}">{{ _('View Statistics') }}</a>
         </section>
         {% endif %}
       </div>
@@ -339,28 +339,28 @@
 
   <section class="proposal-vision">
     <div class="container">
-      <p class="proposal-vision-kicker">{{ _('The data.gov.gr mission') }}</p>
-      <h2>{{ _('Simplify access to public data') }}</h2>
+      <p class="proposal-vision-kicker">{{ _('The Mission of data.gov.gr') }}</p>
+      <h2>{{ _('We simplify access to public data') }}</h2>
       <p>
-        {{ _('Opening and sharing public data strengthens transparency, improves public action and enables new services.') }}
+        {{ _('Opening and sharing public data strengthens transparency, improves decision-making and enables the creation of new services for citizens, businesses and researchers.') }}
       </p>
       <p>
-        {{ _('data.gov.gr ensures the availability of this information by organizing its dissemination and reuse.') }}
+        {{ _('The National Data Portal data.gov.gr, under the supervision of the Special Secretariat for Artificial Intelligence and Data Governance of the Ministry of Digital Governance, ensures the availability of these data and supports their use.') }}
       </p>
 
       <h3 class="proposal-vision-objectives">{{ _('Our goals') }}</h3>
       <div class="proposal-vision-pillars">
         <div class="proposal-vision-pillar">
-          <i class="fa fa-search" aria-hidden="true"></i>
-          <span>{{ _('Facilitate data discoverability') }}</span>
+          <p class="proposal-vision-pillar-title">{{ _('We make data easier to discover') }}</p>
+          <p class="proposal-vision-pillar-text">{{ _('We make public data easy to access and understand for everyone.') }}</p>
         </div>
         <div class="proposal-vision-pillar">
-          <i class="fa fa-check-circle" aria-hidden="true"></i>
-          <span>{{ _('Improve data quality') }}</span>
+          <p class="proposal-vision-pillar-title">{{ _('We improve data quality') }}</p>
+          <p class="proposal-vision-pillar-text">{{ _('We support public bodies in publishing complete, accurate and useful data.') }}</p>
         </div>
         <div class="proposal-vision-pillar">
-          <i class="fa fa-line-chart" aria-hidden="true"></i>
-          <span>{{ _('Encourage data reuse') }}</span>
+          <p class="proposal-vision-pillar-title">{{ _('We encourage data reuse') }}</p>
+          <p class="proposal-vision-pillar-text">{{ _('We promote innovation and the creation of value from public data.') }}</p>
         </div>
       </div>
 
@@ -374,7 +374,7 @@
   <section class="featured-dataset-views-section">
     <div class="container">
       <div class="proposal-section-head">
-        <h2>{{ _('Featured datasets') }}</h2>
+        <h2>{{ _('Featured Datasets') }}</h2>
       </div>
       <div class="featured-dataset-views-grid">
         {% for item in featured_dataset_views %}
@@ -448,8 +448,8 @@
   <section class="proposal-news">
     <div class="container">
       <div class="proposal-section-head">
-        <h2>{{ _('News & Announcements') }}</h2>
-        <a href="{{ h.url_for('pages.blog_index') }}">{{ _('See all news') }}</a>
+        <h2>{{ _('News and Announcements') }}</h2>
+        <a href="{{ h.url_for('pages.blog_index') }}">{{ _('See All News') }}</a>
       </div>
       {% if news_items %}
       <div class="proposal-news-grid">
@@ -481,14 +481,14 @@
   <section class="proposal-guides">
     <div class="container">
       <div class="proposal-guides-card">
-        <h2>{{ _('Start creating with datasets') }}</h2>
+        <h2>{{ _('Start Creating with Datasets') }}</h2>
         <p>{{ _('Access comprehensive user guides and learn how to publish and use datasets.') }}</p>
         <div class="proposal-guides-actions">
           <a href="{{ getting_started_url }}" class="proposal-guide-item" target="_blank" rel="noopener noreferrer"
-             aria-label="{{ _('Quick guides') ~ opens_in_new_tab_suffix }}">
+             aria-label="{{ _('Quick Guides') ~ opens_in_new_tab_suffix }}">
             <span class="proposal-guide-item-icon"><i class="fa fa-shield" aria-hidden="true"></i></span>
             <span class="proposal-guide-item-content">
-              <strong>{{ _('Quick guides') }}</strong>
+              <strong>{{ _('Quick Guides') }}</strong>
               <small>{{ _('Quick guides for using the platform') }}</small>
             </span>
           </a>
@@ -501,10 +501,10 @@
             </span>
           </a>
           <a href="{{ data_publishing_guide_url }}" class="proposal-guide-item" target="_blank" rel="noopener noreferrer"
-             aria-label="{{ _('Add dataset') ~ opens_in_new_tab_suffix }}">
+             aria-label="{{ _('Add Dataset') ~ opens_in_new_tab_suffix }}">
             <span class="proposal-guide-item-icon"><i class="fa fa-cloud-upload" aria-hidden="true"></i></span>
             <span class="proposal-guide-item-content">
-              <strong>{{ _('Add dataset') }}</strong>
+              <strong>{{ _('Add Dataset') }}</strong>
               <small>{{ _('How to add a dataset') }}</small>
             </span>
           </a>

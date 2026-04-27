@@ -77,19 +77,80 @@
             </div>
           </section>
           {% if h.has_gitbook_pdf_export() %}
-            {% set pdf_module_title = 'Κατεβάστε τους οδηγούς (PDF)' if h.lang() == 'el' else _('Download guides (PDF)') %}
-            {% set pdf_module_description = 'Ανοίξτε σε νέα καρτέλα το αρχείο PDF που περιλαμβάνει όλους τους οδηγούς της πλατφόρμας.' if h.lang() == 'el' else _('Open in a new tab the PDF that contains all platform guides.') %}
-            {% set pdf_module_button = 'Λήψη PDF' if h.lang() == 'el' else _('Download PDF') %}
-            <section class="module module-narrow module-shallow pdf-guides-module">
-              <p class="module-heading"><i class="fa fa-file-pdf-o"></i> {{ pdf_module_title }}</p>
-              <div class="module-content">
-                <p>{{ pdf_module_description }}</p>
-                <a href="{{ h.url_for('dataset_type.download_guides_pdf') }}" class="btn btn-primary btn-sm" target="_blank" rel="noopener"
-                   aria-label="{{ pdf_module_button ~ opens_in_new_tab_suffix }}">
-                  {{ pdf_module_button }} <i class="fa fa-external-link"></i>
-                </a>
-              </div>
-            </section>
+            {% if h.get_config_as_bool('ckanext.data_gov_gr.gitbook.pdf_all_guides_panel.enabled', True) %}
+              {% set pdf_auto_print = h.get_config_as_bool('ckanext.data_gov_gr.gitbook.pdf_auto_print', False) %}
+              {% set pdf_module_title = 'Κατεβάστε τους οδηγούς (PDF)' if h.lang() == 'el' else _('Download guides (PDF)') %}
+              {% if pdf_auto_print %}
+                {% set pdf_module_description = 'Κατεβάστε σε μορφή PDF όλους τους οδηγούς της πλατφόρμας.' if h.lang() == 'el' else _('Download all platform guides as PDF.') %}
+              {% else %}
+                {% set pdf_module_description = 'Ανοίξτε σε νέα καρτέλα το αρχείο PDF που περιλαμβάνει όλους τους οδηγούς της πλατφόρμας.' if h.lang() == 'el' else _('Open in a new tab the PDF that contains all platform guides.') %}
+              {% endif %}
+              {% set pdf_module_button = 'Λήψη PDF' if h.lang() == 'el' else _('Download PDF') %}
+              <section class="module module-narrow module-shallow pdf-guides-module">
+                <p class="module-heading"><i class="fa fa-file-pdf-o"></i> {{ pdf_module_title }}</p>
+                <div class="module-content">
+                  <p>{{ pdf_module_description }}</p>
+                  <a href="{{ h.url_for('dataset_type.download_guides_pdf') }}" class="btn btn-primary btn-sm" target="_blank" rel="noopener"
+                     aria-label="{{ pdf_module_button }}">
+                    {{ pdf_module_button }} <i class="fa {{ 'fa-download' if pdf_auto_print else 'fa-external-link' }}"></i>
+                  </a>
+                </div>
+              </section>
+            {% endif %}
+            {% if h.get_config_as_bool('ckanext.data_gov_gr.gitbook.pdf_per_page_panel.enabled', True) %}
+              <section class="module module-narrow module-shallow pdf-guides-module">
+                <p class="module-heading"><i class="fa fa-file-pdf-o"></i>
+                  {{ 'Λήψη οδηγού ανά ενότητα' if h.lang() == 'el' else _('Download guide by section') }}
+                </p>
+                <div class="module-content">
+                  <p>{{ 'Επιλέξτε ενότητα και κατεβάστε τον αντίστοιχο οδηγό σε PDF.' if h.lang() == 'el' else _('Select a section and download the corresponding guide as PDF.') }}</p>
+                  <select id="guide-page-select" class="form-control input-sm" style="margin-bottom: 10px;" disabled>
+                    <option value="">{{ 'Φόρτωση...' if h.lang() == 'el' else _('Loading...') }}</option>
+                  </select>
+                  {% set per_page_auto_print = h.get_config_as_bool('ckanext.data_gov_gr.gitbook.pdf_per_page_auto_print', True) %}
+                  <button id="guide-page-download-btn" class="btn btn-primary btn-sm" disabled>
+                    {{ 'Λήψη PDF' if h.lang() == 'el' else _('Download PDF') }} <i class="fa {{ 'fa-download' if per_page_auto_print else 'fa-external-link' }}"></i>
+                  </button>
+                </div>
+              </section>
+              <script>
+                (function() {
+                  var select = document.getElementById('guide-page-select');
+                  var btn = document.getElementById('guide-page-download-btn');
+                  var placeholderSelect = '{{ "Επιλέξτε οδηγό..." if h.lang() == "el" else _("Select a guide...") }}';
+                  var errorLabel = '{{ "Σφάλμα φόρτωσης" if h.lang() == "el" else _("Loading error") }}';
+
+                  fetch('{{ h.url_for("dataset_type.list_guide_pages") }}')
+                    .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
+                    .then(function(pages) {
+                      select.innerHTML = '<option value="">' + placeholderSelect + '</option>';
+                      pages.forEach(function(p) {
+                        var opt = document.createElement('option');
+                        opt.value = p.id;
+                        opt.textContent = p.title;
+                        select.appendChild(opt);
+                      });
+                      select.disabled = false;
+                    })
+                    .catch(function() {
+                      select.innerHTML = '<option value="">' + errorLabel + '</option>';
+                    });
+
+                  select.addEventListener('change', function() {
+                    btn.disabled = !select.value;
+                  });
+
+                  btn.addEventListener('click', function() {
+                    if (select.value) {
+                      window.open(
+                        '{{ h.url_for("dataset_type.download_guide_page_pdf", page_id="__PAGE_ID__") }}'.replace('__PAGE_ID__', select.value),
+                        '_blank'
+                      );
+                    }
+                  });
+                })();
+              </script>
+            {% endif %}
           {% endif %}
         </aside>
 

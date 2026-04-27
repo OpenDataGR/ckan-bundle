@@ -90,10 +90,24 @@ def contact_support_tree_enabled() -> bool:
     return _get_config_as_bool("ckanext.contact.support_tree.enabled", default=False)
 
 
+def contact_guides_embed_enabled() -> bool:
+    """
+    Feature flag for showing the guides iframe embed section in the contact page.
+
+    Config key:
+      - ckanext.contact.guides_embed.enabled
+
+    Default:
+      - True (visible by default)
+    """
+    return _get_config_as_bool("ckanext.contact.guides_embed.enabled", default=True)
+
+
 def get_helpers():
     return {
         "contact_accept_terms_enabled": contact_accept_terms_enabled,
         "contact_organization_field_enabled": contact_organization_field_enabled,
         "contact_support_faq_enabled": contact_support_faq_enabled,
         "contact_support_tree_enabled": contact_support_tree_enabled,
+        "contact_guides_embed_enabled": contact_guides_embed_enabled,
     }

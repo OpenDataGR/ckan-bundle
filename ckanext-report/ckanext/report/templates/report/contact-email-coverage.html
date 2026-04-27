@@ -71,10 +71,18 @@ data - επιπλέον τιμές της αναφοράς, ως λεξικό
   .contact-report-group {
     margin-bottom: 30px;
     overflow-x: auto;
+    overflow-y: auto;
+    max-height: 65vh;
     -webkit-overflow-scrolling: touch;
   }
   .contact-report-group:last-child {
     margin-bottom: 10px;
+  }
+  .contact-report-group thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background-color: #f5f7f9;
   }
   .contact-report-group-title {
     margin: 24px 0 12px;
@@ -97,6 +105,9 @@ data - επιπλέον τιμές της αναφοράς, ως λεξικό
   }
   #contact-pagination-nav {
     margin-top: 25px;
+  }
+  div.pull-right {
+    margin-top: 15px !important;
   }
 </style>
 
