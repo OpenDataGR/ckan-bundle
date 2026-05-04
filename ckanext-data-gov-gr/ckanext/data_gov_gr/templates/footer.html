@@ -101,9 +101,15 @@
     <div class="row footer-bottom">
       <div class="col-md-8">
         <div class="footer-logos">
+          {% if h.get_config_as_bool('ckanext.data_gov_gr.footer.government_logo.enabled', True) %}
+          <a href="https://www.gov.gr" target="_blank" rel="noopener noreferrer"
+             aria-label="{{ _('gov.gr') ~ opens_in_new_tab_suffix }}">
+            <img src="{{ h.url_for_static('/images/government/government-logo2.svg') }}" alt="gov.gr">
+          </a>
+          {% endif %}
           <a href="https://mindigital.gr/" target="_blank" rel="noopener noreferrer">
             <img src="{{ h.url_for_static('/images/mindigital/logo_mindig_gr_' ~ mindigital_logo_variant ~ '.png') }}"
-                 alt="Υπουργείο Ψηφιακής Διακυβέρνησης" height="40">
+                 alt="Υπουργείο Ψηφιακής Διακυβέρνησης">
           </a>
         </div>
       </div>

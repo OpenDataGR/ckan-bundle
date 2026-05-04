@@ -106,6 +106,11 @@ Optional settings:
     # Μπορεί επίσης να αλλάξει από το /ckan-admin/config → Γενικά → Header.
     ckanext.data_gov_gr.header.secretariat_logo.enabled = no
 
+    # Εμφάνιση λογοτύπου gov.gr στο footer (κάτω αριστερά, πριν το λογότυπο Υπ. Ψηφιακής Διακυβέρνησης).
+    # (προαιρετικό, default: yes)
+    # Μπορεί επίσης να αλλάξει από το /ckan-admin/config → Γενικά → Footer.
+    ckanext.data_gov_gr.footer.government_logo.enabled = yes
+
     # Παραλλαγή λογοτύπου Υπ. Ψηφιακής Διακυβέρνησης στο footer (κάτω αριστερά).
     # Τιμές: light (ανοιχτή απόχρωση μπλε) ή dark (σκοτεινή απόχρωση μπλε).
     # (προαιρετικό, default: light)

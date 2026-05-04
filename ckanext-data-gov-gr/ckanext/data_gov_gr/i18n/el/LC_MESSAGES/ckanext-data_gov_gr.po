@@ -945,7 +945,7 @@ msgstr "Ανακαλύψτε, χρησιμοποιήστε και βελτιώσ
 msgid "Explore and access open data."
 msgstr "Εξερευνήστε και αποκτήστε πρόσβαση σε ανοικτά δεδομένα."
 
-msgid "Explore and Access Data"
+msgid "Explore and access data"
 msgstr "Εξερευνήστε και αποκτήστε πρόσβαση σε δεδομένα."
 
 msgid "Discover APIs and data services."

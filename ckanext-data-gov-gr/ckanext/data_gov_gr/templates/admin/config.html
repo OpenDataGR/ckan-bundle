@@ -220,6 +220,40 @@
             {{ _('Αν συμπληρωθεί, εμφανίζεται στη στήλη «Σχετικά» του footer σύνδεσμος «Πολιτική Απορρήτου» που παραπέμπει στο /pages/{slug}. Αφήστε κενό για να μη φαίνεται.') }}
           </p>
 
+          {% set government_logo_enabled = h.get_config_as_bool('ckanext.data_gov_gr.footer.government_logo.enabled', True) %}
+            <input
+              type="hidden"
+              id="field-ckanext.data_gov_gr.footer.government_logo.enabled-hidden"
+              name="ckanext.data_gov_gr.footer.government_logo.enabled"
+              value="false"
+              {% if government_logo_enabled %}disabled="disabled"{% endif %}
+            />
+            {% call form.checkbox(
+              'ckanext.data_gov_gr.footer.government_logo.enabled',
+              id='field-ckanext.data_gov_gr.footer.government_logo.enabled',
+              label=_('Εμφάνιση λογοτύπου Κυβέρνησης στο footer'),
+              value='true',
+              checked=government_logo_enabled
+            ) %}
+              <p class="help-block">
+                {{ _('Εμφανίζει το λογότυπο gov.gr αριστερά στο footer, δίπλα στο λογότυπο του Υπουργείου Ψηφιακής Διακυβέρνησης.') }}
+              </p>
+            {% endcall %}
+            <script>
+              document.addEventListener('DOMContentLoaded', function () {
+                var checkbox = document.getElementById('field-ckanext.data_gov_gr.footer.government_logo.enabled');
+                var hidden = document.getElementById('field-ckanext.data_gov_gr.footer.government_logo.enabled-hidden');
+                if (!checkbox || !hidden) {
+                  return;
+                }
+                function syncHidden() {
+                  hidden.disabled = !!checkbox.checked;
+                }
+                checkbox.addEventListener('change', syncHidden);
+                syncHidden();
+              });
+            </script>
+
           {% set mindigital_logo_options = [
             {'value': 'light', 'text': _('Light (ανοιχτή απόχρωση μπλε)')},
             {'value': 'dark',  'text': _('Dark (σκοτεινή απόχρωση μπλε)')}
@@ -1498,6 +1532,7 @@
         <li><strong>{{ _('Σελίδα Συχνών Ερωτήσεων (FAQ)') }}:</strong> {{ _('Αν συμπληρωθεί με το slug της CKAN σελίδας (π.χ. faq), εμφανίζεται σύνδεσμος «Συχνές Ερωτήσεις» στη στήλη Κοινότητας του footer.') }}</li>
         <li><strong>{{ _('Σελίδα Πολιτικής Cookies') }}:</strong> {{ _('Αν συμπληρωθεί με το slug της CKAN σελίδας (π.χ. cookies-policy), εμφανίζεται σύνδεσμος «Πολιτική Cookies» στη στήλη Σχετικά του footer.') }}</li>
         <li><strong>{{ _('Σελίδα Πολιτικής Απορρήτου') }}:</strong> {{ _('Αν συμπληρωθεί με το slug της CKAN σελίδας (π.χ. privacy-policy), εμφανίζεται σύνδεσμος «Πολιτική Απορρήτου» στη στήλη Σχετικά του footer.') }}</li>
+        <li><strong>{{ _('Εμφάνιση λογοτύπου Κυβέρνησης στο footer') }}:</strong> {{ _('Εμφανίζει το λογότυπο gov.gr αριστερά στο footer, δίπλα στο λογότυπο του Υπουργείου Ψηφιακής Διακυβέρνησης.') }}</li>
         <li><strong>{{ _('Λογότυπο Footer (Υπ. Ψηφιακής Διακυβέρνησης)') }}:</strong> {{ _('Επιλέγει την παραλλαγή του λογοτύπου του Υπουργείου Ψηφιακής Διακυβέρνησης που εμφανίζεται κάτω αριστερά στο footer (light ή dark).') }}</li>
         <li><strong>{{ _('Περιορισμός ορατότητας της ροής δραστηριότητας') }}:</strong> {{ _('Ενεργοποιεί ή απενεργοποιεί τον περιορισμό της ροής δραστηριότητας μόνο σε sysadmins και admins του αντίστοιχου φορέα.') }}</li>
         <li><strong>{{ _('Σύνδεσμος τεκμηρίωσης API') }}:</strong> {{ _('Αν συμπληρωθεί, αντικαθιστά τον προεπιλεγμένο σύνδεσμο «API Docs» στη σελίδα αναζήτησης. Ανοίγει σε νέα καρτέλα.') }}</li>

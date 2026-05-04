@@ -17,7 +17,7 @@ from ckan.plugins.toolkit import render_snippet, _  # Import για το σύσ�
 from flask_login import current_user as _cu
 from typing import (cast, Union)
 from sqlalchemy import and_, func, or_
-from sqlalchemy.orm import aliased
+from sqlalchemy.orm import aliased, joinedload
 
 from ckanext.data_gov_gr import organization_stats
 from ckanext.data_gov_gr.stats import DataGovStats
@@ -1410,6 +1410,121 @@ def get_home_datasets_vs_services() -> dict:
         return {'datasets': 0, 'data_services': 0}
 
 
+def _get_configured_home_showcase_ids():
+    raw_ids = get_config_value('ckanext.data_gov_gr.home.showcases.ids', '')
+    if not raw_ids:
+        return []
+
+    # Handle values that can be lists (eg multiple submissions).
+    if isinstance(raw_ids, list):
+        raw_ids = raw_ids[-1] if raw_ids else ''
+
+    ids_source = str(raw_ids).replace('\\n', '\n')
+    candidates = [
+        candidate.strip()
+        for candidate in re.split(r'[\n,]+', ids_source)
+        if candidate.strip()
+    ]
+
+    configured_ids = []
+    seen = set()
+    for candidate in candidates:
+        if candidate in seen:
+            continue
+        seen.add(candidate)
+        configured_ids.append(candidate)
+    return configured_ids
+
+
+def _approved_public_showcase_query():
+    approval_extra = aliased(model.PackageExtra)
+    return (
+        model.Session.query(model.Package)
+        .join(
+            approval_extra,
+            and_(
+                approval_extra.package_id == model.Package.id,
+                approval_extra.key == 'approval_status',
+                approval_extra.state == 'active',
+                func.lower(func.trim(approval_extra.value)) == 'approved',
+            ),
+        )
+        .filter(model.Package.type == 'showcase')
+        .filter(model.Package.state == 'active')
+        .filter(or_(
+            model.Package.private.is_(False),
+            model.Package.private.is_(None),
+        ))
+        .distinct()
+    )
+
+
+def _showcase_image_display_url(image_url):
+    if not image_url:
+        return None
+    if isinstance(image_url, str) and not image_url.startswith('http'):
+        try:
+            return core_helpers.url_for_static(
+                f'uploads/showcase/{image_url}', qualified=True
+            )
+        except Exception:
+            return None
+    return image_url
+
+
+def _package_extra_value(pkg, key):
+    extras = getattr(pkg, '_extras', {}) or {}
+    extra = extras.get(key)
+    if extra is None or getattr(extra, 'state', None) != 'active':
+        return ''
+    return extra.value or ''
+
+
+def _home_showcase_card(pkg, organization_title=''):
+    title = pkg.title or pkg.name
+    notes = pkg.notes or ''
+
+    submitter_organization = (
+        _package_extra_value(pkg, 'submitter_organization') or ''
+    ).strip()
+    submitter_author = (pkg.author or '').strip()
+    submitter_parts = [
+        part for part in (submitter_organization, submitter_author) if part
+    ]
+    submitter_label = ' | '.join(submitter_parts) if submitter_parts else ''
+
+    org_title = (organization_title or '').strip()
+    responsible = (pkg.maintainer or submitter_author or '').strip()
+    owner_parts = [part for part in (responsible, org_title) if part]
+    owner_label = ' - '.join(owner_parts) if owner_parts else ''
+
+    tag_label = ''
+    for package_tag in getattr(pkg, 'package_tags', []) or []:
+        if getattr(package_tag, 'state', None) != 'active':
+            continue
+        tag = getattr(package_tag, 'tag', None)
+        if tag is not None:
+            tag_label = (tag.name or '').strip()
+            break
+
+    return {
+        'name': pkg.name,
+        'title': title,
+        'notes': notes,
+        'image_url': _showcase_image_display_url(
+            _package_extra_value(pkg, 'image_url')
+        ),
+        'organization_title': org_title,
+        'submitter_organization': submitter_organization,
+        'submitter_author': submitter_author,
+        'submitter_label': submitter_label,
+        'owner_label': owner_label,
+        'views_total': None,
+        'views_display': None,
+        'tag': tag_label,
+    }
+
+
 def get_home_showcases(max_items=4):
     """
     Return up to ``max_items`` selected showcases for the home page.
@@ -1424,106 +1539,58 @@ def get_home_showcases(max_items=4):
     if not limit:
         return []
 
-    raw_ids = get_config_value('ckanext.data_gov_gr.home.showcases.ids', '')
-    if not raw_ids:
-        return []
-
-    # Handle values that can be lists (eg multiple submissions)
-    if isinstance(raw_ids, list):
-        raw_ids = raw_ids[-1] if raw_ids else ''
-
-    ids_source = str(raw_ids).replace('\\n', '\n')
-    candidates = [line.strip() for line in ids_source.splitlines() if line.strip()]
-    if not candidates:
-        candidates = [part.strip() for part in ids_source.split(',') if part.strip()]
+    candidates = _get_configured_home_showcase_ids()
     if not candidates:
         return []
 
-    context = {'ignore_auth': True}
+    organization = aliased(model.Group)
+    try:
+        rows = (
+            _approved_public_showcase_query()
+            .options(
+                joinedload(model.Package._extras),
+                joinedload(model.Package.package_tags).joinedload(
+                    model.PackageTag.tag
+                ),
+            )
+            .outerjoin(
+                organization,
+                and_(
+                    model.Package.owner_org == organization.id,
+                    organization.state == 'active',
+                ),
+            )
+            .add_columns(organization.title, organization.name)
+            .filter(or_(
+                model.Package.id.in_(candidates),
+                model.Package.name.in_(candidates),
+            ))
+            .all()
+        )
+    except Exception as e:
+        log.error('Error loading home showcases: %s', e)
+        return []
+
+    packages_by_identifier = {}
+    organization_titles = {}
+    for pkg, org_title, org_name in rows:
+        org_label = org_title or org_name or ''
+        packages_by_identifier[pkg.id] = pkg
+        packages_by_identifier[pkg.name] = pkg
+        organization_titles[pkg.id] = org_label
+
     showcases = []
-    seen = set()
+    seen_package_ids = set()
     for showcase_name in candidates:
-        if showcase_name in seen:
+        pkg = packages_by_identifier.get(showcase_name)
+        if pkg is None:
             continue
-        seen.add(showcase_name)
+        if pkg.id in seen_package_ids:
+            continue
+        seen_package_ids.add(pkg.id)
+        showcases.append(_home_showcase_card(pkg, organization_titles.get(pkg.id, '')))
         if len(showcases) >= limit:
             break
-        try:
-            pkg = toolkit.get_action('package_show')(context, {'id': showcase_name})
-        except Exception:
-            continue
-
-        if pkg.get('type') != 'showcase' or pkg.get('state') != 'active':
-            continue
-        if pkg.get('private'):
-            continue
-
-        # Respect approval workflow if present
-        approval_status = None
-        extras_list = pkg.get('extras') or []
-        if isinstance(extras_list, list):
-            for extra in extras_list:
-                if isinstance(extra, dict) and extra.get('key') == 'approval_status':
-                    approval_status = extra.get('value')
-                    break
-        approval_status = approval_status or pkg.get('extras_approval_status')
-        if approval_status and approval_status != 'approved':
-            continue
-
-        title = pkg.get('title') or pkg.get('name')
-        notes = pkg.get('notes') or ''
-
-        org_title = ''
-        organization = pkg.get('organization')
-        if isinstance(organization, dict):
-            org_title = (organization.get('title') or organization.get('name') or '').strip()
-
-        submitter_organization = (pkg.get('submitter_organization') or '').strip()
-        submitter_author = (pkg.get('author') or '').strip()
-        submitter_parts = [part for part in (submitter_organization, submitter_author) if part]
-        submitter_label = ' | '.join(submitter_parts) if submitter_parts else ''
-
-        responsible = (pkg.get('maintainer') or submitter_author or '').strip()
-        owner_parts = [part for part in (responsible, org_title) if part]
-        owner_label = ' - '.join(owner_parts) if owner_parts else ''
-
-        views_total = None
-        views_display = None
-
-        tag_label = ''
-        tags = pkg.get('tags') or []
-        if isinstance(tags, list) and tags:
-            first = tags[0]
-            if isinstance(first, dict):
-                tag_label = (first.get('display_name') or first.get('name') or '').strip()
-
-        image_display_url = pkg.get('image_display_url')
-        image_url = pkg.get('image_url')
-        if not image_display_url and image_url:
-            if isinstance(image_url, str) and image_url and not image_url.startswith('http'):
-                try:
-                    image_display_url = core_helpers.url_for_static(
-                        f'uploads/showcase/{image_url}', qualified=True
-                    )
-                except Exception:
-                    image_display_url = None
-            else:
-                image_display_url = image_url
-
-        showcases.append({
-            'name': pkg.get('name'),
-            'title': title,
-            'notes': notes,
-            'image_url': image_display_url,
-            'organization_title': org_title,
-            'submitter_organization': submitter_organization,
-            'submitter_author': submitter_author,
-            'submitter_label': submitter_label,
-            'owner_label': owner_label,
-            'views_total': views_total,
-            'views_display': views_display,
-            'tag': tag_label,
-        })
 
     return showcases
 
@@ -1659,12 +1726,7 @@ def get_available_showcases(limit=200):
     Return list of available showcases for selection in /ckan-admin/config.
     """
     try:
-        q = (
-            model.Session.query(model.Package)
-            .filter(model.Package.type == 'showcase')
-            .filter(model.Package.state == 'active')
-            .order_by(model.Package.title.asc())
-        )
+        q = _approved_public_showcase_query().order_by(model.Package.title.asc())
         if limit:
             q = q.limit(int(limit))
         results = q.all()
@@ -1674,15 +1736,6 @@ def get_available_showcases(limit=200):
 
     available = []
     for pkg in results:
-        if getattr(pkg, 'private', False):
-            continue
-        try:
-            approval_status = pkg.extras.get('approval_status')
-        except Exception:
-            approval_status = None
-        if approval_status and approval_status != 'approved':
-            continue
-
         available.append({
             'name': pkg.name,
             'title': pkg.title or pkg.name,
@@ -2793,10 +2846,60 @@ def noindex_nofollow_enabled():
 
 # ---------------------------------------------------------------------------------------
 
+def get_allowed_view_types(resource, package):
+    allowed_view_types = core_helpers.get_allowed_view_types(resource, package)
+
+    if resource.get("url_type") == "tabledesigner":
+        return [
+            option
+            for option in allowed_view_types
+            if option[0] != "tables_view"
+        ]
+
+    return allowed_view_types
+
+# ---------------------------------------------------------------------------------------
+
+def should_skip_tables_view_render(resource, resource_view):
+    """Return true for tables_view previews that are known to break rendering."""
+    if not resource_view or resource_view.get("view_type") != "tables_view":
+        return False
+
+    return resource.get("url_type") == "tabledesigner"
+
+# ---------------------------------------------------------------------------------------
+
+def rendered_resource_view(resource_view, resource, package, *args, **kwargs):
+    if should_skip_tables_view_render(resource, resource_view):
+        return toolkit.literal(
+            '<div class="data-viewer-info">'
+            f'<p>{toolkit._("This resource view is not available for this resource.")}</p>'
+            '</div>'
+        )
+
+    try:
+        return core_helpers.rendered_resource_view(
+            resource_view, resource, package, *args, **kwargs
+        )
+    except Exception:
+        if resource_view and resource_view.get("view_type") == "tables_view":
+            log.exception("Unable to render tables_view %s", resource_view.get("id"))
+            return toolkit.literal(
+                '<div class="data-viewer-info">'
+                f'<p>{toolkit._("This resource view is not available for this resource.")}</p>'
+                '</div>'
+            )
+        raise
+
+# ---------------------------------------------------------------------------------------
+
 def get_helpers():
     return {
         'noindex_nofollow_enabled': noindex_nofollow_enabled,
         "is_url_field": is_url_field,
+        "get_allowed_view_types": get_allowed_view_types,
+        "should_skip_tables_view_render": should_skip_tables_view_render,
+        "rendered_resource_view": rendered_resource_view,
         "vocabulary_facet_item_label": vocabulary_facet_item_label,
         "vocabulary_facet_title": vocabulary_facet_title,
         "get_vocabulary_id_for_field": get_vocabulary_id_for_field,
