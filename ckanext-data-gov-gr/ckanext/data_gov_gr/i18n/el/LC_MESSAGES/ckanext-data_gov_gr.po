@@ -117,6 +117,15 @@ msgstr "Αναζήτηση Τοποθεσίας"
 msgid "Relevance"
 msgstr "Συνάφεια"
 
+#: ckanext/data_gov_gr/templates/organization/index.html:12
+#: ckanext/data_gov_gr/templates/organization/index.html:30
+msgid "Most Visited"
+msgstr "Περισσότερες Επισκέψεις"
+
+#: ckanext/data_gov_gr/templates/organization/index.html:15
+msgid "Least Visited"
+msgstr "Λιγότερες Επισκέψεις"
+
 #: ckanext/data_gov_gr/templates/organization/index.html:9
 msgid "Most Datasets"
 msgstr "Περισσότερα Σύνολα Δεδομένων"
@@ -1267,3 +1276,16 @@ msgstr ""
 
 msgid "Ελέγχει αν εμφανίζεται banner συγκατάθεσης cookies/tracking. Απενεργοποιημένο = τρέχουσα συμπεριφορά χωρίς banner. Tracking consent = πλήρης συναίνεση πριν οποιοδήποτε tracking. Cookie consent = tracking χωρίς cookies μέχρι αποδοχή. Opt-out = tracking by default, ο χρήστης μπορεί να εξαιρεθεί."
 msgstr ""
+
+#: admin config - organization index sorting
+msgid "Εμφάνιση ταξινόμησης οργανισμών βάσει επισκεψιμότητας"
+msgstr "Εμφάνιση ταξινόμησης οργανισμών βάσει επισκεψιμότητας"
+
+msgid "Εμφανίζει στο dropdown ταξινόμησης τις επιλογές «Περισσότερες επισκέψεις» και «Λιγότερες επισκέψεις», όταν υπάρχουν διαθέσιμα CKAN tracking δεδομένα."
+msgstr "Εμφανίζει στο dropdown ταξινόμησης τις επιλογές «Περισσότερες επισκέψεις» και «Λιγότερες επισκέψεις», όταν υπάρχουν διαθέσιμα CKAN tracking δεδομένα."
+
+msgid "Προεπιλεγμένη ταξινόμηση οργανισμών βάσει επισκεψιμότητας"
+msgstr "Προεπιλεγμένη ταξινόμηση οργανισμών βάσει επισκεψιμότητας"
+
+msgid "Ορίζει ως προεπιλογή τις «Περισσότερες επισκέψεις». Ισχύει μόνο όταν είναι ενεργή και η εμφάνιση ταξινόμησης βάσει επισκεψιμότητας."
+msgstr "Ορίζει ως προεπιλογή τις «Περισσότερες επισκέψεις». Ισχύει μόνο όταν είναι ενεργή και η εμφάνιση ταξινόμησης βάσει επισκεψιμότητας."

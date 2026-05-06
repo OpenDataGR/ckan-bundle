@@ -7,11 +7,22 @@ from .logic.harvest_mapping import (
     ensure_applicable_legislation,
     apply_temporal_coverage_from_iso19139,
     apply_resource_rights_and_license_from_iso19139,
+    apply_resource_rights_from_iso_use_constraints,
     cleanup_package_tags,
     apply_cityofathens_publisher,
     apply_dcat_type_geospatial,
+    apply_dataset_name_from_file_identifier,
+    apply_default_dataset_fields_from_config,
+    apply_default_resource_fields_from_config,
+    apply_landing_page_from_file_identifier,
     apply_download_url_for_direct_downloads,
-    apply_resource_format_from_iso19139
+    apply_resource_access_url_from_url,
+    apply_resource_description_from_name,
+    apply_resource_mimetype_from_distribution_format,
+    apply_resource_format_from_iso19139,
+    preserve_resource_ids_by_url,
+    prepend_configured_wms_layer_resource,
+    prepend_wms_preview_resource_from_online_resource,
 )
 
 import logging
@@ -29,7 +40,7 @@ from urllib.parse import urlparse
 import re
 from sqlalchemy import or_
 
-from ckanext.data_gov_gr import views, cli
+from ckanext.data_gov_gr import views, cli, organization_stats
 from ckanext.data_gov_gr.logic import validators, actions, auth
 import json
 
@@ -42,6 +53,13 @@ plugin_dir = os.path.dirname(sys.modules[__name__].__file__)
 import ckanext.data_gov_gr.helpers as helpers
 
 log = logging.getLogger(__name__)
+
+DEFAULT_DATASET_POPULARITY_SORT = 'views_recent desc'
+DEFAULT_DATASET_RELEVANCE_SORT = 'score desc, metadata_modified desc'
+DEFAULT_DATASET_POPULARITY_SORT_CONFIG = (
+    'ckanext.data_gov_gr.search.default_popularity_sort.enabled'
+)
+DEFAULT_DATASET_POPULARITY_SORT_PACKAGE_TYPES = ('dataset', 'data-service')
 
 
 class DataGovGrPlugin(plugins.SingletonPlugin):
@@ -156,8 +174,11 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
             'ckanext.data_gov_gr.pages.cookies_policy': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.pages.privacy_policy': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.search.api_doc_url': [ignore_missing, unicode_safe],
+            DEFAULT_DATASET_POPULARITY_SORT_CONFIG: [ignore_missing, boolean_validator],
             'ckanext.matomo.consent_mode': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.header.logo_preset': [ignore_missing, unicode_safe],
+            organization_stats.ORGANIZATION_VISITS_SORT_ENABLED_CONFIG: [ignore_missing, boolean_validator],
+            organization_stats.ORGANIZATION_VISITS_SORT_DEFAULT_CONFIG: [ignore_missing, boolean_validator],
             'ckanext.data_gov_gr.gitbook.pdf_auto_print': [ignore_missing, boolean_validator],
             'ckanext.data_gov_gr.gitbook.pdf_per_page_auto_print': [ignore_missing, boolean_validator],
             'ckanext.data_gov_gr.gitbook.pdf_all_guides_panel.enabled': [ignore_missing, boolean_validator],
@@ -213,6 +234,15 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         )
         declaration.declare(root.search.api_doc_url, "").set_description(
             "Custom API documentation URL shown on the dataset search page (opens in new tab)."
+        )
+        declaration.declare(root.search.default_popularity_sort.enabled, "yes").set_description(
+            "Use popularity (views_recent desc) as the default sort on the dataset search page."
+        )
+        declaration.declare(root.organization_index.visits_sort.enabled, "no").set_description(
+            "Show organization index sort options based on profile visits."
+        )
+        declaration.declare(root.organization_index.visits_sort.default, "no").set_description(
+            "Use profile visits descending as the default organization index sort."
         )
         declaration.declare(geonames.username, "").set_description(
             "GeoNames username used by geonames_search / geonames_get actions."
@@ -572,6 +602,10 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         self._ensure_resource_size(resource_dict)
 
     def before_dataset_search(self, data_dict):
+        if self._should_apply_default_relevance_sort(data_dict):
+            data_dict['sort'] = self._default_relevance_sort()
+        elif self._should_apply_default_popularity_sort(data_dict):
+            data_dict['sort'] = DEFAULT_DATASET_POPULARITY_SORT
 
         # Αναζητούμε το χωρικό φίλτρο 'ext_bbox' στο αρχικό dictionary που έρχεται από το request.
         # Το φίλτρο αυτό αναμένεται να είναι μια συμβολοσειρά τεσσάρων δεκαδικών τιμών: minLon, minLat, maxLon, maxLat (π.χ. "24.1,35.2,25.9,36.1")
@@ -611,6 +645,76 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
 
         # Επιστρέφουμε το τροποποιημένο data_dict ώστε να συνεχιστεί η αναζήτηση με τα νέα φίλτρα
         return data_dict
+
+    def _should_apply_default_relevance_sort(self, data_dict):
+        if not helpers.get_config_as_bool(
+            DEFAULT_DATASET_POPULARITY_SORT_CONFIG,
+            default=True,
+        ):
+            return False
+
+        if not self._is_supported_search_endpoint():
+            return False
+
+        query = data_dict.get('q')
+        if not (isinstance(query, str) and query.strip()):
+            return False
+
+        return data_dict.get('sort') in (None, '')
+
+    def _default_relevance_sort(self):
+        return (
+            config.get('ckan.search.default_package_sort')
+            or DEFAULT_DATASET_RELEVANCE_SORT
+        )
+
+    def _should_apply_default_popularity_sort(self, data_dict):
+        if data_dict.get('sort') not in (None, ''):
+            return False
+
+        if not helpers.get_config_as_bool(
+            DEFAULT_DATASET_POPULARITY_SORT_CONFIG,
+            default=True,
+        ):
+            return False
+
+        if not self._is_supported_search_endpoint():
+            return False
+
+        try:
+            request_args = request.args
+        except RuntimeError:
+            return False
+
+        if self._has_search_or_filter_params(request_args):
+            return False
+
+        return True
+
+    def _is_supported_search_endpoint(self):
+        try:
+            endpoint = request.endpoint
+            view_args = request.view_args or {}
+        except RuntimeError:
+            return False
+
+        package_type = view_args.get('package_type', 'dataset')
+        return (
+            package_type in DEFAULT_DATASET_POPULARITY_SORT_PACKAGE_TYPES
+            and endpoint == f'{package_type}.search'
+        )
+
+    def _has_search_or_filter_params(self, request_args):
+        for param, value in request_args.items(multi=True):
+            if param in ('page', 'sort') or param.startswith('_'):
+                continue
+            if isinstance(value, str):
+                if not value.strip():
+                    continue
+            elif value is None:
+                continue
+            return True
+        return False
 
     def before_dataset_index(self, pkg_dict):
         """
@@ -1296,6 +1400,9 @@ class DataGovGrSpatialHarvesterPlugin(plugins.SingletonPlugin):
         harvest_object = data_dict.get("harvest_object")
 
         if isinstance(package_dict, dict):
+            apply_dataset_name_from_file_identifier(package_dict, xml_tree, harvest_object)
+            apply_landing_page_from_file_identifier(package_dict, xml_tree, harvest_object)
+
             # Cleanup tags: remove "__", "--", etc (junk tags)
             cleanup_package_tags(package_dict)
 
@@ -1303,6 +1410,7 @@ class DataGovGrSpatialHarvesterPlugin(plugins.SingletonPlugin):
             apply_dcat_type_geospatial(package_dict, overwrite=False)
 
             apply_theme_from_topiccategory(package_dict, iso_values, xml_tree)
+            apply_default_dataset_fields_from_config(package_dict, harvest_object)
 
             apply_temporal_coverage_from_iso19139(package_dict, xml_tree)
 
@@ -1312,13 +1420,42 @@ class DataGovGrSpatialHarvesterPlugin(plugins.SingletonPlugin):
             # Default applicable legislation (only if missing)
             ensure_applicable_legislation(package_dict, protected=False)
 
+            prepend_configured_wms_layer_resource(package_dict, xml_tree, harvest_object)
+            prepend_wms_preview_resource_from_online_resource(
+                package_dict,
+                xml_tree,
+                harvest_object,
+            )
+
             apply_resource_rights_and_license_from_iso19139(package_dict, xml_tree, overwrite=False)
+            apply_resource_rights_from_iso_use_constraints(
+                package_dict,
+                xml_tree,
+                harvest_object,
+                overwrite=False,
+            )
+            apply_default_resource_fields_from_config(package_dict, harvest_object)
+
+            apply_resource_access_url_from_url(package_dict, harvest_object)
+            apply_resource_description_from_name(package_dict, harvest_object)
+            apply_resource_mimetype_from_distribution_format(
+                package_dict,
+                xml_tree,
+                harvest_object,
+            )
 
             apply_download_url_for_direct_downloads(package_dict, xml_tree, overwrite=False)
-            apply_resource_format_from_iso19139(package_dict, xml_tree, overwrite=True)
+            apply_resource_format_from_iso19139(
+                package_dict,
+                xml_tree,
+                overwrite=True,
+                harvest_object=harvest_object,
+            )
 
             # Publisher rule(s)
             apply_cityofathens_publisher(package_dict, harvest_object)
+
+            preserve_resource_ids_by_url(package_dict, harvest_object)
 
         return package_dict
 

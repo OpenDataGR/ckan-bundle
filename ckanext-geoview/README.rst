@@ -134,9 +134,35 @@ Other available configuration options are:
 
  * `ckanext.geoview.ol_viewer.hide_overlays`: if set to True, overlays won't be visible by default (only the base layer)
  * `ckanext.geoview.ol_viewer.default_feature_hoveron`: if set to True, feature data popup will be displayed when hovering on
+ * `ckanext.geoview.ol_viewer.proxy_wms_getmap`: if set to True, WMS GetMap tile requests will be sent through
+   the CKAN service proxy instead of directly from the browser. This is useful for HTTPS CKAN pages that need to
+   access WMS services that only work reliably over HTTP.
+ * `ckanext.geoview.ol_viewer.proxy_wms_getmap_hosts`: optional space- or comma-separated host allowlist. WMS
+   GetMap tile requests for these hosts will be sent through the CKAN service proxy, without enabling the behavior
+   for all WMS services.
+ * `ckanext.geoview.ol_viewer.wms_exceptions`: optional default WMS GetMap exception format. Defaults to `INIMAGE`.
+   Use `blank` to request blank exception images instead of rendering error messages inside map tiles.
+ * `ckanext.geoview.ol_viewer.wms_exceptions_by_host`: optional space- or comma-separated host-to-exception mapping
+   for WMS GetMap requests. For example `geoportal.ypen.gr=blank` suppresses rendered WMS exception text only for
+   that host.
+ * `ckanext.geoview.ol_viewer.log_wms_tile_errors`: if set to True, failed WMS tile/image loads will be logged to
+   the browser console.
+ * `ckanext.geoview.ol_viewer.log_wms_tile_errors_hosts`: optional space- or comma-separated host allowlist for
+   browser console logging of failed WMS tile/image loads.
  * `ckanext.geoview.ol_viewer.forward_ogc_request_params`: if set to True, OGC request parameters that may be present in
    resource URLs will be kept as part of proxied service requests. If False (default), such parameters will be removed
    from URL when proxying requests.
+ * `ckanext.geoview.force_http_hosts`: optional space- or comma-separated host allowlist. When the service proxy
+   fetches a URL from one of these hosts, HTTPS URLs are rewritten to HTTP before the upstream request is made.
+   For example::
+
+        ckanext.geoview.ol_viewer.proxy_wms_getmap = true
+        ckanext.geoview.force_http_hosts = geoportal.ypen.gr
+
+   To enable this only for specific WMS hosts, use::
+
+        ckanext.geoview.ol_viewer.proxy_wms_getmap_hosts = geoportal.ypen.gr
+        ckanext.geoview.force_http_hosts = geoportal.ypen.gr
 
 
 Each instance of a view has the following configuration options that can override the global configuration :

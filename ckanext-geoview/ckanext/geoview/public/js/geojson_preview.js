@@ -33,6 +33,20 @@ ckan.module('geojsonpreview', function (jQuery, _) {
 
       // hack to make leaflet use a particular location to look for images
       L.Icon.Default.imagePath = this.options.site_url + 'js/vendor/leaflet/images/';
+
+      // GeoServer may return Greek Grid GeoJSON using either a short EPSG code
+      // or OGC URN/URL CRS names. Register all common aliases for proj4leaflet.
+      var epsg2100 = '+proj=tmerc +lat_0=0 +lon_0=24 +k=0.9996 ' +
+        '+x_0=500000 +y_0=0 +ellps=GRS80 ' +
+        '+towgs84=-199.87,74.79,246.62,0,0,0,0 +units=m +no_defs +type=crs';
+      proj4.defs('EPSG:2100', epsg2100);
+      proj4.defs('urn:ogc:def:crs:EPSG::2100', epsg2100);
+      proj4.defs('http://www.opengis.net/gml/srs/epsg.xml#2100', epsg2100);
+
+      // The standard CRS for GeoJSON according to RFC 7946 is
+      // urn:ogc:def:crs:OGC::CRS84, but proj4s uses a different name
+      // for it. See https://github.com/ckan/ckanext-geoview/issues/51
+      proj4.defs['OGC:CRS84'] = proj4.defs['EPSG:4326'];
       
       // Use proxy_url if available (from template_variables), otherwise use original URL
       var resourceUrl = (preload_resource['proxy_url']) ? preload_resource['proxy_url'] : preload_resource['url'];
@@ -46,11 +60,6 @@ ckan.module('geojsonpreview', function (jQuery, _) {
           self.showError(jqXHR, textStatus, errorThrown);
         }
       );
-
-      // The standard CRS for GeoJSON according to RFC 7946 is
-      // urn:ogc:def:crs:OGC::CRS84, but proj4s uses a different name
-      // for it. See https://github.com/ckan/ckanext-geoview/issues/51
-      proj4.defs['OGC:CRS84'] = proj4.defs['EPSG:4326'];
     },
 
     showError: function (jqXHR, textStatus, errorThrown) {

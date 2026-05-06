@@ -43,6 +43,8 @@ class GeoViewBase(p.SingletonPlugin):
     p.implements(p.IResourceView, inherit=True)
     p.implements(p.IConfigurer, inherit=True)
     p.implements(p.IConfigurable, inherit=True)
+    if hasattr(p, "IConfigDeclaration"):
+        p.implements(p.IConfigDeclaration, inherit=True)
 
     proxy_enabled = False
     same_domain = False
@@ -62,6 +64,60 @@ class GeoViewBase(p.SingletonPlugin):
 
         self.proxy_enabled = "resource_proxy" in toolkit.config.get(
             "ckan.plugins", ""
+        )
+
+    def declare_config_options(self, declaration, key):
+        declaration.annotate("ckanext-geoview")
+
+        geoview = key.ckanext.geoview
+        ol_viewer = geoview.ol_viewer
+
+        def declare_once(config_key, default, description):
+            if config_key not in declaration:
+                declaration.declare(config_key, default).set_description(description)
+
+        declare_once(
+            geoview.force_http_hosts,
+            "",
+            "Space- or comma-separated host allowlist. HTTPS URLs for these "
+            "hosts are rewritten to HTTP when fetched by the geoview service "
+            "proxy."
+        )
+        declare_once(
+            ol_viewer.proxy_wms_getmap,
+            "False",
+            "If true, WMS GetMap tile requests are sent through the CKAN "
+            "service proxy."
+        )
+        declare_once(
+            ol_viewer.proxy_wms_getmap_hosts,
+            "",
+            "Space- or comma-separated host allowlist for WMS GetMap requests "
+            "that should be sent through the CKAN service proxy."
+        )
+        declare_once(
+            ol_viewer.wms_exceptions,
+            "INIMAGE",
+            "Default WMS GetMap exception format. Use 'blank' to request "
+            "blank exception images instead of rendering error text in tiles."
+        )
+        declare_once(
+            ol_viewer.wms_exceptions_by_host,
+            "",
+            "Space- or comma-separated host-to-exception mapping for WMS "
+            "GetMap requests, eg 'geoportal.ypen.gr=blank'."
+        )
+        declare_once(
+            ol_viewer.log_wms_tile_errors,
+            "False",
+            "If true, failed WMS tile/image loads are logged to the browser "
+            "console."
+        )
+        declare_once(
+            ol_viewer.log_wms_tile_errors_hosts,
+            "",
+            "Space- or comma-separated host allowlist for browser console "
+            "logging of failed WMS tile/image loads."
         )
 
 

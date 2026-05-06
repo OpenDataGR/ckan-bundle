@@ -2546,6 +2546,24 @@ def organization_index_stats(org_ids):
     return stats
 
 
+def organization_visit_sort_available():
+    return organization_stats.organization_profile_visit_sort_available()
+
+
+def organization_visit_sort_enabled():
+    return (
+        organization_stats.organization_profile_visit_sort_enabled()
+        and organization_stats.organization_profile_visit_sort_available()
+    )
+
+
+def organization_visit_sort_default_enabled():
+    return (
+        organization_stats.organization_profile_visit_sort_default_enabled()
+        and organization_stats.organization_profile_visit_sort_available()
+    )
+
+
 def get_stat_data(stat_id, raw_data=None, variant='full'):
     """
     Return normalized chart payload for a given stats ID.
@@ -2933,6 +2951,9 @@ def get_helpers():
         'get_home_portal_numbers': get_home_portal_numbers,
         'get_stats_url': get_stats_url,
         'organization_index_stats': organization_index_stats,
+        'organization_visit_sort_available': organization_visit_sort_available,
+        'organization_visit_sort_enabled': organization_visit_sort_enabled,
+        'organization_visit_sort_default_enabled': organization_visit_sort_default_enabled,
         'has_gitbook_pdf_export': has_gitbook_pdf_export,
         'humanize_entity_type': humanize_entity_type,
         'should_hide_mqa_tab': should_hide_mqa_tab,

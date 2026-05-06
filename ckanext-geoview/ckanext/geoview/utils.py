@@ -32,6 +32,28 @@ OGC_EXCLUDED_PARAMS = [
 ]
 
 
+def _as_config_list(value):
+    if not value:
+        return []
+    if isinstance(value, (list, tuple)):
+        return value
+    return [item for item in value.replace(",", " ").split() if item]
+
+
+def _force_http_for_configured_hosts(parts):
+    hosts = [
+        host.lower()
+        for host in _as_config_list(
+            toolkit.config.get("ckanext.geoview.force_http_hosts")
+        )
+    ]
+    hostname = (parts.hostname or "").lower()
+    if hostname in hosts and parts.scheme == "https":
+        log.info("Forcing HTTP for proxied geoview service host %s", hostname)
+        return parts._replace(scheme="http")
+    return parts
+
+
 def proxy_service_resource(request, context, data_dict):
     """ Chunked proxy for resources. To make sure that the file is not too
     large, first, we try to get the content length from the headers.
@@ -54,6 +76,7 @@ def proxy_service_url(req, url):
     try:
         method = req.environ["REQUEST_METHOD"]
 
+        parts = _force_http_for_configured_hosts(parts)
         params = parse_qs(parts.query)
 
         if not p.toolkit.asbool(

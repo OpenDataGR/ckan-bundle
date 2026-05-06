@@ -1,13 +1,18 @@
 {% ckan_extends %}
 
 {% block organizations_search_form %}
-  {% set show_default_sort_label = (not q and sort_by_selected is none) %}
-  {% set default_sort = sort_by_selected if sort_by_selected else ('relevance' if q else '') %}
+  {% set visit_sort_enabled = h.organization_visit_sort_enabled() %}
+  {% set visit_sort_default_enabled = h.organization_visit_sort_default_enabled() %}
+  {% set default_sort = sort_by_selected if sort_by_selected else '' %}
+  {% set default_sort_label = _('Relevance') if q else (_('Most Visited') if visit_sort_default_enabled else _('Most Datasets')) %}
   {% set sorting = [] %}
-  {% if q %}
-    {% set sorting = sorting + [(_('Relevance'), 'relevance')] %}
+  {% if visit_sort_enabled %}
+    {% if q or not visit_sort_default_enabled %}
+      {% set sorting = sorting + [(_('Most Visited'), 'visits desc')] %}
+    {% endif %}
+    {% set sorting = sorting + [(_('Least Visited'), 'visits asc')] %}
   {% endif %}
-  {% if not show_default_sort_label %}
+  {% if q or visit_sort_default_enabled %}
     {% set sorting = sorting + [(_('Most Datasets'), 'dataset_count desc')] %}
   {% endif %}
   {% set sorting = sorting + [
@@ -20,7 +25,7 @@
     type=group_type,
     query=q,
     sorting_selected=default_sort,
-    default_sort_label=_('Most Datasets') if show_default_sort_label else none,
+    default_sort_label=default_sort_label,
     count=page.item_count,
     placeholder=h.humanize_entity_type('organization', group_type, 'search placeholder') or _('Search organizations...'),
     show_empty=request.args,

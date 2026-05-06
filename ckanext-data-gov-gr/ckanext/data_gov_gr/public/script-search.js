@@ -7,6 +7,108 @@ function getLicenseSolrField() {
     return isDataServiceSearchPage() ? 'license' : 'res_license';
 }
 
+(function() {
+    // Η αρχική λίστα εμφανίζει προεπιλεγμένα τη "Δημοφιλία" στο dropdown.
+    // Αν ο χρήστης κάνει αναζήτηση/φιλτράρισμα χωρίς να πειράξει ο ίδιος
+    // την ταξινόμηση, δεν στέλνουμε το sort=views_recent desc ώστε το CKAN
+    // να εφαρμόσει τη σχετικότητα. Αν ο χρήστης ανοίξει/αλλάξει το dropdown
+    // ή αν το sort υπάρχει ήδη στο URL, τότε θεωρείται ρητή επιλογή και
+    // αποστέλλεται κανονικά.
+    const defaultPopularitySort = 'views_recent desc';
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlSort = urlParams.get('sort');
+    const hasExplicitSortInUrl = urlParams.has('sort') &&
+        Boolean(urlSort && urlSort.trim());
+
+    function hasSubmittedSearchOrFilter(form) {
+        const fields = Array.from(form.elements || []);
+
+        return fields.some(function(field) {
+            if (!field.name || field.disabled) {
+                return false;
+            }
+
+            const name = field.name;
+            const type = (field.type || '').toLowerCase();
+
+            if (name === 'sort' || name === 'page' || name.startsWith('_')) {
+                return false;
+            }
+
+            if (['submit', 'button', 'reset'].includes(type)) {
+                return false;
+            }
+
+            if ((type === 'checkbox' || type === 'radio') && !field.checked) {
+                return false;
+            }
+
+            if (field.tagName === 'SELECT' && field.multiple) {
+                return Array.from(field.selectedOptions).some(function(option) {
+                    return option.value && option.value.trim();
+                });
+            }
+
+            return field.value && field.value.trim();
+        });
+    }
+
+    function initializeSortTouched(sortSelect) {
+        if (!('sortTouched' in sortSelect.dataset)) {
+            sortSelect.dataset.sortTouched = hasExplicitSortInUrl ? 'true' : 'false';
+        }
+    }
+
+    window.dataGovGrPrepareSearchSort = function(form) {
+        const sortSelect = form.querySelector('select[name="sort"]');
+        if (!sortSelect) {
+            return;
+        }
+
+        initializeSortTouched(sortSelect);
+
+        if (
+            sortSelect.value === defaultPopularitySort &&
+            sortSelect.dataset.sortTouched !== 'true' &&
+            hasSubmittedSearchOrFilter(form)
+        ) {
+            // Προσωρινή απενεργοποίηση ώστε το πεδίο sort να μη συμπεριληφθεί στο submit.
+            sortSelect.disabled = true;
+            window.setTimeout(function() {
+                sortSelect.disabled = false;
+            }, 0);
+        }
+    };
+
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('form.search-form').forEach(function(form) {
+            const sortSelect = form.querySelector('select[name="sort"]');
+            if (!sortSelect) {
+                return;
+            }
+
+            initializeSortTouched(sortSelect);
+
+            function markSortTouched() {
+                sortSelect.dataset.sortTouched = 'true';
+            }
+
+            sortSelect.addEventListener('mousedown', markSortTouched, true);
+            sortSelect.addEventListener('touchstart', markSortTouched, true);
+            sortSelect.addEventListener('change', markSortTouched, true);
+            sortSelect.addEventListener('keydown', function(event) {
+                if (event.key !== 'Tab') {
+                    markSortTouched();
+                }
+            }, true);
+
+            form.addEventListener('submit', function() {
+                window.dataGovGrPrepareSearchSort(form);
+            });
+        });
+    });
+})();
+
 document.addEventListener('DOMContentLoaded', function() {
     // Αρχικοποίηση: εμφάνιση μόνο της απλής αναζήτησης στην αρχή
     const simpleTab = document.getElementById('simple-tab');

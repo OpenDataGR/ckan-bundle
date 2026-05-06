@@ -113,6 +113,11 @@ document.addEventListener('DOMContentLoaded', function () {
             form.appendChild(extInput);
           }
           extInput.value = document.getElementById('ext_bbox_input').value;
+          if (window.dataGovGrPrepareSearchSort) {
+            // Το native form.submit() δεν ενεργοποιεί submit event, οπότε
+            // εφαρμόζουμε χειροκίνητα τη λογική που αφαιρεί το default sort.
+            window.dataGovGrPrepareSearchSort(form);
+          }
           form.submit();
         }
       });

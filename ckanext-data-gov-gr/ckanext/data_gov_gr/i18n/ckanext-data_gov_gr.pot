@@ -1814,6 +1814,15 @@ msgstr ""
 msgid "Relevance"
 msgstr ""
 
+#: ckanext/data_gov_gr/templates/organization/index.html:12
+#: ckanext/data_gov_gr/templates/organization/index.html:30
+msgid "Most Visited"
+msgstr ""
+
+#: ckanext/data_gov_gr/templates/organization/index.html:15
+msgid "Least Visited"
+msgstr ""
+
 #: ckanext/data_gov_gr/templates/organization/index.html:11
 #: ckanext/data_gov_gr/templates/organization/index.html:23
 msgid "Most Datasets"
@@ -2768,4 +2777,20 @@ msgstr ""
 #: ckanext/data_gov_gr/templates/user/snippets/login_form.html:39
 #: ckanext/data_gov_gr/templates/user/snippets/login_form.html:45
 msgid "SSO"
+msgstr ""
+
+#: ckanext/data_gov_gr/templates/admin/config.html
+msgid "Εμφάνιση ταξινόμησης οργανισμών βάσει επισκεψιμότητας"
+msgstr ""
+
+#: ckanext/data_gov_gr/templates/admin/config.html
+msgid "Εμφανίζει στο dropdown ταξινόμησης τις επιλογές «Περισσότερες επισκέψεις» και «Λιγότερες επισκέψεις», όταν υπάρχουν διαθέσιμα CKAN tracking δεδομένα."
+msgstr ""
+
+#: ckanext/data_gov_gr/templates/admin/config.html
+msgid "Προεπιλεγμένη ταξινόμηση οργανισμών βάσει επισκεψιμότητας"
+msgstr ""
+
+#: ckanext/data_gov_gr/templates/admin/config.html
+msgid "Ορίζει ως προεπιλογή τις «Περισσότερες επισκέψεις». Ισχύει μόνο όταν είναι ενεργή και η εμφάνιση ταξινόμησης βάσει επισκεψιμότητας."
 msgstr ""

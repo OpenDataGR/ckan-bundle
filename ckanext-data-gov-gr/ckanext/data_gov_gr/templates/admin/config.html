@@ -179,6 +179,77 @@
           </p>
 
           <hr>
+          <h4>{{ _('Οργανισμοί') }}</h4>
+
+          {% set organization_visits_sort_enabled = h.get_config_as_bool('ckanext.data_gov_gr.organization_index.visits_sort.enabled', False) %}
+            <input
+              type="hidden"
+              id="field-ckanext.data_gov_gr.organization_index.visits_sort.enabled-hidden"
+              name="ckanext.data_gov_gr.organization_index.visits_sort.enabled"
+              value="false"
+              {% if organization_visits_sort_enabled %}disabled="disabled"{% endif %}
+            />
+            {% call form.checkbox(
+              'ckanext.data_gov_gr.organization_index.visits_sort.enabled',
+              id='field-ckanext.data_gov_gr.organization_index.visits_sort.enabled',
+              label=_('Εμφάνιση ταξινόμησης οργανισμών βάσει επισκεψιμότητας'),
+              value='true',
+              checked=organization_visits_sort_enabled
+            ) %}
+              <p class="help-block">
+                {{ _('Εμφανίζει στο dropdown ταξινόμησης τις επιλογές «Περισσότερες επισκέψεις» και «Λιγότερες επισκέψεις», όταν υπάρχουν διαθέσιμα CKAN tracking δεδομένα.') }}
+              </p>
+            {% endcall %}
+            <script>
+              document.addEventListener('DOMContentLoaded', function () {
+                var checkbox = document.getElementById('field-ckanext.data_gov_gr.organization_index.visits_sort.enabled');
+                var hidden = document.getElementById('field-ckanext.data_gov_gr.organization_index.visits_sort.enabled-hidden');
+                if (!checkbox || !hidden) {
+                  return;
+                }
+                function syncHidden() {
+                  hidden.disabled = !!checkbox.checked;
+                }
+                checkbox.addEventListener('change', syncHidden);
+                syncHidden();
+              });
+            </script>
+
+          {% set organization_visits_sort_default = h.get_config_as_bool('ckanext.data_gov_gr.organization_index.visits_sort.default', False) %}
+            <input
+              type="hidden"
+              id="field-ckanext.data_gov_gr.organization_index.visits_sort.default-hidden"
+              name="ckanext.data_gov_gr.organization_index.visits_sort.default"
+              value="false"
+              {% if organization_visits_sort_default %}disabled="disabled"{% endif %}
+            />
+            {% call form.checkbox(
+              'ckanext.data_gov_gr.organization_index.visits_sort.default',
+              id='field-ckanext.data_gov_gr.organization_index.visits_sort.default',
+              label=_('Προεπιλεγμένη ταξινόμηση οργανισμών βάσει επισκεψιμότητας'),
+              value='true',
+              checked=organization_visits_sort_default
+            ) %}
+              <p class="help-block">
+                {{ _('Ορίζει ως προεπιλογή τις «Περισσότερες επισκέψεις». Ισχύει μόνο όταν είναι ενεργή και η εμφάνιση ταξινόμησης βάσει επισκεψιμότητας.') }}
+              </p>
+            {% endcall %}
+            <script>
+              document.addEventListener('DOMContentLoaded', function () {
+                var checkbox = document.getElementById('field-ckanext.data_gov_gr.organization_index.visits_sort.default');
+                var hidden = document.getElementById('field-ckanext.data_gov_gr.organization_index.visits_sort.default-hidden');
+                if (!checkbox || !hidden) {
+                  return;
+                }
+                function syncHidden() {
+                  hidden.disabled = !!checkbox.checked;
+                }
+                checkbox.addEventListener('change', syncHidden);
+                syncHidden();
+              });
+            </script>
+
+          <hr>
           <h4>{{ _('Footer') }}</h4>
 
           {{ form.input(
@@ -716,7 +787,44 @@
       <section id="dg-config-menu" class="dg-config-section" data-dg-section="dg-config-menu">
         <h3>{{ _('Μενού / Αναζήτηση') }}</h3>
 
+        <h4>{{ _('Αναζήτηση Συνόλων Δεδομένων') }}</h4>
+
+        {% set default_popularity_sort_enabled = h.get_config_as_bool('ckanext.data_gov_gr.search.default_popularity_sort.enabled', True) %}
+        <input
+          type="hidden"
+          id="field-ckanext.data_gov_gr.search.default_popularity_sort.enabled-hidden"
+          name="ckanext.data_gov_gr.search.default_popularity_sort.enabled"
+          value="false"
+          {% if default_popularity_sort_enabled %}disabled="disabled"{% endif %}
+        />
+        {% call form.checkbox(
+          'ckanext.data_gov_gr.search.default_popularity_sort.enabled',
+          id='field-ckanext.data_gov_gr.search.default_popularity_sort.enabled',
+          label=_('Προεπιλεγμένη ταξινόμηση αρχικής λίστας βάσει δημοφιλίας'),
+          value='true',
+          checked=default_popularity_sort_enabled
+        ) %}
+          <p class="help-block">
+            {{ _('Όταν είναι ενεργό, η αρχική λίστα συνόλων δεδομένων και υπηρεσιών ταξινομείται κατά δημοφιλία. Σε αναζήτηση ή φίλτρα χρησιμοποιείται η προεπιλεγμένη ταξινόμηση του CKAN.') }}
+          </p>
+        {% endcall %}
+        <script>
+          document.addEventListener('DOMContentLoaded', function () {
+            var checkbox = document.getElementById('field-ckanext.data_gov_gr.search.default_popularity_sort.enabled');
+            var hidden = document.getElementById('field-ckanext.data_gov_gr.search.default_popularity_sort.enabled-hidden');
+            if (!checkbox || !hidden) {
+              return;
+            }
+            function syncHidden() {
+              hidden.disabled = !!checkbox.checked;
+            }
+            checkbox.addEventListener('change', syncHidden);
+            syncHidden();
+          });
+        </script>
+
         {% if show_dataset_menu_section %}
+          <hr>
           <h4>{{ _('Μενού Συνόλων Δεδομένων (Dropdown)') }}</h4>
 
           <p class="help-block">
@@ -873,9 +981,6 @@
           </script>
         {% endif %}
 
-        {% if not show_dataset_menu_section %}
-          <p class="help-block">{{ _('Δεν υπάρχουν ενεργές ρυθμίσεις για Μενού / Αναζήτηση σε αυτό το περιβάλλον.') }}</p>
-        {% endif %}
       </section>
 
       {% if show_guides_section %}
@@ -1567,6 +1672,7 @@
     <div class="dg-help-section" data-dg-help="dg-config-menu">
       <h4>{{ _('Μενού / Αναζήτηση') }}</h4>
       <ul>
+        <li><strong>{{ _('Προεπιλεγμένη ταξινόμηση αρχικής λίστας βάσει δημοφιλίας') }}:</strong> {{ _('Όταν είναι ενεργό, η αρχική προβολή συνόλων δεδομένων και υπηρεσιών χρησιμοποιεί τη δημοφιλία. Σε αναζήτηση ή φίλτρα εφαρμόζεται η προεπιλεγμένη ταξινόμηση του CKAN.') }}</li>
         {% if show_dataset_menu_section %}
           <li><strong>{{ _('Μενού Συνόλων Δεδομένων (Dropdown)') }}:</strong> {{ _('Οι επιλογές που ορίζονται εδώ εμφανίζονται ως υπο-μενού κάτω από το «Σύνολα Δεδομένων».') }}</li>
         {% endif %}
