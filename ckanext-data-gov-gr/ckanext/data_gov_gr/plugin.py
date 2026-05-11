@@ -9,13 +9,13 @@ from .logic.harvest_mapping import (
     apply_resource_rights_and_license_from_iso19139,
     apply_resource_rights_from_iso_use_constraints,
     cleanup_package_tags,
-    apply_cityofathens_publisher,
     apply_dcat_type_geospatial,
     apply_dataset_name_from_file_identifier,
     apply_default_dataset_fields_from_config,
     apply_default_resource_fields_from_config,
     apply_landing_page_from_file_identifier,
     apply_download_url_for_direct_downloads,
+    insert_configured_wms_wfs_capabilities_resources,
     apply_resource_access_url_from_url,
     apply_resource_description_from_name,
     apply_resource_mimetype_from_distribution_format,
@@ -23,6 +23,10 @@ from .logic.harvest_mapping import (
     preserve_resource_ids_by_url,
     prepend_configured_wms_layer_resource,
     prepend_wms_preview_resource_from_online_resource,
+    prepend_wms_preview_resources_from_wms_online_resources,
+    should_skip_data_service_package,
+    should_skip_dataset_when_title_matches_layer_name,
+    should_skip_dataset_with_uuid_like_layer_identifier,
 )
 
 import logging
@@ -42,6 +46,11 @@ from sqlalchemy import or_
 
 from ckanext.data_gov_gr import views, cli, organization_stats
 from ckanext.data_gov_gr.logic import validators, actions, auth
+from ckanext.data_gov_gr.logic.hvd_legislation import (
+    DEFAULT_HVD_APPLICABLE_LEGISLATION,
+    HVD_APPLICABLE_LEGISLATION_CONFIG,
+    HVD_CATEGORY_NOTICE_URL_CONFIG,
+)
 import json
 
 from ckanext.keycloak.helpers import enable_internal_login
@@ -113,6 +122,8 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         - ``ckanext.data_gov_gr.showcase.disclaimer`` (apps/showcases disclaimer)
         - ``ckanext.data_gov_gr.dataset.legislation.open`` (default applicable legislation for open datasets)
         - ``ckanext.data_gov_gr.dataset.legislation.protected`` (default applicable legislation for protected datasets)
+        - ``ckanext.data_gov_gr.hvd.applicable_legislation.default`` (προεπιλεγμένη εφαρμοστέα νομοθεσία για HVD σύνολα/υπηρεσίες/πόρους)
+        - ``ckanext.data_gov_gr.hvd.category_notice.url`` (σύνδεσμος για το ενημερωτικό κείμενο HVD category)
         - ``ckanext.data_gov_gr.dataset.show_metadata_license_disclaimer`` (show/hide metadata license disclaimer in dataset form)
         - ``ckanext.data_gov_gr.resource.license.default`` (default license URI for new resources on open datasets)
         - ``ckanext.data_gov_gr.dataset.spatial_coverage.default.*`` (προεπιλεγμένη χωρική κάλυψη για νέα datasets - παλιό/advanced σχήμα)
@@ -138,7 +149,10 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
             'ckanext.data_gov_gr.showcase.disclaimer': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.dataset.legislation.open': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.dataset.legislation.protected': [ignore_missing, unicode_safe],
+            HVD_APPLICABLE_LEGISLATION_CONFIG: [ignore_missing, unicode_safe],
+            HVD_CATEGORY_NOTICE_URL_CONFIG: [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.dataset.show_metadata_license_disclaimer': [ignore_missing, boolean_validator],
+            'ckanext.data_gov_gr.dataset.redirect_to_resource_after_create': [ignore_missing, boolean_validator],
             'ckanext.data_gov_gr.resource.license.default': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.dataset.spatial_coverage.default': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.dataset.spatial_coverage.default.geonames_id': [ignore_missing, unicode_safe],
@@ -264,8 +278,20 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         declaration.declare(root.dataset.legislation.protected, "").set_description(
             "Default applicable legislation URL for protected datasets."
         )
+        declaration.declare(
+            root.hvd.applicable_legislation.default,
+            DEFAULT_HVD_APPLICABLE_LEGISLATION,
+        ).set_description(
+            "Προεπιλεγμένο URL εφαρμοστέας νομοθεσίας που εφαρμόζεται αυτόματα όταν επιλεγούν HVD κατηγορίες."
+        )
+        declaration.declare(root.hvd.category_notice.url, "").set_description(
+            "URL για τον σύνδεσμο στο ενημερωτικό κείμενο των HVD κατηγοριών. Αν μείνει κενό, χρησιμοποιείται η HVD εφαρμοστέα νομοθεσία."
+        )
         declaration.declare(dataset.show_metadata_license_disclaimer, "no").set_description(
             "Show/hide the metadata license disclaimer text in dataset create/edit forms."
+        )
+        declaration.declare(dataset.redirect_to_resource_after_create, "no").set_description(
+            "Redirect users to the new resource form after creating a dataset from the UI. Applies only to the 'dataset' package type."
         )
         declaration.declare(resource.license.default, "").set_description(
             "Προεπιλεγμένο URI άδειας για νέους πόρους σε ανοικτά datasets (access_rights που καταλήγει σε /PUBLIC)."
@@ -1085,6 +1111,8 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
             'geonames_search': self.geonames_search_action,  # Κλήση για ανάκτηση αποτελεσμάτων σε geoname
             'geonames_get': self.geonames_get_action,
             # Προσυμπλήρωση access_url / download_url κατά το save πόρου (chained actions)
+            'package_create': actions.package_create,
+            'package_update': actions.package_update,
             'resource_create': actions.resource_create,
             'resource_update': actions.resource_update,
         }
@@ -1400,6 +1428,20 @@ class DataGovGrSpatialHarvesterPlugin(plugins.SingletonPlugin):
         harvest_object = data_dict.get("harvest_object")
 
         if isinstance(package_dict, dict):
+            if should_skip_data_service_package(package_dict, harvest_object):
+                return None
+            if should_skip_dataset_with_uuid_like_layer_identifier(
+                xml_tree,
+                harvest_object,
+            ):
+                return None
+            if should_skip_dataset_when_title_matches_layer_name(
+                package_dict,
+                xml_tree,
+                harvest_object,
+            ):
+                return None
+
             apply_dataset_name_from_file_identifier(package_dict, xml_tree, harvest_object)
             apply_landing_page_from_file_identifier(package_dict, xml_tree, harvest_object)
 
@@ -1422,6 +1464,16 @@ class DataGovGrSpatialHarvesterPlugin(plugins.SingletonPlugin):
 
             prepend_configured_wms_layer_resource(package_dict, xml_tree, harvest_object)
             prepend_wms_preview_resource_from_online_resource(
+                package_dict,
+                xml_tree,
+                harvest_object,
+            )
+            prepend_wms_preview_resources_from_wms_online_resources(
+                package_dict,
+                xml_tree,
+                harvest_object,
+            )
+            insert_configured_wms_wfs_capabilities_resources(
                 package_dict,
                 xml_tree,
                 harvest_object,
@@ -1451,9 +1503,6 @@ class DataGovGrSpatialHarvesterPlugin(plugins.SingletonPlugin):
                 overwrite=True,
                 harvest_object=harvest_object,
             )
-
-            # Publisher rule(s)
-            apply_cityofathens_publisher(package_dict, harvest_object)
 
             preserve_resource_ids_by_url(package_dict, harvest_object)
 

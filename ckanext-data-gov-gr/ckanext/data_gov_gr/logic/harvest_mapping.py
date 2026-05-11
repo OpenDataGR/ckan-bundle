@@ -22,8 +22,20 @@ NS = {
 
 LAYER_RESOURCE_BASE_URL_CONFIG_KEY = "layer_resource_base_url"
 WMS_PREVIEW_FROM_ONLINE_RESOURCE_CONFIG_KEY = "wms_preview_from_online_resource"
+WMS_PREVIEW_FROM_WMS_ONLINE_RESOURCES_CONFIG_KEY = (
+    "wms_preview_from_wms_online_resources"
+)
 WMS_PREVIEW_BASE_URL_CONFIG_KEY = "wms_preview_base_url"
+WMS_CAPABILITIES_URL_CONFIG_KEY = "wms_capabilities_url"
+WFS_CAPABILITIES_URL_CONFIG_KEY = "wfs_capabilities_url"
 PRESERVE_RESOURCE_IDS_BY_URL_CONFIG_KEY = "preserve_resource_ids_by_url"
+SKIP_DATASET_WHEN_NO_NON_UUID_LAYER_IDENTIFIER_CONFIG_KEY = (
+    "skip_dataset_when_no_non_uuid_layer_identifier"
+)
+SKIP_DATASET_WHEN_TITLE_MATCHES_LAYER_NAME_CONFIG_KEY = (
+    "skip_dataset_when_title_matches_layer_name"
+)
+SKIP_DATA_SERVICE_RECORDS_CONFIG_KEY = "skip_data_service_records"
 DATASET_NAME_PREFIX_FROM_FILE_IDENTIFIER_CONFIG_KEY = (
     "dataset_name_prefix_from_file_identifier"
 )
@@ -43,6 +55,10 @@ RESOURCE_ACCESS_URL_FROM_URL_CONFIG_KEY = "resource_access_url_from_url"
 RESOURCE_RIGHTS_FROM_USE_CONSTRAINTS_CONFIG_KEY = (
     "resource_rights_from_use_constraints"
 )
+RESOURCE_RIGHTS_PLAIN_TEXT_FROM_USE_CONSTRAINTS_CONFIG_KEY = (
+    "resource_rights_plain_text_from_use_constraints"
+)
+DATA_SERVICE_PACKAGE_TYPE = "data-service"
 IANA_MEDIA_TYPE_BASE_URL = "https://www.iana.org/assignments/media-types/"
 MEDIA_TYPES_VOCABULARY_NAME = "Media types"
 INSPIRE_CONDITIONS_APPLYING_TO_ACCESS_AND_USE = (
@@ -53,6 +69,35 @@ _UUID_LIKE_RE = re.compile(
     r"^[a-z]?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
     re.IGNORECASE,
 )
+_LAYER_IDENTIFIER_UUID_LIKE_RE = re.compile(
+    r"^[a-z]?[0-9a-f]{7,8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+    re.IGNORECASE,
+)
+
+
+def _is_data_service_package(package_dict: dict[str, Any]) -> bool:
+    return str(package_dict.get("type") or "").strip() == DATA_SERVICE_PACKAGE_TYPE
+
+
+def should_skip_data_service_package(
+    package_dict: dict[str, Any],
+    harvest_object: Any = None,
+) -> bool:
+    """
+    Returns True when configured to skip CSW records imported as data-service
+    packages by ckanext-spatial.
+
+    Enabled only with harvest source config:
+      {"skip_data_service_records": true}
+    """
+    if not isinstance(package_dict, dict):
+        return False
+
+    config = get_harvest_source_config(harvest_object)
+    if not config.get(SKIP_DATA_SERVICE_RECORDS_CONFIG_KEY):
+        return False
+
+    return _is_data_service_package(package_dict)
 
 EU_THEME_URI = {
     "AGRI": "http://publications.europa.eu/resource/authority/data-theme/AGRI",
@@ -239,7 +284,7 @@ def apply_landing_page_from_file_identifier(
     if not file_identifier:
         return
 
-    package_dict["landing_page"] = f"{base_url}{file_identifier}"
+    package_dict["landing_page"] = [f"{base_url}{file_identifier}"]
 
 
 def apply_default_dataset_fields_from_config(
@@ -850,6 +895,60 @@ def extract_iso_use_constraints_other_restrictions_rights(xml_tree) -> str:
     return rights_text
 
 
+def extract_iso_use_constraints_other_restrictions_plain_text_rights(xml_tree) -> dict[str, str]:
+    """
+    Extracts plain-text rights from useConstraints=otherRestrictions.
+
+    This is a fallback for sources that put licence/use-condition text directly
+    in gco:CharacterString / LocalisedCharacterString instead of using the
+    INSPIRE ConditionsApplyingToAccessAndUse codelist URI. accessConstraints is
+    intentionally ignored.
+    """
+    if xml_tree is None:
+        return {"rights_text": "", "license_url": ""}
+
+    nodes = xml_tree.xpath(
+        (
+            "//gmd:resourceConstraints/gmd:MD_LegalConstraints["
+            "gmd:useConstraints/gmd:MD_RestrictionCode/"
+            "@codeListValue='otherRestrictions'"
+            " or normalize-space(gmd:useConstraints/"
+            "gmd:MD_RestrictionCode/text())='otherRestrictions'"
+            "]"
+        ),
+        namespaces=NS,
+    )
+
+    rights_values: list[str] = []
+    for n in nodes:
+        constraints = n.xpath(".//gmd:otherConstraints", namespaces=NS)
+        for constraint in constraints:
+            parts = constraint.xpath(
+                (
+                    "./gco:CharacterString/text()"
+                    " | .//gmd:LocalisedCharacterString/text()"
+                ),
+                namespaces=NS,
+            )
+            for part in parts:
+                value = str(part).strip()
+                if value:
+                    rights_values.append(value)
+
+    seen: set[str] = set()
+    deduped: list[str] = []
+    for value in rights_values:
+        if value and value not in seen:
+            seen.add(value)
+            deduped.append(value)
+
+    rights_text = "\n\n".join(deduped).strip()
+    if len(rights_text) > 8000:
+        rights_text = rights_text[:8000] + " ...[TRUNCATED]"
+
+    return {"rights_text": rights_text, "license_url": _extract_first_url(rights_text)}
+
+
 def apply_resource_rights_and_license_from_iso19139(
     package_dict: dict[str, Any],
     xml_tree,
@@ -917,8 +1016,9 @@ def apply_resource_rights_from_iso_use_constraints(
     """
     Writes resource['rights'] from useConstraints=otherRestrictions.
 
-    This rule is limited to INSPIRE ConditionsApplyingToAccessAndUse values and
-    intentionally ignores accessConstraints.
+    INSPIRE ConditionsApplyingToAccessAndUse values are preferred. If none are
+    found, plain-text otherConstraints can be used as a configurable fallback.
+    accessConstraints are intentionally ignored.
     """
     if not isinstance(package_dict, dict):
         return
@@ -932,8 +1032,21 @@ def apply_resource_rights_from_iso_use_constraints(
         return
 
     rights_text = extract_iso_use_constraints_other_restrictions_rights(xml_tree)
+    extracted_url = ""
+    if (
+        not rights_text
+        and config.get(
+            RESOURCE_RIGHTS_PLAIN_TEXT_FROM_USE_CONSTRAINTS_CONFIG_KEY
+        ) is not False
+    ):
+        data = extract_iso_use_constraints_other_restrictions_plain_text_rights(xml_tree)
+        rights_text = (data.get("rights_text") or "").strip()
+        extracted_url = (data.get("license_url") or "").strip()
+
     if not rights_text:
         return
+
+    eu_uri = map_license_url_to_eu_licence_uri(extracted_url) if extracted_url else ""
 
     for res in resources:
         if not isinstance(res, dict):
@@ -941,6 +1054,14 @@ def apply_resource_rights_from_iso_use_constraints(
 
         if overwrite or not res.get("rights"):
             res["rights"] = rights_text
+
+        if extracted_url:
+            if overwrite or not res.get("license_url"):
+                res["license_url"] = extracted_url
+            if overwrite or not res.get("license_title"):
+                res["license_title"] = extracted_url
+        if eu_uri and (overwrite or not res.get("license")):
+            res["license"] = eu_uri
 
 
 # -----------------------------------------------------------------------------
@@ -1358,10 +1479,131 @@ def extract_layer_name_from_dataset_identifiers(xml_tree) -> str:
 
     for value in values:
         layer_name = str(value).strip()
-        if layer_name and not _UUID_LIKE_RE.match(layer_name):
+        if layer_name and not _is_uuid_like_layer_identifier(layer_name):
             return layer_name
 
     return ""
+
+
+def _is_uuid_like_layer_identifier(value: str) -> bool:
+    return bool(_LAYER_IDENTIFIER_UUID_LIKE_RE.match(str(value or "").strip()))
+
+
+def extract_dataset_identifier_codes(xml_tree) -> list[str]:
+    """
+    Extracts dataset citation identifier code values from ISO19139 XML.
+    """
+    if xml_tree is None:
+        return []
+
+    values = xml_tree.xpath(
+        (
+            "//gmd:identificationInfo/gmd:MD_DataIdentification"
+            "/gmd:citation/gmd:CI_Citation"
+            "/gmd:identifier/gmd:RS_Identifier"
+            "/gmd:code/gco:CharacterString/text()"
+        ),
+        namespaces=NS,
+    )
+
+    return [str(value).strip() for value in values if str(value).strip()]
+
+
+def should_skip_dataset_with_uuid_like_layer_identifier(
+    xml_tree,
+    harvest_object: Any = None,
+) -> bool:
+    """
+    Returns True when configured to skip records whose dataset identifiers do
+    not contain any non-UUID-like layer identifier.
+
+    Enabled only with harvest source config:
+      {"skip_dataset_when_no_non_uuid_layer_identifier": true}
+    """
+    config = get_harvest_source_config(harvest_object)
+    if not config.get(SKIP_DATASET_WHEN_NO_NON_UUID_LAYER_IDENTIFIER_CONFIG_KEY):
+        return False
+
+    if not str(config.get(LAYER_RESOURCE_BASE_URL_CONFIG_KEY) or "").strip():
+        return False
+
+    identifiers = extract_dataset_identifier_codes(xml_tree)
+    if not identifiers:
+        return False
+
+    has_uuid_like_identifier = any(
+        _is_uuid_like_layer_identifier(identifier)
+        for identifier in identifiers
+    )
+    has_non_uuid_identifier = any(
+        not _is_uuid_like_layer_identifier(identifier)
+        for identifier in identifiers
+    )
+
+    return has_uuid_like_identifier and not has_non_uuid_identifier
+
+
+def _normalize_layer_title_for_match(value: str) -> str:
+    normalized = re.sub(r"\s+", " ", str(value or "").strip()).lower()
+    return re.sub(r"[-_]+", "-", normalized)
+
+
+def _package_title_values(package_dict: dict[str, Any]) -> list[str]:
+    titles = []
+    title = str(package_dict.get("title") or "").strip()
+    if title:
+        titles.append(title)
+
+    title_translated = package_dict.get("title_translated")
+    if isinstance(title_translated, dict):
+        for value in title_translated.values():
+            translated_title = str(value or "").strip()
+            if translated_title:
+                titles.append(translated_title)
+
+    return titles
+
+
+def should_skip_dataset_when_title_matches_layer_name(
+    package_dict: dict[str, Any],
+    xml_tree,
+    harvest_object: Any = None,
+) -> bool:
+    """
+    Returns True when configured to skip CSW records whose title is just the
+    WMS layer identifier.
+
+    Enabled only with harvest source config:
+      {
+        "layer_resource_base_url": "https://.../geoserver/wms#",
+        "skip_dataset_when_title_matches_layer_name": true
+      }
+    """
+    if not isinstance(package_dict, dict):
+        return False
+
+    config = get_harvest_source_config(harvest_object)
+    if not config.get(SKIP_DATASET_WHEN_TITLE_MATCHES_LAYER_NAME_CONFIG_KEY):
+        return False
+
+    if not str(config.get(LAYER_RESOURCE_BASE_URL_CONFIG_KEY) or "").strip():
+        return False
+
+    layer_name = extract_layer_name_from_dataset_identifiers(xml_tree)
+    if not layer_name:
+        return False
+
+    local_layer_name = layer_name.split(":", 1)[-1]
+    layer_values = {
+        _normalize_layer_title_for_match(layer_name),
+        _normalize_layer_title_for_match(local_layer_name),
+    }
+    layer_values.discard("")
+
+    return any(
+        _normalize_layer_title_for_match(title) in layer_values
+        for title in _package_title_values(package_dict)
+    )
 
 
 def get_harvest_source_config(harvest_object: Any = None) -> dict[str, Any]:
@@ -1615,6 +1857,8 @@ def prepend_configured_wms_layer_resource(
     """
     if not isinstance(package_dict, dict):
         return
+    if _is_data_service_package(package_dict):
+        return
 
     config = get_harvest_source_config(harvest_object)
     base_url = str(config.get(LAYER_RESOURCE_BASE_URL_CONFIG_KEY) or "").strip()
@@ -1708,6 +1952,8 @@ def prepend_wms_preview_resource_from_online_resource(
     """
     if not isinstance(package_dict, dict):
         return
+    if _is_data_service_package(package_dict):
+        return
 
     config = get_harvest_source_config(harvest_object)
     if not config.get(WMS_PREVIEW_FROM_ONLINE_RESOURCE_CONFIG_KEY):
@@ -1765,9 +2011,240 @@ def prepend_wms_preview_resource_from_online_resource(
         "format": "WMS",
     })
 
+
+def _wms_online_resource_layer_names(xml_tree) -> list[str]:
+    """
+    Returns distinct ISO online resource names whose protocol starts with OGC:WMS.
+    """
+    layer_names = []
+    for online_resource in _extract_online_resources(xml_tree):
+        protocol = str(online_resource.get("protocol") or "").strip().upper()
+        if not protocol.startswith("OGC:WMS"):
+            continue
+
+        layer_name = str(online_resource.get("name") or "").strip()
+        if layer_name and layer_name not in layer_names:
+            layer_names.append(layer_name)
+
+    return layer_names
+
+
+def _wms_preview_resource(layer_name: str, url: str) -> dict[str, Any]:
+    description = f"Προεπισκόπηση συνόλου δεδομένων - {layer_name}"
+    return {
+        "name": layer_name,
+        "name_translated": {
+            "el": layer_name,
+            "en": layer_name,
+        },
+        "description_translated": {
+            "el": description,
+            "en": description,
+        },
+        "url": url,
+        "format": "WMS",
+    }
+
+
+def prepend_wms_preview_resources_from_wms_online_resources(
+    package_dict: dict[str, Any],
+    xml_tree,
+    harvest_object: Any = None,
+) -> None:
+    """
+    Prepends WMS preview resources from ISO online resources whose protocol
+    starts with OGC:WMS.
+
+    Config:
+      {
+        "wms_preview_from_wms_online_resources": true,
+        "wms_preview_base_url": "https://.../geoserver/wms#"
+      }
+
+    Final URL:
+      wms_preview_base_url + online_resource_name
+    """
+    if not isinstance(package_dict, dict):
+        return
+    if _is_data_service_package(package_dict):
+        return
+
+    config = get_harvest_source_config(harvest_object)
+    if not config.get(WMS_PREVIEW_FROM_WMS_ONLINE_RESOURCES_CONFIG_KEY):
+        return
+
+    base_url = str(config.get(WMS_PREVIEW_BASE_URL_CONFIG_KEY) or "").strip()
+    if not base_url:
+        return
+
+    layer_names = _wms_online_resource_layer_names(xml_tree)
+    if not layer_names:
+        return
+
+    resources = package_dict.get("resources")
+    if not isinstance(resources, list):
+        resources = []
+        package_dict["resources"] = resources
+
+    for position, layer_name in enumerate(layer_names):
+        final_url = f"{base_url}{layer_name}"
+        _upsert_resource_at_position(
+            resources,
+            _wms_preview_resource(layer_name, final_url),
+            position,
+            harvest_object,
+        )
+
+
+def _configured_capabilities_resource(
+    *,
+    url: str,
+    layer_name: str,
+    service_name: str,
+    protocol: str,
+) -> dict[str, Any]:
+    return {
+        "name": layer_name,
+        "name_translated": {
+            "el": "%s capabilities document - %s" % (service_name, layer_name),
+            "en": "%s capabilities document - %s" % (service_name, layer_name),
+        },
+        "description_translated": {
+            "el": (
+                "%s GetCapabilities document που περιγράφει και το layer %s."
+                % (service_name, layer_name)
+            ),
+            "en": (
+                "%s GetCapabilities document that includes layer %s."
+                % (service_name, layer_name)
+            ),
+        },
+        "url": url,
+        "format": "XML",
+        "resource_locator_protocol": protocol,
+        "access_url": url,
+    }
+
+
+def _upsert_resource_at_position(
+    resources: list[Any],
+    resource: dict[str, Any],
+    position: int,
+    harvest_object: Any = None,
+) -> None:
+    normalized_url = _normalize_url(resource.get("url") or "")
+    if not normalized_url:
+        return
+
+    existing_resource = _find_existing_resource_by_url(
+        harvest_object,
+        resource.get("url") or "",
+    )
+    existing_resource_id = (
+        _resource_value(existing_resource, "id") if existing_resource else None
+    )
+
+    for index, current in enumerate(resources):
+        if not isinstance(current, dict):
+            continue
+        if _normalize_url(current.get("url") or "") != normalized_url:
+            continue
+
+        if existing_resource_id and not current.get("id"):
+            current["id"] = existing_resource_id
+        current.update(resource)
+        if index != position:
+            resources.insert(position, resources.pop(index))
+        return
+
+    if existing_resource_id:
+        resource = {**resource, "id": existing_resource_id}
+    resources.insert(position, resource)
+
+
+def insert_configured_wms_wfs_capabilities_resources(
+    package_dict: dict[str, Any],
+    xml_tree,
+    harvest_object: Any = None,
+) -> None:
+    """
+    Inserts configured WMS/WFS GetCapabilities resources after the primary WMS
+    preview resource for the layer.
+    """
+    if not isinstance(package_dict, dict):
+        return
+    if _is_data_service_package(package_dict):
+        return
+
+    config = get_harvest_source_config(harvest_object)
+    wms_capabilities_url = str(
+        config.get(WMS_CAPABILITIES_URL_CONFIG_KEY) or ""
+    ).strip()
+    wfs_capabilities_url = str(
+        config.get(WFS_CAPABILITIES_URL_CONFIG_KEY) or ""
+    ).strip()
+    if not wms_capabilities_url and not wfs_capabilities_url:
+        return
+
+    layer_name = extract_layer_name_from_dataset_identifiers(xml_tree)
+    if not layer_name:
+        return
+
+    resources = package_dict.get("resources")
+    if not isinstance(resources, list):
+        resources = []
+        package_dict["resources"] = resources
+
+    position = 1 if resources else 0
+    if wms_capabilities_url:
+        _upsert_resource_at_position(
+            resources,
+            _configured_capabilities_resource(
+                url=wms_capabilities_url,
+                layer_name=layer_name,
+                service_name="WMS",
+                protocol="OGC:WMS",
+            ),
+            position,
+            harvest_object,
+        )
+        position += 1
+
+    if wfs_capabilities_url:
+        _upsert_resource_at_position(
+            resources,
+            _configured_capabilities_resource(
+                url=wfs_capabilities_url,
+                layer_name=layer_name,
+                service_name="WFS",
+                protocol="OGC:WFS",
+            ),
+            position,
+            harvest_object,
+        )
+
 # -----------------------------------------------------------------------------
 # Format
 # -----------------------------------------------------------------------------
+
+SAFE_NAME_EXTENSION_FORMATS = {
+    "csv",
+    "geojson",
+    "gml",
+    "jpeg",
+    "jpg",
+    "json",
+    "pdf",
+    "png",
+    "shp",
+    "tif",
+    "tiff",
+    "xls",
+    "xlsx",
+    "xml",
+    "zip",
+}
+
 
 def _format_from_extension(name: str = "", url: str = "") -> str:
     """
@@ -1827,6 +2304,9 @@ def _looks_like_filename_or_path(value: str) -> bool:
 
     root, ext = os.path.splitext(basename)
     if not root or not ext:
+        return False
+
+    if ext.lower().lstrip(".") not in SAFE_NAME_EXTENSION_FORMATS:
         return False
 
     return bool(re.match(r"^\.[A-Za-z0-9]{1,10}$", ext))
@@ -1909,9 +2389,9 @@ def _format_from_url_query(url: str = "") -> str:
 
 def _format_from_protocol(protocol: str = "") -> str:
     p = (protocol or "").strip().upper()
-    if p == "OGC:WMS":
+    if p.startswith("OGC:WMS"):
         return "WMS"
-    if p == "OGC:WFS":
+    if p.startswith("OGC:WFS"):
         return "WFS"
     return ""
 

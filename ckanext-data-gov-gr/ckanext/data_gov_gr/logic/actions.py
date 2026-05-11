@@ -32,6 +32,10 @@ import ckan.logic.schema
 from ckan.logic import _validate
 import ckan.lib.helpers as h
 from ckanext.data_gov_gr import organization_stats
+from ckanext.data_gov_gr.logic.hvd_legislation import (
+    HVD_CATEGORY_FORM_PRESENT_FIELD,
+    sync_package_hvd_applicable_legislation,
+)
 
 log = logging.getLogger(__name__)
 
@@ -158,6 +162,50 @@ def _ensure_access_and_download_urls(data_dict: Dict[str, Any], current: Dict[st
         final_access_url = data_dict.get('access_url')
         if not _is_blank(final_access_url):
             data_dict['download_url'] = final_access_url
+
+
+def _current_package_for_hvd_sync(context: Context, data_dict: Dict[str, Any]) -> Dict[str, Any] | None:
+    package_id = data_dict.get('id') or data_dict.get('name')
+    if _is_blank(package_id):
+        return None
+
+    try:
+        show_context = dict(context, ignore_auth=True)
+        show_context.pop('schema', None)
+        return toolkit.get_action('package_show')(
+            show_context,
+            {'id': package_id},
+        )
+    except Exception as e:
+        log.debug('Could not load current package for HVD legislation sync: %r', e)
+        return None
+
+
+@toolkit.chained_action
+def package_create(original_action, context, data_dict):
+    """
+    Συγχρονίζει την HVD εφαρμοστέα νομοθεσία στη δημιουργία dataset/data-service.
+    """
+    data_dict.pop(HVD_CATEGORY_FORM_PRESENT_FIELD, None)
+    sync_package_hvd_applicable_legislation(data_dict)
+    return original_action(context, data_dict)
+
+
+@toolkit.chained_action
+def package_update(original_action, context, data_dict):
+    """
+    Συγχρονίζει την HVD εφαρμοστέα νομοθεσία στην ενημέρωση dataset/data-service.
+    """
+    hvd_category_form_present = bool(
+        data_dict.pop(HVD_CATEGORY_FORM_PRESENT_FIELD, None)
+    )
+    current_package = _current_package_for_hvd_sync(context, data_dict)
+    sync_package_hvd_applicable_legislation(
+        data_dict,
+        current_package=current_package,
+        missing_hvd_category_means_removed=hvd_category_form_present,
+    )
+    return original_action(context, data_dict)
 
 
 @toolkit.chained_action

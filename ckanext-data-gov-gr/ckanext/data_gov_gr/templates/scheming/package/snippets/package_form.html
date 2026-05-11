@@ -44,7 +44,7 @@
           {% endif %}
         {% endif %}
       {% endif -%}
-      <div class="form-field-wrapper">
+      <div class="form-field-wrapper{% if field.field_name == 'hvd_category' %} form-field-wrapper--hvd-category{% endif %}">
       {%- snippet 'scheming/snippets/form_field.html',
         field=field,
         data=data,

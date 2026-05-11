@@ -338,6 +338,7 @@ dataset_fields:
     el: Εφαρμοστέα Nομοθεσία
     en: Applicable Legislation
   preset: multiple_text
+  form_snippet: hvd_applicable_legislation.html
   default_jinja2: "{{ h.get_dataset_legislation_default() }}"
   validators: ignore_missing scheming_multiple_text
   help_text:
@@ -349,10 +350,20 @@ dataset_fields:
     el: Κατηγορία Σύνολου Δεδομένων Υψηλής Αξίας
     en: Ηigh Value Datasets category
   preset: multiple_select
+  form_snippet: hvd_category.html
   choices_helper: vocabularyadmin_get_tags_for_scheming
   form_choices_helper_kwargs:
     vocabulary_id_or_name: "High-value dataset categories"
   required: false
+  hvd_notice_before_link:
+    el: Επιλέγοντας μία ή περισσότερες κατηγορίες συνόλου δεδομένων υψηλής αξίας, το σύνολο δεδομένων χαρακτηρίζεται ως υψηλής αξίας (HVD) και θα πρέπει να είναι σύμφωνο με τις θεσμικές και τεχνικές προδιαγραφές, όπως αυτές ορίζονται
+    en: By selecting one or more high-value dataset categories, the dataset is classified as a high-value dataset (HVD) and must comply with the institutional and technical specifications defined
+  hvd_notice_link_text:
+    el: εδώ
+    en: here
+  hvd_notice_after_link:
+    el: .
+    en: .
   help_text:
     el: Κατηγορία συνόλου δεδομένων υψηλής αξίας. Ένα σύνολο δεδομένων μπορεί να συσχετιστεί με πολλές κατηγορίες συνόλου δεδομένων υψηλής αξίας
     en: Ηigh Value Datasets category of the dataset. A Dataset may be associated with multiple Ηigh Value Dataset categories.
@@ -580,6 +591,7 @@ resource_fields:
     el: Εφαρμοστέα Nομοθεσία
     en: Applicable Legislation
   preset: multiple_text
+  form_snippet: hvd_applicable_legislation.html
   validators: ignore_missing scheming_multiple_text
   help_text:
     el: Η νομοθεσία που επιβάλλει τη δημιουργία ή τη διαχείριση του συνόλου δεδομένων

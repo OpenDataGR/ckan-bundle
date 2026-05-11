@@ -355,6 +355,26 @@
             {{ _('Αν συμπληρωθεί, εμφανίζεται στη σελίδα αναζήτησης συνόλων δεδομένων σύνδεσμος «API Docs» που ανοίγει σε νέα καρτέλα. Αφήστε κενό για να χρησιμοποιηθεί η προεπιλεγμένη τεκμηρίωση του CKAN.') }}
           </p>
 
+          {% set redirect_to_resource_after_create = h.get_config_as_bool('ckanext.data_gov_gr.dataset.redirect_to_resource_after_create', False) %}
+          <input
+            type="hidden"
+            id="field-ckanext.data_gov_gr.dataset.redirect_to_resource_after_create-hidden"
+            name="ckanext.data_gov_gr.dataset.redirect_to_resource_after_create"
+            value="false"
+            {% if redirect_to_resource_after_create %}disabled="disabled"{% endif %}
+          />
+          {% call form.checkbox(
+            'ckanext.data_gov_gr.dataset.redirect_to_resource_after_create',
+            id='field-ckanext.data_gov_gr.dataset.redirect_to_resource_after_create',
+            label=_('Μετάβαση σε προσθήκη πόρου μετά τη δημιουργία dataset'),
+            value='true',
+            checked=redirect_to_resource_after_create
+          ) %}
+            <p class="help-block">
+              {{ _('Όταν είναι ενεργό, μετά τη δημιουργία νέου dataset ο χρήστης μεταφέρεται στη φόρμα προσθήκης πόρου. Το dataset αποθηκεύεται κανονικά και η ρύθμιση εφαρμόζεται μόνο στον τύπο dataset.') }}
+            </p>
+          {% endcall %}
+
           {% set activity_stream_restricted = h.get_config_as_bool('ckanext.data_gov_gr.activity_stream.dataset.restrict_visibility', True) %}
           <input
             type="hidden"
@@ -376,16 +396,26 @@
           {% endcall %}
           <script>
             document.addEventListener('DOMContentLoaded', function () {
-              var checkbox = document.getElementById('field-ckanext.data_gov_gr.activity_stream.dataset.restrict_visibility');
-              var hidden = document.getElementById('field-ckanext.data_gov_gr.activity_stream.dataset.restrict_visibility-hidden');
-              if (!checkbox || !hidden) {
-                return;
+              function syncCheckboxHidden(checkboxId, hiddenId) {
+                var checkbox = document.getElementById(checkboxId);
+                var hidden = document.getElementById(hiddenId);
+                if (!checkbox || !hidden) {
+                  return;
+                }
+                function syncHidden() {
+                  hidden.disabled = !!checkbox.checked;
+                }
+                checkbox.addEventListener('change', syncHidden);
+                syncHidden();
               }
-              function syncHidden() {
-                hidden.disabled = !!checkbox.checked;
-              }
-              checkbox.addEventListener('change', syncHidden);
-              syncHidden();
+              syncCheckboxHidden(
+                'field-ckanext.data_gov_gr.dataset.redirect_to_resource_after_create',
+                'field-ckanext.data_gov_gr.dataset.redirect_to_resource_after_create-hidden'
+              );
+              syncCheckboxHidden(
+                'field-ckanext.data_gov_gr.activity_stream.dataset.restrict_visibility',
+                'field-ckanext.data_gov_gr.activity_stream.dataset.restrict_visibility-hidden'
+              );
             });
           </script>
       </section>
@@ -745,6 +775,24 @@
             placeholder='https://... (π.χ. κανονισμός 2022/868)'
           ) }}
         {% endif %}
+
+        {{ form.input(
+          'ckanext.data_gov_gr.hvd.applicable_legislation.default',
+          id='field-ckanext.data_gov_gr.hvd.applicable_legislation.default',
+          label=_('Για Κατηγορίες Συνόλων Δεδομένων Υψηλής Αξίας (HVD)'),
+          value=data['ckanext.data_gov_gr.hvd.applicable_legislation.default'],
+          error=errors['ckanext.data_gov_gr.hvd.applicable_legislation.default'],
+          placeholder='http://data.europa.eu/eli/reg_impl/2023/138/oj'
+        ) }}
+
+        {{ form.input(
+          'ckanext.data_gov_gr.hvd.category_notice.url',
+          id='field-ckanext.data_gov_gr.hvd.category_notice.url',
+          label=_('Σύνδεσμος ενημερωτικού κειμένου HVD κατηγοριών'),
+          value=data['ckanext.data_gov_gr.hvd.category_notice.url'],
+          error=errors['ckanext.data_gov_gr.hvd.category_notice.url'],
+          placeholder=_('Αφήστε το κενό για χρήση της HVD εφαρμοστέας νομοθεσίας')
+        ) }}
 
         <h4 class="mt-4">{{ _('Προεπιλεγμένη Άδεια Πόρου') }}</h4>
         <p class="help-block">

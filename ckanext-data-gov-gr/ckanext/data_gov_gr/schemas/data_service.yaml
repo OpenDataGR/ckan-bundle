@@ -130,6 +130,7 @@ dataset_fields:
     en: Applicable legislation
     el: Εφαρμοστέα Nομοθεσία
   preset: multiple_text
+  form_snippet: hvd_applicable_legislation.html
   validators: ignore_missing scheming_multiple_text
   help_text:
     en: The legislation that mandates the creation or management of the Data Service
@@ -192,10 +193,20 @@ dataset_fields:
     en: Ηigh Value Datasets category
     el: Κατηγορία Σύνολου Δεδομένων Υψηλής Αξίας
   preset: multiple_select
+  form_snippet: hvd_category.html
   choices_helper: vocabularyadmin_get_tags_for_scheming
   form_choices_helper_kwargs:
     vocabulary_id_or_name: "High-value dataset categories"
   required: false
+  hvd_notice_before_link:
+    el: Επιλέγοντας μία ή περισσότερες κατηγορίες συνόλου δεδομένων υψηλής αξίας, το σύνολο δεδομένων χαρακτηρίζεται ως υψηλής αξίας (HVD) και θα πρέπει να είναι σύμφωνο με τις θεσμικές και τεχνικές προδιαγραφές, όπως αυτές ορίζονται
+    en: By selecting one or more high-value dataset categories, the dataset is classified as a high-value dataset (HVD) and must comply with the institutional and technical specifications defined
+  hvd_notice_link_text:
+    el: εδώ
+    en: here
+  hvd_notice_after_link:
+    el: .
+    en: .
   help_text:
     en: Ηigh Value Dataset category to which this Data Service belongs. A Data Service may be associated with multiple Ηigh Value Dataset categories
     el: Κατηγορία Υψηλής Αξίας Συνόλου Δεδομένων στην οποία ανήκει αυτή η Υπηρεσία Δεδομένων. Μια Υπηρεσία Δεδομένων μπορεί να σχετίζεται με πολλαπλές κατηγορίες Υψηλής Αξίας Συνόλου Δεδομένων

@@ -299,6 +299,28 @@ a.btn.btn-multiple-remove {
   border-radius: 100px;
 }
 
+.dgg-hvd-managed-legislation {
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border: 1px solid #c9d8e8;
+  border-radius: 6px;
+  background: #f7fbff;
+}
+
+.dgg-hvd-managed-legislation__input[readonly] {
+  color: #515058;
+  background-color: #edf4fb;
+  border-color: #c9d8e8;
+  cursor: not-allowed;
+}
+
+.dgg-hvd-managed-legislation__hint {
+  margin-top: 5px;
+  color: var(--color-gray-700);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 /* ---------------------------------------------------------------------------- */
 
 /* Wrapper γύρω από form-field element των πεδίων που ορίζει το scheming */
@@ -316,6 +338,29 @@ a.btn.btn-multiple-remove {
 
 .form-field-wrapper:hover {
     background-color : aliceblue;
+}
+
+.form-field-wrapper--hvd-category {
+    background-color: #b9dcfb;
+    border-color: #777;
+}
+
+.form-field-wrapper--hvd-category:hover {
+    background-color: #b9dcfb;
+}
+
+.dgg-hvd-category__notice {
+    margin: 0 0 12px;
+    color: #2f3c48;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.35;
+}
+
+.dgg-hvd-category__notice a {
+    color: #1f4f82;
+    font-weight: 700;
+    text-decoration: underline;
 }
 
 /* ---------------------------------------------------------------------------- */
@@ -4365,6 +4410,15 @@ table.harvest-error-list tr td div.error {
   .cookie-consent-actions {
     justify-content: center;
   }
+}
+
+/* ============================================================ */
+
+.context-info .description {
+  word-break: normal;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  hyphens: none;
 }
 
 /* ============================================================ */

@@ -20,6 +20,7 @@ from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import aliased, joinedload
 
 from ckanext.data_gov_gr import organization_stats
+from ckanext.data_gov_gr.logic import hvd_legislation
 from ckanext.data_gov_gr.stats import DataGovStats
 try:
     from ckanext.showcase.model import ShowcasePackageAssociation
@@ -817,6 +818,35 @@ def get_config_value(key, default=""):
     """
     value = toolkit.config.get(key)
     return value if value is not None else default
+
+
+def get_hvd_applicable_legislation_default():
+    return hvd_legislation.get_hvd_applicable_legislation_default()
+
+
+def get_hvd_category_notice_url():
+    return hvd_legislation.get_hvd_category_notice_url()
+
+
+def data_gov_gr_has_hvd_category(value):
+    return hvd_legislation.has_hvd_category(value)
+
+
+def data_gov_gr_normalize_value_list(value):
+    return hvd_legislation.normalize_value_list(value)
+
+
+def data_gov_gr_package_has_hvd_category(package_id):
+    if not package_id:
+        return False
+    try:
+        package_dict = toolkit.get_action('package_show')(
+            {'ignore_auth': True},
+            {'id': package_id},
+        )
+    except Exception:
+        return False
+    return hvd_legislation.has_hvd_category(package_dict.get('hvd_category'))
 
 def should_include_relationships_in_show():
     """
@@ -2936,6 +2966,11 @@ def get_helpers():
         'get_data_service_guides_url': get_data_service_guides_url,
         'get_config_as_bool': get_config_as_bool,
         'get_config_value': get_config_value,
+        'get_hvd_applicable_legislation_default': get_hvd_applicable_legislation_default,
+        'get_hvd_category_notice_url': get_hvd_category_notice_url,
+        'data_gov_gr_has_hvd_category': data_gov_gr_has_hvd_category,
+        'data_gov_gr_normalize_value_list': data_gov_gr_normalize_value_list,
+        'data_gov_gr_package_has_hvd_category': data_gov_gr_package_has_hvd_category,
         'should_include_relationships_in_show': should_include_relationships_in_show,
         'get_powerbi_embed_url': get_powerbi_embed_url,
         'get_home_stats_tiles': get_home_stats_tiles,

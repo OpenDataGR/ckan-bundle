@@ -44,6 +44,10 @@ flatten_to_string_key = logic.flatten_to_string_key
 
 log = logging.getLogger(__name__)
 
+DATA_GOV_GR_REDIRECT_TO_RESOURCE_AFTER_CREATE = (
+    u'ckanext.data_gov_gr.dataset.redirect_to_resource_after_create'
+)
+
 dataset = Blueprint(
     u'dataset',
     __name__,
@@ -596,6 +600,18 @@ class CreateView(MethodView):
                     Context(context, allow_state_change=True),
                     dict(pkg_dict, state=u'active')
                 )
+                if (
+                    package_type == u'dataset'
+                    and asbool(config.get(
+                        DATA_GOV_GR_REDIRECT_TO_RESOURCE_AFTER_CREATE,
+                        False
+                    ))
+                ):
+                    url = h.url_for(
+                        u'dataset_resource.new',
+                        id=pkg_dict[u'name']
+                    )
+                    return h.redirect_to(url)
                 return h.redirect_to(
                     u'{}.read'.format(package_type),
                     id=pkg_dict["id"]

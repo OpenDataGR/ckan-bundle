@@ -1,0 +1,163 @@
+{% include 'scheming/snippets/multiple_text_asset.html' %}
+
+{% import 'macros/form.html' as form %}
+
+{% macro multiple_text(element, error) %}
+  <li class="multiple-text-field control-full">
+    <input
+      type="text"
+      name="{{ field.field_name }}"
+      value="{{ element }}"
+      class="form-control"
+      {{ form.attributes(field.form_attrs if 'form_attrs' in field else {}) }} />
+    <a class="btn btn-default btn-multiple-remove" name="multiple-remove" href="javascript:;"
+      >{% block delete_button_text %}{{ _('Remove') }}{% endblock %}</a>
+      {% if error and error is iterable %}<span class="error-block">{{ error|join(', ') }}</span>{% endif %}
+  </li>
+{% endmacro %}
+
+{%- set managed_value = h.get_hvd_applicable_legislation_default() -%}
+{%- set has_hvd = h.data_gov_gr_has_hvd_category(data.get('hvd_category')) -%}
+{%- if not has_hvd and package_id is defined and package_id and object_type == 'dataset' -%}
+  {%- set has_hvd = h.data_gov_gr_package_has_hvd_category(package_id) -%}
+{%- endif -%}
+
+{%- set raw_values = h.data_gov_gr_normalize_value_list(data.get(field.field_name, [])) -%}
+{%- set values = [] -%}
+{%- for element in raw_values -%}
+  {%- if not has_hvd or element != managed_value -%}
+    {%- do values.append(element) -%}
+  {%- endif -%}
+{%- endfor -%}
+{%- if not values and not has_hvd -%}
+  {%- set values = [''] * field.get('form_blanks', 1) -%}
+{%- endif -%}
+
+{% call form.input_block(
+  'field-' + field.field_name,
+  h.scheming_language_text(field.label) or field.field_name,
+  "",
+  field.classes if 'classes' in field else ['control-medium'],
+  dict({"class": "form-control"}, **(field.get('form_attrs', {}))),
+  is_required=h.scheming_field_required(field)) %}
+  <fieldset name="{{ field.field_name }}" class="scheming-fieldset" data-module="scheming-multiple-text">
+    <div
+      class="control-full dgg-hvd-managed-legislation"
+      data-hvd-managed-legislation
+      {% if not has_hvd %}style="display: none;"{% endif %}>
+      <input
+        type="text"
+        name="{{ field.field_name }}"
+        value="{{ managed_value }}"
+        class="form-control dgg-hvd-managed-legislation__input"
+        readonly="readonly"
+        aria-label="Αυτόματη HVD εφαρμοστέα νομοθεσία"
+        {% if not has_hvd %}disabled="disabled"{% endif %} />
+      <div class="dgg-hvd-managed-legislation__hint">
+        Ενημερώνεται από τη ρύθμιση της πύλης και δεν αλλάζει από τη φόρμα.
+      </div>
+    </div>
+
+    <ol class="multiple-text-group">
+      {%- for element in values -%}
+        {{ multiple_text(element, errors[field.field_name] if loop.index == 1 else "") }}
+      {%- endfor -%}
+    </ol>
+    <template data-hvd-multiple-template>
+      {{ multiple_text("", "") }}
+    </template>
+
+    {% set help_text = h.scheming_language_text(field.help_text) %}
+    {% if help_text %}
+      <div class="info-block mrgn-tp-md">
+        {{ help_text }}
+      </div>
+    {% endif %}
+
+    <div class="control-medium">
+      <a href="javascript:;" class="btn btn-link" data-hvd-multiple-add="{{ field.field_name }}"
+        >{% block add_button_text %}<i class="fa fa-plus" aria-hidden="true"></i> {{ _('Add') }}{% endblock %}</a>
+    </div>
+
+    <script>
+      (function () {
+        var script = document.currentScript;
+        function init() {
+          var fieldset = script ? script.closest('fieldset') : null;
+          if (!fieldset) {
+            return;
+          }
+
+          var block = fieldset.querySelector('[data-hvd-managed-legislation]');
+          var input = block ? block.querySelector('input') : null;
+          var addButton = fieldset.querySelector('[data-hvd-multiple-add]');
+          var list = fieldset.querySelector('.multiple-text-group');
+          var template = fieldset.querySelector('[data-hvd-multiple-template]');
+
+          function appendMultipleTextField() {
+            if (!list) {
+              return;
+            }
+
+            var rows = list.querySelectorAll('li');
+            var newRow = null;
+            if (rows.length) {
+              newRow = rows[rows.length - 1].cloneNode(true);
+            } else if (template && template.content) {
+              newRow = template.content.firstElementChild.cloneNode(true);
+            }
+
+            if (!newRow) {
+              return;
+            }
+
+            var rowInput = newRow.querySelector('input');
+            if (rowInput) {
+              rowInput.value = '';
+            }
+            list.appendChild(newRow);
+            if (rowInput) {
+              rowInput.focus();
+            }
+          }
+
+          if (addButton) {
+            addButton.addEventListener('click', function (event) {
+              event.preventDefault();
+              appendMultipleTextField();
+            });
+          }
+
+          var select = document.getElementById('field-hvd_category');
+          if (!select || !block || !input) {
+            return;
+          }
+
+          function hasSelectedHvdCategory() {
+            for (var i = 0; i < select.options.length; i += 1) {
+              if (select.options[i].selected && select.options[i].value) {
+                return true;
+              }
+            }
+            return false;
+          }
+
+          function syncManagedField() {
+            var enabled = hasSelectedHvdCategory();
+            block.style.display = enabled ? '' : 'none';
+            input.disabled = !enabled;
+          }
+
+          select.addEventListener('change', syncManagedField);
+          syncManagedField();
+        }
+
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', init);
+        } else {
+          init();
+        }
+      }());
+    </script>
+  </fieldset>
+{% endcall %}
