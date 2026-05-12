@@ -1304,9 +1304,18 @@ def get_stats_url(default: str = '/stats') -> str:
     """
     Επιστρέφει URL για τη σελίδα στατιστικών.
 
+    Αν έχει οριστεί URL από το /ckan-admin/config για το κουμπί της αρχικής
+    σελίδας, προηγείται αυτό.
+
     Αν δεν υπάρχει route `stats.index` (π.χ. δεν είναι ενεργό το stats), κάνει
     fallback σε στατικό path ώστε να μην “σπάει” η αρχική.
     """
+    configured_url = _normalize_config_string(
+        toolkit.config.get('ckanext.data_gov_gr.home.reuse_stats.view_all_url')
+    )
+    if configured_url:
+        return configured_url
+
     return _safe_url_for('stats.index') or default
 
 

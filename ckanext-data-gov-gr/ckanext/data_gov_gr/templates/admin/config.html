@@ -529,6 +529,19 @@
 	            });
 	          </script>
 
+	          {{ form.input(
+	            'ckanext.data_gov_gr.home.reuse_stats.view_all_url',
+	            id='field-ckanext.data_gov_gr.home.reuse_stats.view_all_url',
+	            label=_('Σύνδεσμος κουμπιού «Προβολή Στατιστικών»'),
+	            value=data.get('ckanext.data_gov_gr.home.reuse_stats.view_all_url', ''),
+	            error=errors.get('ckanext.data_gov_gr.home.reuse_stats.view_all_url'),
+	            placeholder='/stats',
+	            classes=['control-medium']
+	          ) }}
+	          <p class="help-block" style="margin-top: -24px; margin-bottom: 16px">
+	            {{ _('Αν συμπληρωθεί, χρησιμοποιείται στο κουμπί της ενότητας στατιστικών επανάχρησης στην αρχική. Αν μείνει κενό, χρησιμοποιείται η προεπιλεγμένη σελίδα στατιστικών.') }}
+	          </p>
+
 	          {% set home_registries_checked = h.get_config_as_bool('ckanext.data_gov_gr.home.registries.enabled', True) %}
 	          <input
 	            type="hidden"
@@ -1697,6 +1710,7 @@
 		      <ul>
 		        <li><strong>{{ _('Οδηγοί στην αρχική σελίδα') }}:</strong> {{ _('Ορίστε τα URLs που εμφανίζονται στην ενότητα οδηγών στην αρχική σελίδα.') }}</li>
 		        <li><strong>{{ _('Στατιστικά Επανάχρησης Δεδομένων') }}:</strong> {{ _('Εμφανίζει/αποκρύπτει τα στατιστικά επανάχρησης στην αρχική σελίδα.') }}</li>
+		        <li><strong>{{ _('Σύνδεσμος κουμπιού «Προβολή Στατιστικών»') }}:</strong> {{ _('Αν συμπληρωθεί, το κουμπί της ενότητας στατιστικών επανάχρησης στην αρχική οδηγεί σε αυτό το URL. Αν μείνει κενό, χρησιμοποιείται η προεπιλεγμένη σελίδα στατιστικών.') }}</li>
 			        {% if show_home_stats_section %}
 			          <li><strong>{{ _('Στατιστικά αρχικής σελίδας') }}:</strong> {{ _('Επιλέξτε μέχρι τέσσερα πλακίδια στατιστικών για την αρχική σελίδα.') }}</li>
 			        {% endif %}

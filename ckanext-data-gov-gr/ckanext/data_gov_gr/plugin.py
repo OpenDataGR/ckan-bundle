@@ -128,6 +128,7 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         - ``ckanext.data_gov_gr.resource.license.default`` (default license URI for new resources on open datasets)
         - ``ckanext.data_gov_gr.dataset.spatial_coverage.default.*`` (προεπιλεγμένη χωρική κάλυψη για νέα datasets - παλιό/advanced σχήμα)
         - ``ckanext.data_gov_gr.dataset.spatial_coverage.default`` (απλή επιλογή προεπιλεγμένης χωρικής κάλυψης)
+        - ``ckanext.data_gov_gr.home.reuse_stats.view_all_url`` (home reuse stats button URL)
         - ``guides_base_url`` (external guides base URL)
         - ``ckanext.data_gov_gr.contact.gitbook_embed_items`` (contact page GitBook dropdown items as JSON)
         - ``ckanext.data_gov_gr.pages.faq`` (CKAN Pages slug for the FAQ footer link)
@@ -177,6 +178,7 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
             'ckanext.data_gov_gr.home.featured_dataset_views.ids': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.home.portal_numbers.enabled': [ignore_missing, boolean_validator],
             'ckanext.data_gov_gr.home.reuse_stats.enabled': [ignore_missing, boolean_validator],
+            'ckanext.data_gov_gr.home.reuse_stats.view_all_url': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.home.registries.enabled': [ignore_missing, boolean_validator],
             'ckanext.data_gov_gr.home.showcases.ids': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.botakis.enabled': [ignore_missing, boolean_validator],
@@ -388,6 +390,9 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         )
         declaration.declare(home.reuse_stats.enabled, "yes").set_description(
             "Show the 'Reuse statistics' section (Matomo visitors/downloads + apps count) on the home page."
+        )
+        declaration.declare(home.reuse_stats.view_all_url, "").set_description(
+            "Custom URL for the home reuse stats 'View Statistics' button."
         )
         declaration.declare(home.registries.enabled, "yes").set_description(
             "Show links to registries on the home page."

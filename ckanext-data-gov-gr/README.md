@@ -65,6 +65,14 @@ Optional settings:
     # (optional, default: yes)
     ckanext.data_gov_gr.data_service.hide_resources_section = yes
 
+    # Αρχική σελίδα: custom URL για το κουμπί «Προβολή Στατιστικών» στην ενότητα
+    # «Στατιστικά Επανάχρησης Δεδομένων».
+    # Αν είναι κενό, χρησιμοποιείται η τρέχουσα συμπεριφορά:
+    # route stats.index αν είναι διαθέσιμο, αλλιώς fallback στο /stats.
+    # (προαιρετικό, default: κενό)
+    # Μπορεί επίσης να αλλάξει από το /ckan-admin/config → Αρχική.
+    ckanext.data_gov_gr.home.reuse_stats.view_all_url =
+
     # Ευρετήριο οργανισμών: εμφάνιση επιλογών ταξινόμησης βάσει επισκεψιμότητας.
     # Όταν είναι yes και υπάρχουν διαθέσιμα CKAN tracking δεδομένα, στο dropdown
     # ταξινόμησης εμφανίζονται οι επιλογές «Περισσότερες επισκέψεις» και
