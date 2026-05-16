@@ -160,6 +160,11 @@ Optional settings:
     # Μπορεί επίσης να αλλάξει από το /ckan-admin/config → Γενικά → Footer.
     ckanext.data_gov_gr.footer.government_logo.enabled = yes
 
+    # Εμφάνιση λογοτύπου Greece 2.0 NextGenerationEU στο footer (μετά τα υπάρχοντα λογότυπα).
+    # (προαιρετικό, default: yes)
+    # Μπορεί επίσης να αλλάξει από το /ckan-admin/config → Γενικά → Footer.
+    ckanext.data_gov_gr.footer.greece_2_nextgeneration_logo.enabled = yes
+
     # Παραλλαγή λογοτύπου Υπ. Ψηφιακής Διακυβέρνησης στο footer (κάτω αριστερά).
     # Τιμές: light (ανοιχτή απόχρωση μπλε) ή dark (σκοτεινή απόχρωση μπλε).
     # (προαιρετικό, default: light)

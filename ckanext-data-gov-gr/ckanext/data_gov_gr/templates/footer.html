@@ -111,6 +111,13 @@
             <img src="{{ h.url_for_static('/images/mindigital/logo_mindig_gr_' ~ mindigital_logo_variant ~ '.png') }}"
                  alt="Υπουργείο Ψηφιακής Διακυβέρνησης">
           </a>
+          {% if h.get_config_as_bool('ckanext.data_gov_gr.footer.greece_2_nextgeneration_logo.enabled', True) %}
+          <a class="footer-logo-nextgeneration" href="https://greece20.gov.gr/" target="_blank" rel="noopener noreferrer"
+             aria-label="{{ _('Greece 2.0 NextGenerationEU') ~ opens_in_new_tab_suffix }}">
+            <img src="{{ h.url_for_static('/images/greece_2.0_nextgeneration_gr.png') }}"
+                 alt="Greece 2.0 NextGenerationEU">
+          </a>
+          {% endif %}
         </div>
       </div>
       <div class="col-md-4 attribution text-end">

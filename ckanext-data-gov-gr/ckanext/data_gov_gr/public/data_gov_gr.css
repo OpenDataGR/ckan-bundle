@@ -627,19 +627,28 @@ li#simple-tab:hover, li#advanced-tab:hover {
 .footer-logos {
   display: flex;
   align-items: center;
-  flex-wrap: nowrap;
-  gap: 1.5rem;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
 }
 
 .footer-logos a {
-  flex-shrink: 0;
+  flex: 0 1 auto;
   display: inline-flex;
   align-items: center;
+  max-width: 100%;
 }
 
 .footer-logos img {
   width: auto;
-  height: 30px;
+  height: 34px;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.footer-logo-nextgeneration img {
+  width: 340px;
+  height: auto;
+  max-width: 100%;
 }
 
 @media (max-width: 400px) {
@@ -647,7 +656,10 @@ li#simple-tab:hover, li#advanced-tab:hover {
     gap: 0.75rem;
   }
   .footer-logos img {
-    height: 24px;
+    height: 28px;
+  }
+  .footer-logo-nextgeneration img {
+    width: 250px;
   }
 }
 

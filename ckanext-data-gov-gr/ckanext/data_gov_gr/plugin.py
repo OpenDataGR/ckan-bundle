@@ -184,6 +184,7 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
             'ckanext.data_gov_gr.botakis.enabled': [ignore_missing, boolean_validator],
             'ckanext.data_gov_gr.header.secretariat_logo.enabled': [ignore_missing, boolean_validator],
             'ckanext.data_gov_gr.footer.government_logo.enabled': [ignore_missing, boolean_validator],
+            'ckanext.data_gov_gr.footer.greece_2_nextgeneration_logo.enabled': [ignore_missing, boolean_validator],
             'ckanext.data_gov_gr.activity_stream.dataset.restrict_visibility': [ignore_missing, boolean_validator],
             'ckanext.data_gov_gr.footer.mindigital_logo_variant': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.pages.faq': [ignore_missing, unicode_safe],
@@ -427,6 +428,9 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         )
         declaration.declare(root.footer.government_logo.enabled, "yes").set_description(
             "Show the government logo (gov.gr) in the footer, to the left of the ministry logo."
+        )
+        declaration.declare(root.footer.greece_2_nextgeneration_logo.enabled, "yes").set_description(
+            "Show the Greece 2.0 NextGenerationEU logo in the footer, after the government and ministry logos."
         )
         declaration.declare(root.footer.mindigital_logo_variant, "light").set_description(
             "Footer Mindigital logo variant: 'light' (ανοιχτή απόχρωση μπλε) or 'dark' (σκοτεινή απόχρωση μπλε)."

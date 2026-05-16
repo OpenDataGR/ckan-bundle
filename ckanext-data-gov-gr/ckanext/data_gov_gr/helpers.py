@@ -33,6 +33,20 @@ _HOME_REUSE_STATS_EXECUTOR = ThreadPoolExecutor(max_workers=1)
 _HOME_REUSE_STATS_IN_FLIGHT: set[str] = set()
 _HOME_REUSE_STATS_IN_FLIGHT_LOCK = threading.Lock()
 
+_GREECE_GEONAMES_ID = '390903'
+# Το GeoNames 390903 είναι η προεπιλογή για την Ελλάδα. Γεμίζουμε το
+# spatial_coverage[].bbox με Polygon, ενώ geom/centroid μένουν ως Point.
+_GREECE_BBOX_GEOJSON = {
+    "type": "Polygon",
+    "coordinates": [[
+        [19.3736035624134, 34.8020663391466],
+        [19.3736035624134, 41.7484999849641],
+        [29.642984894413, 41.7484999849641],
+        [29.642984894413, 34.8020663391466],
+        [19.3736035624134, 34.8020663391466],
+    ]],
+}
+
 
 _MONTH_ABBREV_EN = {
     1: 'JAN',
@@ -549,21 +563,7 @@ def fluent_language_is_required(field, lang):
 def get_organizations_stats():
     """Returns statistics about organizations and their publisher types"""
     try:
-        organizations = toolkit.get_action('organization_list')({}, {
-            'all_fields': True,
-            'include_extras': True
-        })
-
-        total_orgs = len(organizations)
-        orgs_with_type = sum(1 for org in organizations
-                             if org.get('publishertype'))
-
-        return {
-            'total': total_orgs,
-            'with_type': orgs_with_type,
-            'without_type': total_orgs - orgs_with_type,
-            'type_percentage': round((orgs_with_type / total_orgs * 100) if total_orgs > 0 else 0, 1)
-        }
+        return DataGovStats.organization_publisher_type_summary()
     except Exception as e:
         log.error(f'Error getting organizations statistics: {str(e)}')
         return {
@@ -676,7 +676,8 @@ def get_dataset_spatial_coverage_default():
       - ckanext.data_gov_gr.dataset.spatial_coverage.default.lng
       - ckanext.data_gov_gr.dataset.spatial_coverage.default.lat
 
-    Προεπιλογή (fallback): Ελλάδα (GeoNames 390903) με centroid/geom στο (22, 39).
+    Προεπιλογή (fallback): Ελλάδα (GeoNames 390903) με centroid/geom στο (22, 39)
+    και bbox από το GeoNames bounding box.
     """
     selection_key = 'ckanext.data_gov_gr.dataset.spatial_coverage.default'
     selection_raw = toolkit.config.get(selection_key)
@@ -689,19 +690,19 @@ def get_dataset_spatial_coverage_default():
     # Νέος (απλός) τρόπος ρύθμισης
     if selection:
         if selection.lower() in ('greece', 'ellada', 'ελλάδα', 'gr', 'greece (ellada)', 'greece (greece)'):
-            geonames_id = '390903'
+            geonames_id = _GREECE_GEONAMES_ID
             label = 'Greece'
             lng, lat = 22.0, 39.0
         else:
             # Δεχόμαστε GeoNames ID ή URI ως εναλλακτική τιμή (best-effort)
             geonames_id = selection.strip().rstrip('/').split('/')[-1]
-            label = 'Greece' if geonames_id == '390903' else ''
-            lng, lat = (22.0, 39.0) if geonames_id == '390903' else (None, None)
+            label = 'Greece' if geonames_id == _GREECE_GEONAMES_ID else ''
+            lng, lat = (22.0, 39.0) if geonames_id == _GREECE_GEONAMES_ID else (None, None)
     else:
         # Backward-compatible (advanced) τρόπος ρύθμισης
         geonames_id = _normalize_config_string(
             toolkit.config.get('ckanext.data_gov_gr.dataset.spatial_coverage.default.geonames_id'),
-            default='390903',
+            default=_GREECE_GEONAMES_ID,
         )
 
         # Δυνατότητα απενεργοποίησης του default: αν το key υπάρχει αλλά είναι κενό.
@@ -742,12 +743,15 @@ def get_dataset_spatial_coverage_default():
             geom = '{"type":"Point","coordinates":[22,39]}'
 
     uri = f'http://sws.geonames.org/{geonames_id}/'
+    bbox = ''
+    if geonames_id == _GREECE_GEONAMES_ID:
+        bbox = json.dumps(_GREECE_BBOX_GEOJSON, ensure_ascii=False)
 
     return [{
         'uri': uri,
         'text': label,
         'geom': geom,
-        'bbox': '',
+        'bbox': bbox,
         'centroid': geom,
     }]
 
