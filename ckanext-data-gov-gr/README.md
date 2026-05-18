@@ -1052,6 +1052,368 @@ dataset.
 Αν η επιλογή λείπει ή είναι `false`, παραμένει η παλαιότερη συμπεριφορά για λόγους
 συμβατότητας.
 
+## OAI-PMH DCAT-AP harvester source config
+
+Ο `oai_pmh_dcat_harvester` harvestάρει OAI-PMH endpoints των οποίων τα
+`ListRecords` records περιέχουν DCAT-AP RDF/XML μέσα στο OAI-PMH envelope.
+
+Αναλυτικό βήμα-βήμα walkthrough του κώδικα υπάρχει στο
+`README_OAI_PMH_DCAT_HARVESTER.md`.
+
+Η ροή είναι:
+
+1. καλεί το OAI-PMH endpoint με `verb=ListRecords`,
+2. παίρνει από κάθε `<record>` το `header/identifier`, το `header/datestamp` και
+   το `<metadata><rdf:RDF>...</rdf:RDF></metadata>`,
+3. περνά το RDF/XML από τον `ckanext-dcat` `RDFParser`,
+4. δημιουργεί ένα `HarvestObject` ανά DCAT dataset,
+5. αφήνει το υπάρχον `CustomDcatHarvester` / `DCATRDFHarvester` import flow να
+   κάνει create/update στο CKAN με τα data.gov.gr normalization rules.
+
+Ο harvester πρέπει να είναι ενεργός στο `ckan.plugins`:
+
+```ini
+ckan.plugins = ... harvest oai_pmh_dcat_harvester ...
+```
+
+Αν ο harvester προστέθηκε πρόσφατα στα entry points, χρειάζεται editable install
+και restart των CKAN / harvest worker processes:
+
+```bash
+cd /root/ckan/lib/default/src/ckanext-data-gov-gr
+/usr/lib/ckan/default/bin/pip install -e .
+```
+
+### Harvest source URL
+
+Στο URL του harvest source δηλώνεται το base OAI-PMH endpoint, χωρίς query
+parameters.
+
+Παράδειγμα για RAISE:
+
+```text
+https://develop.api.portal.raise-science.eu/oai/user/0f868393-e7b7-49c2-9a2b-5421b6fbd266
+```
+
+Ο harvester προσθέτει μόνος του:
+
+```text
+?verb=ListRecords&metadataPrefix=dcat_ap
+```
+
+Αν η πηγή επιστρέψει `resumptionToken`, ο harvester συνεχίζει με επόμενα
+requests που περιέχουν μόνο:
+
+```text
+?verb=ListRecords&resumptionToken=<token>
+```
+
+### Παράδειγμα config
+
+Οι παρακάτω επιλογές δηλώνονται στο JSON config του OAI-PMH harvest source, όχι
+στο `ckan.ini`.
+
+```json
+{
+  "metadata_prefix": "dcat_ap",
+  "rdf_format": "xml",
+  "dataset_name_prefix_from_identifier": "raise-",
+  "dataset_name_max_length": 100,
+  "timeout": 60,
+  "user_agent": "data.gov.gr OAI-PMH DCAT Harvester"
+}
+```
+
+Για RAISE, το `dataset_name_prefix_from_identifier` προτείνεται ώστε τα CKAN
+dataset names να βασίζονται στο UUID του DCAT identifier και όχι στον τίτλο.
+
+Παράδειγμα DCAT identifier:
+
+```xml
+<dct:identifier>10.83613/raise-dev/dataset/08dea5d9-7569-4bfd-8563-5c30372a3ef9</dct:identifier>
+```
+
+Με config:
+
+```json
+{
+  "dataset_name_prefix_from_identifier": "raise-"
+}
+```
+
+παράγεται CKAN dataset `name`:
+
+```text
+raise-08dea5d9-7569-4bfd-8563-5c30372a3ef9
+```
+
+Χωρίς το `dataset_name_prefix_from_identifier`, ο harvester κρατά την
+παλαιότερη συμπεριφορά: παράγει name από τον τίτλο και το prefix του harvest
+source package.
+
+### Τι παράγει ανά OAI-PMH record
+
+Για κάθε active OAI-PMH `<record>` με DCAT RDF metadata δημιουργείται ένα CKAN
+dataset με πεδία που προκύπτουν από το DCAT-AP payload, ενδεικτικά:
+
+- `title`, `title_translated`,
+- `notes`, `notes_translated`,
+- `url` / landing page,
+- `tags` από `dcat:keyword`,
+- `resources` από `dcat:Distribution`,
+- extras όπως `identifier`, `issued`, `modified`, `language`, `theme`,
+  `publisher_*`, `creator_name`, `uri`, `access_rights`, ανάλογα με το RDF που
+  επιστρέφει η πηγή.
+
+Για κάθε harvest object ο harvester προσθέτει επίσης extras στο dataset:
+
+- `guid`: το harvest guid που χρησιμοποιείται για αντιστοίχιση re-harvest,
+- `oai_identifier`: το OAI-PMH `header/identifier`,
+- `oai_datestamp`: το OAI-PMH `header/datestamp`,
+- `metadata_prefix`: το OAI-PMH metadata prefix που χρησιμοποιήθηκε.
+
+Το `HarvestObject.content` περιέχει το parsed CKAN package dict σε JSON μορφή.
+Το `HarvestObjectExtra.status` είναι `new` ή `change`, ανάλογα με το αν υπάρχει
+ήδη current harvest object με το ίδιο guid στην ίδια harvest source.
+
+Deleted OAI-PMH records με `header status="deleted"` αγνοούνται στο parsing.
+Datasets που υπήρχαν σε προηγούμενο harvest της ίδιας source αλλά δεν
+εμφανίζονται πλέον στο τρέχον `ListRecords` περνούν από τη γενική λογική
+deletion του harvester.
+
+### Resources / distributions
+
+Οι πόροι δημιουργούνται από τα `dcat:Distribution` στοιχεία του DCAT-AP RDF.
+
+Συνήθη mappings:
+
+- `dcat:accessURL` -> CKAN resource `url` και `access_url`,
+- `dcat:downloadURL` -> CKAN resource `download_url`, αν υπάρχει στο RDF,
+- `dct:format` -> CKAN resource `format`,
+- `dcat:byteSize` -> CKAN resource `size`,
+- `dct:license` -> resource license fields, ανάλογα με το DCAT parser /
+  normalization.
+
+Αν μια distribution δεν έχει δικό της resource `name`, ο harvester βάζει fallback
+από τον τίτλο του dataset. Αν υπάρχουν πολλοί resources, χρησιμοποιεί:
+
+```text
+<dataset title> - resource <n>
+```
+
+Σημείωση για RAISE: στο τρέχον δείγμα OAI-PMH/DCAT-AP υπάρχει `accessURL`, αλλά
+όχι `downloadURL`. Άρα το CKAN resource δείχνει στη σελίδα πρόσβασης του RAISE
+dataset και όχι σε απευθείας αρχείο.
+
+### `metadata_prefix`
+
+Προαιρετικό string. Default: `dcat_ap`.
+
+Χρησιμοποιείται στο αρχικό OAI-PMH request:
+
+```text
+verb=ListRecords&metadataPrefix=<metadata_prefix>
+```
+
+Για RAISE η αναμενόμενη τιμή είναι:
+
+```json
+{
+  "metadata_prefix": "dcat_ap"
+}
+```
+
+### `rdf_format`
+
+Προαιρετικό string. Default: `xml`.
+
+Περνιέται στον `ckanext-dcat` `RDFParser.parse` ως RDF format. Για OAI-PMH
+records που περιέχουν RDF/XML, η τιμή πρέπει να είναι:
+
+```json
+{
+  "rdf_format": "xml"
+}
+```
+
+### `set`
+
+Προαιρετικό string.
+
+Αν δηλωθεί, προστίθεται στο αρχικό `ListRecords` request ως OAI-PMH set filter.
+Δεν είναι γενική/υποχρεωτική επιλογή για όλα τα OAI-PMH endpoints. Η τιμή πρέπει
+να είναι πραγματικό `setSpec` που υποστηρίζει το συγκεκριμένο repository.
+
+Τα διαθέσιμα sets, αν υπάρχουν, ανακοινώνονται συνήθως από το endpoint με:
+
+```text
+?verb=ListSets
+```
+
+Παράδειγμα, μόνο αν το endpoint έχει set με `setSpec` ίσο με `datasets`:
+
+```json
+{
+  "set": "datasets"
+}
+```
+
+παράγει:
+
+```text
+verb=ListRecords&metadataPrefix=dcat_ap&set=datasets
+```
+
+Αν το repository δεν υποστηρίζει set hierarchy ή δεν έχει set με αυτό το όνομα,
+το `set` πρέπει να λείπει από το config.
+
+### `from` / `until`
+
+Προαιρετικά strings.
+
+Αν δηλωθούν, προστίθενται στο αρχικό `ListRecords` request ως OAI-PMH date
+filters:
+
+```json
+{
+  "from": "2026-01-01",
+  "until": "2026-01-31"
+}
+```
+
+Η μορφή πρέπει να είναι συμβατή με το OAI-PMH endpoint της πηγής, συνήθως
+`YYYY-MM-DD` ή πλήρες UTC datetime.
+
+### `dataset_name_prefix_from_identifier`
+
+Προαιρετικό string. Default: δεν χρησιμοποιείται.
+
+Όταν οριστεί, ο harvester προσπαθεί να φτιάξει το CKAN dataset `name` από UUID
+που βρίσκει, με αυτή τη σειρά:
+
+1. DCAT `identifier` από top-level field ή `extras`,
+2. OAI-PMH `header/identifier`,
+3. DCAT `uri` από top-level field ή `extras`.
+
+Το τελικό value είναι:
+
+```text
+normalize(dataset_name_prefix_from_identifier + uuid)
+```
+
+Παράδειγμα:
+
+```json
+{
+  "dataset_name_prefix_from_identifier": "raise-"
+}
+```
+
+με identifier:
+
+```text
+10.83613/raise-dev/dataset/08dea5d9-7569-4bfd-8563-5c30372a3ef9
+```
+
+παράγει:
+
+```text
+raise-08dea5d9-7569-4bfd-8563-5c30372a3ef9
+```
+
+Αν δεν βρεθεί UUID, ο harvester κάνει fallback στην title-based λογική.
+
+### `dataset_name_max_length`
+
+Προαιρετικός ακέραιος. Default: `100`.
+
+Εφαρμόζεται μόνο στη λογική `dataset_name_prefix_from_identifier`.
+Αν το normalized `dataset_name_prefix_from_identifier + uuid` ξεπεράσει το όριο,
+ο harvester το κόβει και προσθέτει σταθερό hash suffix, ώστε το name να παραμένει
+έγκυρο και deterministic σε επόμενα re-harvests.
+
+```json
+{
+  "dataset_name_max_length": 100
+}
+```
+
+### `timeout`
+
+Προαιρετικός ακέραιος. Default: `60`.
+
+Timeout σε δευτερόλεπτα για κάθε HTTP request προς το OAI-PMH endpoint.
+
+```json
+{
+  "timeout": 120
+}
+```
+
+### `user_agent`
+
+Προαιρετικό string.
+
+Αν οριστεί, αποστέλλεται ως HTTP `User-Agent` στα OAI-PMH requests.
+
+```json
+{
+  "user_agent": "data.gov.gr OAI-PMH DCAT Harvester"
+}
+```
+
+### `username` / `password`
+
+Προαιρετικά strings.
+
+Αν δηλωθούν και τα δύο, χρησιμοποιούνται ως HTTP Basic Auth credentials για τα
+OAI-PMH requests.
+
+```json
+{
+  "username": "user",
+  "password": "secret"
+}
+```
+
+### `max_pages`
+
+Προαιρετικός ακέραιος.
+
+Περιορίζει πόσες OAI-PMH pages θα διαβάσει ο harvester στο `gather_stage`.
+Χρήσιμο κυρίως για δοκιμές με μεγάλα endpoints ή με `resumptionToken`.
+
+```json
+{
+  "max_pages": 1
+}
+```
+
+### `throttle_ms`
+
+Προαιρετικός ακέραιος.
+
+Αν δηλωθεί, ο harvester περιμένει τόσα milliseconds ανάμεσα σε OAI-PMH requests
+που ακολουθούν `resumptionToken`.
+
+```json
+{
+  "throttle_ms": 500
+}
+```
+
+### Local XML file για δοκιμές
+
+Για τοπικό debugging μπορεί να δηλωθεί στο harvest source URL path προς OAI-PMH
+XML αρχείο αντί για HTTP URL:
+
+```text
+/root/OAI-PMH/0f868393-e7b7-49c2-9a2b-5421b6fbd266.xml
+```
+
+Σε αυτή την περίπτωση ο harvester διαβάζει το αρχείο ως bytes, ώστε να μην
+χαλάσει το UTF-8 encoding των ελληνικών.
+
 ## WMS capabilities harvester source config
 
 Ο `wms_capabilities_harvester` δημιουργεί ένα CKAN dataset για κάθε named WMS

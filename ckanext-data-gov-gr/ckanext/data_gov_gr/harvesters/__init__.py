@@ -12,6 +12,7 @@ from ckanext.data_gov_gr.harvesters.custom_dcat_harvester import CustomDcatHarve
 from ckanext.data_gov_gr.harvesters.ekan_dcat_harvester import EkanDcatHarvester
 from ckanext.data_gov_gr.harvesters.bank_of_greece_harvester import BankOfGreeceHarvester
 from ckanext.data_gov_gr.harvesters.apd_kritis_harvester import ApdKritisHarvester
+from ckanext.data_gov_gr.harvesters.oai_pmh_dcat_harvester import OaiPmhDcatHarvester
 
 from .attica_harvester import AtticaOpenDataHarvester
 
@@ -23,5 +24,6 @@ __all__ = [
     'EkanDcatHarvester',
     'BankOfGreeceHarvester',
     'ApdKritisHarvester',
+    'OaiPmhDcatHarvester',
     'AtticaOpenDataHarvester',
 ]
