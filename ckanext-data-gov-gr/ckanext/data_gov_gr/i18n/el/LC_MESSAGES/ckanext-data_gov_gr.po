@@ -221,6 +221,14 @@ msgstr "Το URL πρόσβασης είναι προσβάσιμο"
 msgid "Access URL"
 msgstr "URL Πρόσβασης"
 
+#: ckanext/data_gov_gr/templates/package/mqa.html:274
+msgid "Access URL status"
+msgstr "Κατάσταση URL πρόσβασης"
+
+#: ckanext/data_gov_gr/templates/package/mqa.html:279
+msgid "Download URL status"
+msgstr "Κατάσταση URL λήψης"
+
 #: ckanext/data_gov_gr/templates/package/mqa.html:74
 #: ckanext/data_gov_gr/templates/package/mqa.html:285
 msgid "Reusability"
@@ -362,14 +370,6 @@ msgstr "Ανώνυμος Πόρος"
 #: ckanext/data_gov_gr/templates/package/mqa.html:255
 msgid "Toggle details"
 msgstr "Εναλλαγή λεπτομερειών"
-
-#: ckanext/data_gov_gr/templates/package/mqa.html:266
-msgid "Most frequent accessURL status codes"
-msgstr "Συχνότεροι κωδικοί κατάστασης accessURL"
-
-#: ckanext/data_gov_gr/templates/package/mqa.html:275
-msgid "Most frequent downloadURL status codes"
-msgstr "Συχνότεροι κωδικοί κατάστασης downloadURL"
 
 #: ckanext/data_gov_gr/templates/package/mqa.html:320
 msgid "About MQA"
@@ -1289,3 +1289,16 @@ msgstr "Προεπιλεγμένη ταξινόμηση οργανισμών β�
 
 msgid "Ορίζει ως προεπιλογή τις «Περισσότερες επισκέψεις». Ισχύει μόνο όταν είναι ενεργή και η εμφάνιση ταξινόμησης βάσει επισκεψιμότητας."
 msgstr "Ορίζει ως προεπιλογή τις «Περισσότερες επισκέψεις». Ισχύει μόνο όταν είναι ενεργή και η εμφάνιση ταξινόμησης βάσει επισκεψιμότητας."
+
+#: admin config - accessibility footer page
+msgid "Σελίδα Δήλωσης Προσβασιμότητας — όνομα σελίδας"
+msgstr "Σελίδα Δήλωσης Προσβασιμότητας — όνομα σελίδας"
+
+msgid "Αν συμπληρωθεί, εμφανίζεται στη στήλη «Σχετικά» του footer σύνδεσμος «Προσβασιμότητα» που παραπέμπει στο /pages/{slug}. Αφήστε κενό για να μη φαίνεται."
+msgstr "Αν συμπληρωθεί, εμφανίζεται στη στήλη «Σχετικά» του footer σύνδεσμος «Προσβασιμότητα» που παραπέμπει στο /pages/{slug}. Αφήστε κενό για να μη φαίνεται."
+
+msgid "Σελίδα Δήλωσης Προσβασιμότητας"
+msgstr "Σελίδα Δήλωσης Προσβασιμότητας"
+
+msgid "Αν συμπληρωθεί με το slug της CKAN σελίδας (π.χ. accessibility), εμφανίζεται σύνδεσμος «Προσβασιμότητα» στη στήλη Σχετικά του footer."
+msgstr "Αν συμπληρωθεί με το slug της CKAN σελίδας (π.χ. accessibility), εμφανίζεται σύνδεσμος «Προσβασιμότητα» στη στήλη Σχετικά του footer."

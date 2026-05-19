@@ -326,3 +326,15 @@ msgstr "Μ/Δ (Μη Διαθέσιμο)"
 
 msgid "Information is not available (e.g. frequency not declared)"
 msgstr "Η πληροφορία δεν είναι διαθέσιμη (π.χ. δεν έχει δηλωθεί συχνότητα)"
+
+msgid "Organizations"
+msgstr "Οργανισμοί"
+
+msgid "Total datasets"
+msgstr "Σύνολο συνόλων δεδομένων"
+
+msgid "Datasets"
+msgstr "Σύνολα δεδομένων"
+
+msgid "Stale percentage"
+msgstr "Ποσοστό μη επικαιροποιημένων"

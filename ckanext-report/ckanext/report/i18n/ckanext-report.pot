@@ -78,3 +78,15 @@ msgstr ""
 #: ckanext/report/templates/report/view.html:52
 msgid "No results found."
 msgstr ""
+
+msgid "Organizations"
+msgstr ""
+
+msgid "Total datasets"
+msgstr ""
+
+msgid "Datasets"
+msgstr ""
+
+msgid "Stale percentage"
+msgstr ""

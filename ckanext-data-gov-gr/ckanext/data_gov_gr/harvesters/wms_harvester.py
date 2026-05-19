@@ -7,6 +7,7 @@ import re
 import unicodedata
 from hashlib import sha1
 from typing import Any
+from urllib.parse import urlencode, urlsplit, urlunsplit
 
 import ckan.plugins.toolkit as toolkit
 import requests
@@ -35,8 +36,18 @@ DATASET_NAME_PREFIX_CONFIG_KEY = "dataset_name_prefix_from_layer_name"
 LEGACY_DATASET_NAME_PREFIX_CONFIG_KEY = "dataset_name_prefix_from_file_identifier"
 DATASET_NAME_MAX_LENGTH_CONFIG_KEY = "dataset_name_max_length"
 WMS_PREVIEW_BASE_URL_CONFIG_KEY = "wms_preview_base_url"
+WMS_PREVIEW_WORKSPACE_IN_PATH_CONFIG_KEY = "wms_preview_workspace_in_path"
 WMS_CAPABILITIES_URL_CONFIG_KEY = "wms_capabilities_url"
+WMS_GETMAP_BASE_URL_CONFIG_KEY = "wms_getmap_base_url"
+WMS_GETMAP_RESOURCES_CONFIG_KEY = "wms_getmap_resources"
 WFS_CAPABILITIES_URL_CONFIG_KEY = "wfs_capabilities_url"
+WFS_CAPABILITIES_FILE_CONFIG_KEY = "wfs_capabilities_file"
+WFS_GETFEATURE_BASE_URL_CONFIG_KEY = "wfs_getfeature_base_url"
+WFS_DOWNLOAD_RESOURCES_CONFIG_KEY = "wfs_download_resources"
+DISABLE_SSL_VERIFICATION_CONFIG_KEY = "disable_ssl_verification"
+SKIP_WFS_CAPABILITIES_RESOURCE_WHEN_LAYER_MISSING_FROM_WFS_CAPABILITIES_CONFIG_KEY = (
+    "skip_wfs_capabilities_resource_when_layer_missing_from_wfs_capabilities"
+)
 DEFAULT_THEME_CONFIG_KEY = "default_theme"
 GATHER_LOG_EVERY_CONFIG_KEY = "gather_log_every"
 INCLUDE_LAYER_NAME_KEYWORDS_CONFIG_KEY = "include_layer_name_keywords"
@@ -45,11 +56,22 @@ DEFAULT_TAGS_CONFIG_KEY = "default_tags"
 SKIP_DATASET_WHEN_TITLE_MATCHES_LAYER_NAME_CONFIG_KEY = (
     "skip_dataset_when_title_matches_layer_name"
 )
+INCLUDE_ONLY_DATASETS_WHEN_TITLE_MATCHES_LAYER_NAME_CONFIG_KEY = (
+    "include_only_datasets_when_title_matches_layer_name"
+)
+SKIP_DATASET_WHEN_LAYER_MISSING_FROM_WFS_CAPABILITIES_CONFIG_KEY = (
+    "skip_dataset_when_layer_missing_from_wfs_capabilities"
+)
+INCLUDE_ONLY_DATASETS_WHEN_LAYER_MISSING_FROM_WFS_CAPABILITIES_CONFIG_KEY = (
+    "include_only_datasets_when_layer_missing_from_wfs_capabilities"
+)
 DEFAULT_TIMEOUT = 60
 DEFAULT_DATASET_NAME_MAX_LENGTH = 100
 
 PUBLIC_ACCESS_RIGHTS = "http://publications.europa.eu/resource/authority/access-right/PUBLIC"
 GEOSPATIAL_DCAT_TYPE = "http://publications.europa.eu/resource/authority/dataset-type/GEOSPATIAL"
+XML_MIMETYPE = "https://www.iana.org/assignments/media-types/application/xml"
+PNG_MIMETYPE = "https://www.iana.org/assignments/media-types/image/png"
 
 
 def _text(element, xpath: str) -> str:
@@ -147,6 +169,16 @@ def _parse_ex_geographic_bbox(layer) -> dict[str, float] | None:
     return values
 
 
+def _layer_crs_values(layer) -> list[str]:
+    crs_values = []
+    for current in layer.xpath("ancestor-or-self::wms:Layer", namespaces=WMS_NS):
+        for value in current.xpath("./wms:CRS/text()", namespaces=WMS_NS):
+            value = str(value).strip()
+            if value and value not in crs_values:
+                crs_values.append(value)
+    return crs_values
+
+
 def parse_wms_capabilities(xml_content: bytes | str) -> dict[str, Any]:
     parser = etree.XMLParser(resolve_entities=False, no_network=True, recover=True)
     if isinstance(xml_content, str):
@@ -170,11 +202,7 @@ def parse_wms_capabilities(xml_content: bytes | str) -> dict[str, Any]:
             )
             if str(value).strip()
         ]
-        crs = [
-            str(value).strip()
-            for value in layer.xpath("./wms:CRS/text()", namespaces=WMS_NS)
-            if str(value).strip()
-        ]
+        crs = _layer_crs_values(layer)
         legend_urls = [
             str(value).strip()
             for value in layer.xpath(
@@ -198,6 +226,44 @@ def parse_wms_capabilities(xml_content: bytes | str) -> dict[str, Any]:
         "service_title": service_title,
         "layers": layers,
     }
+
+
+def parse_wfs_capabilities(xml_content: bytes | str) -> dict[str, Any]:
+    parser = etree.XMLParser(resolve_entities=False, no_network=True, recover=True)
+    if isinstance(xml_content, str):
+        xml_content = xml_content.encode("utf-8")
+
+    tree = etree.fromstring(xml_content, parser=parser)
+    names = tree.xpath(
+        "//*[local-name()='FeatureType']/*[local-name()='Name']/text()"
+    )
+    getfeature_urls = tree.xpath(
+        "//*[local-name()='Operation' and @name='GetFeature']"
+        "//*[local-name()='HTTP']/*[local-name()='Get']"
+        "/@*[local-name()='href']"
+    )
+    output_formats = tree.xpath(
+        "//*[local-name()='Operation' and @name='GetFeature']"
+        "//*[local-name()='Parameter' and @name='outputFormat']"
+        "//*[local-name()='Value']/text()"
+    )
+
+    return {
+        "version": str(tree.get("version") or "").strip() or "2.0.0",
+        "layer_names": {str(name).strip() for name in names if str(name).strip()},
+        "getfeature_base_url": (
+            str(getfeature_urls[0]).strip() if getfeature_urls else ""
+        ),
+        "output_formats": {
+            str(output_format).strip()
+            for output_format in output_formats
+            if str(output_format).strip()
+        },
+    }
+
+
+def parse_wfs_capabilities_layer_names(xml_content: bytes | str) -> set[str]:
+    return parse_wfs_capabilities(xml_content)["layer_names"]
 
 
 class WmsCapabilitiesHarvester(HarvesterBase):
@@ -246,14 +312,73 @@ class WmsCapabilitiesHarvester(HarvesterBase):
         skip_title_matches_layer_name = bool(
             config.get(SKIP_DATASET_WHEN_TITLE_MATCHES_LAYER_NAME_CONFIG_KEY)
         )
+        include_only_title_matches_layer_name = bool(
+            config.get(
+                INCLUDE_ONLY_DATASETS_WHEN_TITLE_MATCHES_LAYER_NAME_CONFIG_KEY
+            )
+        )
+        if include_only_title_matches_layer_name and skip_title_matches_layer_name:
+            log.warning(
+                "Both %s and %s are enabled; include-only title match mode "
+                "takes precedence",
+                INCLUDE_ONLY_DATASETS_WHEN_TITLE_MATCHES_LAYER_NAME_CONFIG_KEY,
+                SKIP_DATASET_WHEN_TITLE_MATCHES_LAYER_NAME_CONFIG_KEY,
+            )
+        wfs_info = self._wfs_info_for_gather(config, harvest_job)
+        if wfs_info is None:
+            return []
+        wfs_layer_names = (
+            wfs_info.get("layer_names") if isinstance(wfs_info, dict) else False
+        )
+        skip_layers_missing_from_wfs = bool(
+            config.get(
+                SKIP_DATASET_WHEN_LAYER_MISSING_FROM_WFS_CAPABILITIES_CONFIG_KEY
+            )
+        )
+        include_only_layers_missing_from_wfs = bool(
+            config.get(
+                INCLUDE_ONLY_DATASETS_WHEN_LAYER_MISSING_FROM_WFS_CAPABILITIES_CONFIG_KEY
+            )
+        )
+        if include_only_layers_missing_from_wfs and skip_layers_missing_from_wfs:
+            log.warning(
+                "Both %s and %s are enabled; include-only WFS missing mode "
+                "takes precedence",
+                INCLUDE_ONLY_DATASETS_WHEN_LAYER_MISSING_FROM_WFS_CAPABILITIES_CONFIG_KEY,
+                SKIP_DATASET_WHEN_LAYER_MISSING_FROM_WFS_CAPABILITIES_CONFIG_KEY,
+            )
+
         guid_to_package_id = self._existing_guid_to_package_id(harvest_job)
         object_ids = []
         guids_in_source = []
         total_layers = len(parsed["layers"])
         skipped_count = 0
+        skipped_non_matching_title_count = 0
+        skipped_missing_wfs_count = 0
+        skipped_present_wfs_count = 0
 
         for index, layer in enumerate(parsed["layers"], start=1):
-            if skip_title_matches_layer_name and self._title_matches_layer_name(layer):
+            title_matches_layer_name = self._title_matches_layer_name(layer)
+            if include_only_title_matches_layer_name and not title_matches_layer_name:
+                skipped_non_matching_title_count += 1
+                if (
+                    skipped_non_matching_title_count == 1
+                    or skipped_non_matching_title_count % log_every == 0
+                ):
+                    log.info(
+                        "Skipping WMS layer because title does not match layer "
+                        "name: %d skipped so far; layer=%s title=%s",
+                        skipped_non_matching_title_count,
+                        layer["name"],
+                        layer.get("title") or "",
+                    )
+                continue
+
+            if (
+                not include_only_title_matches_layer_name
+                and skip_title_matches_layer_name
+                and title_matches_layer_name
+            ):
                 skipped_count += 1
                 if skipped_count == 1 or skipped_count % log_every == 0:
                     log.info(
@@ -262,6 +387,42 @@ class WmsCapabilitiesHarvester(HarvesterBase):
                         skipped_count,
                         layer["name"],
                         layer.get("title") or "",
+                )
+                continue
+
+            layer_available_in_wfs = (
+                wfs_layer_names is not False and layer["name"] in wfs_layer_names
+            )
+            if include_only_layers_missing_from_wfs and layer_available_in_wfs:
+                skipped_present_wfs_count += 1
+                if (
+                    skipped_present_wfs_count == 1
+                    or skipped_present_wfs_count % log_every == 0
+                ):
+                    log.info(
+                        "Skipping WMS layer present in WFS capabilities: "
+                        "%d skipped so far; layer=%s",
+                        skipped_present_wfs_count,
+                        layer["name"],
+                    )
+                continue
+
+            if (
+                not include_only_layers_missing_from_wfs
+                and skip_layers_missing_from_wfs
+                and wfs_layer_names is not False
+                and not layer_available_in_wfs
+            ):
+                skipped_missing_wfs_count += 1
+                if (
+                    skipped_missing_wfs_count == 1
+                    or skipped_missing_wfs_count % log_every == 0
+                ):
+                    log.info(
+                        "Skipping WMS layer missing from WFS capabilities: "
+                        "%d skipped so far; layer=%s",
+                        skipped_missing_wfs_count,
+                        layer["name"],
                     )
                 continue
 
@@ -296,6 +457,8 @@ class WmsCapabilitiesHarvester(HarvesterBase):
                 "service_title": parsed.get("service_title") or "",
                 "source_url": harvest_job.source.url,
             }
+            if isinstance(wfs_info, dict):
+                payload["wfs"] = self._wfs_payload_for_layer(layer["name"], wfs_info)
 
             extras = [HarvestObjectExtra(key="status", value="change" if guid in guid_to_package_id else "new")]
             obj_kwargs = {
@@ -322,6 +485,24 @@ class WmsCapabilitiesHarvester(HarvesterBase):
                 "WMS capabilities gather skipped %d layers with titles matching "
                 "their layer names",
                 skipped_count,
+            )
+        if skipped_non_matching_title_count:
+            log.info(
+                "WMS capabilities gather skipped %d layers with titles not "
+                "matching their layer names",
+                skipped_non_matching_title_count,
+            )
+        if skipped_missing_wfs_count:
+            log.info(
+                "WMS capabilities gather skipped %d layers missing from WFS "
+                "capabilities",
+                skipped_missing_wfs_count,
+            )
+        if skipped_present_wfs_count:
+            log.info(
+                "WMS capabilities gather skipped %d layers present in WFS "
+                "capabilities",
+                skipped_present_wfs_count,
             )
         return object_ids
 
@@ -445,6 +626,100 @@ class WmsCapabilitiesHarvester(HarvesterBase):
         normalized = re.sub(r"\s+", " ", str(value or "").strip()).lower()
         return re.sub(r"[-_]+", "-", normalized)
 
+    def _wfs_info_for_gather(
+        self,
+        config: dict[str, Any],
+        harvest_job,
+    ) -> dict[str, Any] | bool | None:
+        if not self._requires_wfs_capabilities(config):
+            return False
+
+        capabilities_xml = self._load_wfs_capabilities(harvest_job, config)
+        if not capabilities_xml:
+            return None
+
+        try:
+            wfs_info = parse_wfs_capabilities(capabilities_xml)
+        except Exception as e:
+            self._save_gather_error(
+                "Could not parse WFS capabilities: %s" % e,
+                harvest_job,
+            )
+            log.exception("Could not parse WFS capabilities")
+            return None
+
+        layer_names = wfs_info.get("layer_names") or set()
+        if not layer_names:
+            self._save_gather_error(
+                "Could not find any WFS FeatureType names in capabilities document",
+                harvest_job,
+            )
+            return None
+
+        configured_getfeature_url = str(
+            config.get(WFS_GETFEATURE_BASE_URL_CONFIG_KEY) or ""
+        ).strip()
+        if configured_getfeature_url:
+            wfs_info["getfeature_base_url"] = configured_getfeature_url
+        elif not wfs_info.get("getfeature_base_url"):
+            wfs_info["getfeature_base_url"] = self._base_url_without_query(
+                str(config.get(WFS_CAPABILITIES_URL_CONFIG_KEY) or "")
+            )
+
+        wfs_download_resource_configs = self._wfs_download_resource_configs(config)
+        if (
+            wfs_download_resource_configs
+            and not wfs_info.get("getfeature_base_url")
+            and any(
+                not resource_config.get("base_url")
+                for resource_config in wfs_download_resource_configs
+            )
+        ):
+            self._save_gather_error(
+                "No WFS GetFeature endpoint available for WFS download resources",
+                harvest_job,
+            )
+            return None
+
+        log.info(
+            "Loaded %d WFS FeatureType names for WMS layer filtering",
+            len(layer_names),
+        )
+        return wfs_info
+
+    def _requires_wfs_capabilities(self, config: dict[str, Any]) -> bool:
+        return bool(
+            config.get(
+                SKIP_DATASET_WHEN_LAYER_MISSING_FROM_WFS_CAPABILITIES_CONFIG_KEY
+            )
+            or config.get(
+                INCLUDE_ONLY_DATASETS_WHEN_LAYER_MISSING_FROM_WFS_CAPABILITIES_CONFIG_KEY
+            )
+            or config.get(
+                SKIP_WFS_CAPABILITIES_RESOURCE_WHEN_LAYER_MISSING_FROM_WFS_CAPABILITIES_CONFIG_KEY
+            )
+            or self._wfs_download_resource_configs(config)
+        )
+
+    def _wfs_payload_for_layer(
+        self,
+        layer_name: str,
+        wfs_info: dict[str, Any],
+    ) -> dict[str, Any]:
+        layer_names = wfs_info.get("layer_names") or set()
+        return {
+            "layer_available": layer_name in layer_names,
+            "version": wfs_info.get("version") or "2.0.0",
+            "getfeature_base_url": wfs_info.get("getfeature_base_url") or "",
+            "output_formats": sorted(wfs_info.get("output_formats") or []),
+        }
+
+    def _base_url_without_query(self, url: str) -> str:
+        if not url:
+            return ""
+        parsed = urlsplit(url)
+        return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, "", ""))
+
     def _load_capabilities(self, harvest_job, config: dict[str, Any]) -> bytes | None:
         capabilities_file = str(config.get("capabilities_file") or "").strip()
         if capabilities_file:
@@ -464,15 +739,66 @@ class WmsCapabilitiesHarvester(HarvesterBase):
             return None
 
         try:
+            verify_ssl = self._verify_ssl(config)
+            if not verify_ssl:
+                log.warning("SSL verification disabled for WMS capabilities: %s", url)
             response = requests.get(
                 url,
                 headers=self._request_headers(config),
                 timeout=self._request_timeout(config),
+                verify=verify_ssl,
             )
             response.raise_for_status()
             return response.content
         except Exception as e:
             self._save_gather_error("Could not fetch WMS capabilities %s: %s" % (url, e), harvest_job)
+            return None
+
+    def _load_wfs_capabilities(
+        self,
+        harvest_job,
+        config: dict[str, Any],
+    ) -> bytes | None:
+        capabilities_file = str(
+            config.get(WFS_CAPABILITIES_FILE_CONFIG_KEY) or ""
+        ).strip()
+        if capabilities_file:
+            try:
+                with open(capabilities_file, "rb") as fh:
+                    return fh.read()
+            except Exception as e:
+                self._save_gather_error(
+                    "Could not read WFS capabilities file %s: %s"
+                    % (capabilities_file, e),
+                    harvest_job,
+                )
+                return None
+
+        url = str(config.get(WFS_CAPABILITIES_URL_CONFIG_KEY) or "").strip()
+        if not url:
+            self._save_gather_error(
+                "No WFS capabilities URL configured for WFS layer filtering",
+                harvest_job,
+            )
+            return None
+
+        try:
+            verify_ssl = self._verify_ssl(config)
+            if not verify_ssl:
+                log.warning("SSL verification disabled for WFS capabilities: %s", url)
+            response = requests.get(
+                url,
+                headers=self._request_headers(config),
+                timeout=self._request_timeout(config),
+                verify=verify_ssl,
+            )
+            response.raise_for_status()
+            return response.content
+        except Exception as e:
+            self._save_gather_error(
+                "Could not fetch WFS capabilities %s: %s" % (url, e),
+                harvest_job,
+            )
             return None
 
     def _request_headers(self, config: dict[str, Any]) -> dict[str, str]:
@@ -487,6 +813,12 @@ class WmsCapabilitiesHarvester(HarvesterBase):
         except (TypeError, ValueError):
             timeout = DEFAULT_TIMEOUT
         return max(1, timeout)
+
+    def _verify_ssl(self, config: dict[str, Any]) -> bool:
+        return not self._bool_value(
+            config.get(DISABLE_SSL_VERIFICATION_CONFIG_KEY),
+            False,
+        )
 
     def _gather_log_every(self, config: dict[str, Any]) -> int:
         try:
@@ -674,7 +1006,7 @@ class WmsCapabilitiesHarvester(HarvesterBase):
         resources = []
         if wms_preview_base_url:
             resources.append(self._resource(
-                url="%s%s" % (wms_preview_base_url, layer_name),
+                url=self._wms_preview_url(layer_name, config),
                 layer_name=layer_name,
                 title_el="Προεπισκόπηση WMS layer - %s" % layer_name,
                 title_en="WMS layer preview - %s" % layer_name,
@@ -684,8 +1016,11 @@ class WmsCapabilitiesHarvester(HarvesterBase):
                 protocol="OGC:WMS",
             ))
 
+        resources.extend(self._wms_getmap_resources(layer, payload, config))
+        resources.extend(self._wfs_download_resources(layer, payload, config))
+
         if wms_capabilities_url:
-            resources.append(self._resource(
+            resource = self._resource(
                 url=wms_capabilities_url,
                 layer_name=layer_name,
                 title_el="WMS capabilities document - %s" % layer_name,
@@ -700,10 +1035,16 @@ class WmsCapabilitiesHarvester(HarvesterBase):
                 ),
                 resource_format="XML",
                 protocol="OGC:WMS",
-            ))
+            )
+            resource["download_url"] = wms_capabilities_url
+            resource["mimetype"] = XML_MIMETYPE
+            resources.append(resource)
 
-        if wfs_capabilities_url:
-            resources.append(self._resource(
+        if (
+            wfs_capabilities_url
+            and not self._skip_wfs_capabilities_resource(payload, config)
+        ):
+            resource = self._resource(
                 url=wfs_capabilities_url,
                 layer_name=layer_name,
                 title_el="WFS capabilities document - %s" % layer_name,
@@ -719,9 +1060,401 @@ class WmsCapabilitiesHarvester(HarvesterBase):
                 ),
                 resource_format="XML",
                 protocol="OGC:WFS",
-            ))
+            )
+            resource["download_url"] = wfs_capabilities_url
+            resource["mimetype"] = XML_MIMETYPE
+            resources.append(resource)
 
         return resources
+
+    def _skip_wfs_capabilities_resource(
+        self,
+        payload: dict[str, Any],
+        config: dict[str, Any],
+    ) -> bool:
+        if not config.get(
+            SKIP_WFS_CAPABILITIES_RESOURCE_WHEN_LAYER_MISSING_FROM_WFS_CAPABILITIES_CONFIG_KEY
+        ):
+            return False
+
+        wfs_payload = payload.get("wfs") or {}
+        return not wfs_payload.get("layer_available")
+
+    def _wms_getmap_resources(
+        self,
+        layer: dict[str, Any],
+        payload: dict[str, Any],
+        config: dict[str, Any],
+    ) -> list[dict[str, Any]]:
+        bbox = layer.get("bbox")
+        if not isinstance(bbox, dict):
+            return []
+
+        source_url = str(payload.get("source_url") or "").strip()
+        base_url = str(
+            config.get(WMS_GETMAP_BASE_URL_CONFIG_KEY)
+            or config.get(WMS_CAPABILITIES_URL_CONFIG_KEY)
+            or source_url
+        ).strip()
+        base_url = self._base_url_without_query(base_url)
+        if not base_url:
+            return []
+
+        resources = []
+        crs_values = set(layer.get("crs") or [])
+        for resource_config in self._wms_getmap_resource_configs(config):
+            crs = resource_config["crs"]
+            if crs not in crs_values:
+                log.warning(
+                    "Skipping WMS GetMap resource for unsupported CRS %s; "
+                    "layer=%s",
+                    crs,
+                    layer["name"],
+                )
+                continue
+
+            url = self._wms_getmap_url(
+                base_url=base_url,
+                layer_name=layer["name"],
+                bbox=bbox,
+                version=resource_config["version"],
+                crs=crs,
+                image_format=resource_config["image_format"],
+                width=resource_config["width"],
+                height=resource_config["height"],
+                transparent=resource_config["transparent"],
+                extra_params=resource_config.get("params") or {},
+            )
+            resource_format = resource_config["format"]
+            title_el = "Λήψη εικόνας %s - %s" % (resource_format, layer["name"])
+            title_en = "%s image download - %s" % (resource_format, layer["name"])
+            resource = {
+                "url": url,
+                "name_translated": {
+                    "el": title_el,
+                    "en": title_en,
+                },
+                "description_translated": {
+                    "el": title_el,
+                    "en": title_en,
+                },
+                "format": resource_format,
+                "resource_locator_protocol": "OGC:WMS",
+                "access_url": url,
+                "download_url": url,
+            }
+            mimetype = resource_config.get("mimetype")
+            if mimetype:
+                resource["mimetype"] = mimetype
+            resources.append(resource)
+
+        return resources
+
+    def _wms_getmap_resource_configs(
+        self,
+        config: dict[str, Any],
+    ) -> list[dict[str, Any]]:
+        raw_resources = config.get(WMS_GETMAP_RESOURCES_CONFIG_KEY)
+        if not isinstance(raw_resources, list):
+            return []
+
+        resources = []
+        for raw_resource in raw_resources:
+            if not isinstance(raw_resource, dict):
+                continue
+
+            image_format = str(
+                raw_resource.get("image_format") or "image/png"
+            ).strip()
+            if not image_format:
+                continue
+
+            resource_format = str(raw_resource.get("format") or "PNG").strip()
+            if not resource_format:
+                resource_format = "PNG"
+
+            mimetype = str(raw_resource.get("mimetype") or "").strip()
+            if not mimetype and image_format == "image/png":
+                mimetype = PNG_MIMETYPE
+
+            params = raw_resource.get("params") or {}
+            if not isinstance(params, dict):
+                params = {}
+
+            resources.append({
+                "format": resource_format,
+                "image_format": image_format,
+                "mimetype": mimetype,
+                "width": self._positive_int(raw_resource.get("width"), 2048),
+                "height": self._positive_int(raw_resource.get("height"), 2048),
+                "crs": str(raw_resource.get("crs") or "CRS:84").strip() or "CRS:84",
+                "version": str(raw_resource.get("version") or "1.3.0").strip()
+                or "1.3.0",
+                "transparent": self._bool_value(
+                    raw_resource.get("transparent", True),
+                    True,
+                ),
+                "params": params,
+            })
+
+        return resources
+
+    def _bool_value(self, value: Any, default: bool) -> bool:
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {"1", "true", "yes", "y", "on"}:
+                return True
+            if normalized in {"0", "false", "no", "n", "off"}:
+                return False
+        if value is None:
+            return default
+        return bool(value)
+
+    def _positive_int(self, value: Any, default: int) -> int:
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError):
+            parsed = default
+        return max(1, parsed)
+
+    def _wms_getmap_url(
+        self,
+        *,
+        base_url: str,
+        layer_name: str,
+        bbox: dict[str, float],
+        version: str,
+        crs: str,
+        image_format: str,
+        width: int,
+        height: int,
+        transparent: bool,
+        extra_params: dict[str, Any],
+    ) -> str:
+        crs_param = "crs" if str(version).startswith("1.3") else "srs"
+        params = [
+            ("service", "WMS"),
+            ("version", version),
+            ("request", "GetMap"),
+            ("layers", layer_name),
+            ("styles", ""),
+            (crs_param, crs),
+            ("bbox", self._wms_getmap_bbox_value(bbox, crs, version)),
+            ("width", width),
+            ("height", height),
+            ("format", image_format),
+            ("transparent", str(transparent).lower()),
+        ]
+        reserved_keys = {
+            "service",
+            "version",
+            "request",
+            "layers",
+            "styles",
+            "crs",
+            "srs",
+            "bbox",
+            "width",
+            "height",
+            "format",
+            "transparent",
+        }
+        for key in sorted(extra_params):
+            if key in reserved_keys:
+                continue
+            value = extra_params[key]
+            if value is None:
+                continue
+            params.append((key, value))
+
+        separator = "&" if "?" in base_url else "?"
+        return "%s%s%s" % (
+            base_url,
+            separator,
+            urlencode(params, doseq=True),
+        )
+
+    def _wms_getmap_bbox_value(
+        self,
+        bbox: dict[str, float],
+        crs: str,
+        version: str,
+    ) -> str:
+        if str(version).startswith("1.3") and crs.upper() == "EPSG:4326":
+            values = [bbox["south"], bbox["west"], bbox["north"], bbox["east"]]
+        else:
+            values = [bbox["west"], bbox["south"], bbox["east"], bbox["north"]]
+        return ",".join(str(value) for value in values)
+
+    def _wfs_download_resources(
+        self,
+        layer: dict[str, Any],
+        payload: dict[str, Any],
+        config: dict[str, Any],
+    ) -> list[dict[str, Any]]:
+        wfs_payload = payload.get("wfs") or {}
+        if not wfs_payload.get("layer_available"):
+            return []
+
+        getfeature_base_url = str(
+            wfs_payload.get("getfeature_base_url") or ""
+        ).strip()
+
+        output_formats = set(wfs_payload.get("output_formats") or [])
+        resources = []
+        for resource_config in self._wfs_download_resource_configs(config):
+            output_format = resource_config["output_format"]
+            if output_format not in output_formats:
+                log.warning(
+                    "Skipping WFS download resource for unsupported outputFormat "
+                    "%s; layer=%s",
+                    output_format,
+                    layer["name"],
+                )
+                continue
+
+            resource_format = resource_config["format"]
+            resource_base_url = (
+                resource_config.get("base_url") or getfeature_base_url
+            )
+            if not resource_base_url:
+                log.warning(
+                    "Skipping WFS download resource with no GetFeature base URL; "
+                    "format=%s layer=%s",
+                    resource_format,
+                    layer["name"],
+                )
+                continue
+
+            url = self._wfs_getfeature_url(
+                base_url=resource_base_url,
+                layer_name=layer["name"],
+                version=str(wfs_payload.get("version") or "2.0.0"),
+                output_format=output_format,
+                extra_params=resource_config.get("params") or {},
+            )
+            title_el = "Λήψη %s - %s" % (resource_format, layer["name"])
+            title_en = "%s download - %s" % (resource_format, layer["name"])
+            resources.append({
+                "url": url,
+                "name_translated": {
+                    "el": title_el,
+                    "en": title_en,
+                },
+                "description_translated": {
+                    "el": title_el,
+                    "en": title_en,
+                },
+                "format": resource_format,
+                "resource_locator_protocol": "OGC:WFS",
+                "access_url": url,
+                "download_url": url,
+            })
+            mimetype = resource_config.get("mimetype")
+            if mimetype:
+                resources[-1]["mimetype"] = mimetype
+
+        return resources
+
+    def _wfs_download_resource_configs(
+        self,
+        config: dict[str, Any],
+    ) -> list[dict[str, Any]]:
+        raw_resources = config.get(WFS_DOWNLOAD_RESOURCES_CONFIG_KEY)
+        if not isinstance(raw_resources, list):
+            return []
+
+        resources = []
+        for raw_resource in raw_resources:
+            if not isinstance(raw_resource, dict):
+                continue
+
+            output_format = str(raw_resource.get("output_format") or "").strip()
+            if not output_format:
+                continue
+
+            resource_format = str(
+                raw_resource.get("format") or output_format
+            ).strip()
+            if not resource_format:
+                continue
+
+            params = raw_resource.get("params") or {}
+            if not isinstance(params, dict):
+                params = {}
+
+            resources.append({
+                "format": resource_format,
+                "output_format": output_format,
+                "base_url": str(raw_resource.get("base_url") or "").strip(),
+                "params": params,
+                "mimetype": str(raw_resource.get("mimetype") or "").strip(),
+            })
+
+        return resources
+
+    def _wfs_getfeature_url(
+        self,
+        *,
+        base_url: str,
+        layer_name: str,
+        version: str,
+        output_format: str,
+        extra_params: dict[str, Any],
+    ) -> str:
+        type_name_param = (
+            "typeNames" if str(version).startswith("2.") else "typeName"
+        )
+        params = [
+            ("service", "WFS"),
+            ("version", version),
+            ("request", "GetFeature"),
+            (type_name_param, layer_name),
+            ("outputFormat", output_format),
+        ]
+        reserved_keys = {key for key, _value in params}
+        for key in sorted(extra_params):
+            if key in reserved_keys:
+                continue
+            value = extra_params[key]
+            if value is None:
+                continue
+            params.append((key, value))
+
+        separator = "&" if "?" in base_url else "?"
+        return "%s%s%s" % (
+            base_url,
+            separator,
+            urlencode(params, doseq=True),
+        )
+
+    def _wms_preview_url(self, layer_name: str, config: dict[str, Any]) -> str:
+        base_url = str(config.get(WMS_PREVIEW_BASE_URL_CONFIG_KEY) or "").strip()
+        if not base_url:
+            return ""
+
+        if not config.get(WMS_PREVIEW_WORKSPACE_IN_PATH_CONFIG_KEY):
+            return "%s%s" % (base_url, layer_name)
+
+        workspace, separator, local_layer_name = str(layer_name or "").partition(":")
+        if not separator or not workspace or not local_layer_name:
+            return "%s%s" % (base_url, layer_name)
+
+        parsed = urlsplit(base_url)
+        path = parsed.path.rstrip("/")
+        if not path.lower().endswith("/wms"):
+            return "%s%s" % (base_url, layer_name)
+
+        preview_path = "%s/%s/wms" % (path[:-4], workspace)
+        return urlunsplit((
+            parsed.scheme,
+            parsed.netloc,
+            preview_path,
+            parsed.query,
+            local_layer_name,
+        ))
 
     def _resource(
         self,

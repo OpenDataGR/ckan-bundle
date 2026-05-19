@@ -96,6 +96,7 @@ Optional settings:
     # Παράδειγμα: αν η σελίδα είναι /pages/accessibility, η τιμή είναι accessibility.
     # (προαιρετικό, default: κενό)
     # Αν λείπει ή είναι κενό, το link "Προσβασιμότητα" δεν εμφανίζεται στο footer.
+    # Μπορεί επίσης να αλλάξει από το /ckan-admin/config → Γενικά → Footer.
     ckanext.data_gov_gr.pages.accessibility_statement = accessibility
 
     # Εμφάνιση/απόκρυψη του ενημερωτικού κειμένου για την άδεια μεταδεδομένων
@@ -330,11 +331,18 @@ Optional settings:
       "url": "https://example.org",
       "type": "http://purl.org/adms/publishertype/Company",
       "identifier": "org-identifier-001"
+    }],
+    "contact": [{
+      "uri": "https://example.org/contact",
+      "name": "Γιάννης Παπαδόπουλος",
+      "email": "contact@example.org",
+      "url": "https://example.org"
     }]
   },
   "override_default_dataset_fields": false,
   "default_resource_fields": {
-    "license": "http://publications.europa.eu/resource/authority/licence/CC_BY_4_0"
+    "license": "http://publications.europa.eu/resource/authority/licence/CC_BY_4_0",
+    "rights": "No conditions apply to access and use"
   },
   "override_default_resource_fields": false,
   "resource_access_url_from_url": true,
@@ -448,6 +456,10 @@ dataset.
 3. WFS capabilities resource με `format: XML` και
    `resource_locator_protocol: OGC:WFS`,
 4. οι υπόλοιποι πόροι του ISO record.
+
+Οι capabilities resources έχουν `access_url` και `download_url` ίσα με το
+αντίστοιχο capabilities URL και `mimetype` ίσο με
+`https://www.iana.org/assignments/media-types/application/xml`.
 
 Αν υπάρχει ήδη resource με το ίδιο capabilities URL, δεν δημιουργείται δεύτερο.
 Το υπάρχον resource ενημερώνεται και μετακινείται στη σωστή θέση.
@@ -807,6 +819,25 @@ package_dict["hvd_category"] = ["http://data.europa.eu/bna/c_ac64a52d"]
 Υποστηρίζονται όλα τα subfields του publisher schema, όπως `uri`, `name`,
 `email`, `url`, `type` και `identifier`.
 
+Παράδειγμα για default σημεία επικοινωνίας σε όλα τα harvested datasets:
+
+```json
+{
+  "default_dataset_fields": {
+    "contact": [{
+      "uri": "https://example.org/contact",
+      "name": "Γιάννης Παπαδόπουλος",
+      "email": "contact@example.org",
+      "url": "https://example.org"
+    }]
+  }
+}
+```
+
+Το παραπάνω καταχωρεί το `package_dict["contact"]`, αν λείπει ή είναι κενό.
+Υποστηρίζονται τα subfields του contact schema, όπως `uri`, `name`, `email` και
+`url`.
+
 ### `override_default_dataset_fields`
 
 Προαιρετικό boolean. Default: `false`.
@@ -832,12 +863,14 @@ package_dict["hvd_category"] = ["http://data.europa.eu/bna/c_ac64a52d"]
 Προαιρετικό. Επιτρέπει να δηλωθούν default τιμές για πεδία κάθε CKAN resource από
 το JSON config του CSW harvest source.
 
-Παράδειγμα για default άδεια σε όλα τα harvested resources:
+Παράδειγμα για default άδεια και default δικαιώματα χρήσης σε όλα τα harvested
+resources:
 
 ```json
 {
   "default_resource_fields": {
-    "license": "http://publications.europa.eu/resource/authority/licence/CC_BY_4_0"
+    "license": "http://publications.europa.eu/resource/authority/licence/CC_BY_4_0",
+    "rights": "No conditions apply to access and use"
   }
 }
 ```
@@ -846,9 +879,10 @@ package_dict["hvd_category"] = ["http://data.europa.eu/bna/c_ac64a52d"]
 
 ```python
 resource["license"] = "http://publications.europa.eu/resource/authority/licence/CC_BY_4_0"
+resource["rights"] = "No conditions apply to access and use"
 ```
 
-σε κάθε resource, αν το `license` λείπει ή είναι κενό.
+σε κάθε resource, αν το αντίστοιχο πεδίο λείπει ή είναι κενό.
 
 Η επιλογή είναι γενική και μπορεί να χρησιμοποιηθεί και για άλλα resource fields,
 με προσοχή στον τύπο τιμής που περιμένει το schema κάθε πεδίου.
@@ -863,7 +897,8 @@ resource["license"] = "http://publications.europa.eu/resource/authority/licence/
 ```json
 {
   "default_resource_fields": {
-    "license": "http://publications.europa.eu/resource/authority/licence/CC_BY_4_0"
+    "license": "http://publications.europa.eu/resource/authority/licence/CC_BY_4_0",
+    "rights": "No conditions apply to access and use"
   },
   "override_default_resource_fields": true
 }
@@ -1446,7 +1481,16 @@ cd /root/ckan/lib/default/src/ckanext-data-gov-gr
 - `access_rights`: `PUBLIC`,
 - `spatial_coverage`: `bbox` και `centroid` από `EX_GeographicBoundingBox`, με
   κενό `text`,
-- resources για WMS preview, WMS capabilities και WFS capabilities.
+- resources για WMS preview, WFS download links, WMS capabilities και WFS
+  capabilities.
+
+Η σειρά των resources είναι:
+
+1. WMS preview resource, όταν υπάρχει `wms_preview_base_url`,
+2. WFS download resources, με τη σειρά που δηλώνονται στο
+   `wfs_download_resources`,
+3. WMS capabilities resource,
+4. WFS capabilities resource.
 
 Τα ελληνικά WMS metadata χρησιμοποιούνται και στα δύο language slots
 (`el`, `en`) όταν δεν υπάρχει ξεχωριστή αγγλική τιμή στην πηγή.
@@ -1461,20 +1505,66 @@ cd /root/ckan/lib/default/src/ckanext-data-gov-gr
   "dataset_name_prefix_from_layer_name": "gis-perifereia-kritis-selected-1-",
   "dataset_name_max_length": 100,
   "wms_preview_base_url": "https://gis.crete.gov.gr/geoserver/wms#",
+  "wms_preview_workspace_in_path": false,
   "wms_capabilities_url": "https://gis.crete.gov.gr/geoserver/wms?service=WMS&request=GetCapabilities&version=1.3.0",
   "wfs_capabilities_url": "https://gis.crete.gov.gr/geoserver/wfs?service=WFS&request=GetCapabilities&version=2.0.0",
+  "wms_getmap_resources": [
+    {
+      "format": "PNG",
+      "image_format": "image/png",
+      "mimetype": "https://www.iana.org/assignments/media-types/image/png",
+      "width": 2048,
+      "height": 2048,
+      "crs": "CRS:84",
+      "transparent": true
+    }
+  ],
+  "wfs_download_resources": [
+    {
+      "format": "GeoJSON",
+      "output_format": "application/json",
+      "mimetype": "https://www.iana.org/assignments/media-types/application/geo+json"
+    },
+    {
+      "format": "CSV",
+      "output_format": "csv",
+      "mimetype": "https://www.iana.org/assignments/media-types/text/csv"
+    },
+    {
+      "format": "SHAPE-ZIP",
+      "output_format": "SHAPE-ZIP",
+      "mimetype": "https://www.iana.org/assignments/media-types/application/zip"
+    },
+    {
+      "format": "KML",
+      "output_format": "KML",
+      "mimetype": "https://www.iana.org/assignments/media-types/application/vnd.google-earth.kml+xml"
+    }
+  ],
   "default_dataset_fields": {
-    "hvd_category": ["http://data.europa.eu/bna/c_ac64a52d"]
+    "hvd_category": ["http://data.europa.eu/bna/c_ac64a52d"],
+    "contact": [{
+      "uri": "https://example.org/contact",
+      "name": "Γιάννης Παπαδόπουλος",
+      "email": "contact@example.org",
+      "url": "https://example.org"
+    }]
   },
   "default_resource_fields": {
-    "license": "http://publications.europa.eu/resource/authority/licence/CC_BY_4_0"
+    "license": "http://publications.europa.eu/resource/authority/licence/CC_BY_4_0",
+    "rights": "No conditions apply to access and use"
   },
   "default_tags": ["gis", "crete", "INSPIRE", "γεωχωρικά"],
   "skip_dataset_when_title_matches_layer_name": true,
+  "include_only_datasets_when_title_matches_layer_name": false,
+  "skip_dataset_when_layer_missing_from_wfs_capabilities": true,
+  "include_only_datasets_when_layer_missing_from_wfs_capabilities": false,
+  "skip_wfs_capabilities_resource_when_layer_missing_from_wfs_capabilities": false,
   "include_layer_name_keywords": false,
   "skip_keywords_matching": ["^v_[a-z0-9_]+$"],
   "gather_log_every": 100,
   "timeout": 60,
+  "disable_ssl_verification": false,
   "user_agent": "data.gov.gr CKAN WMS Harvester"
 }
 ```
@@ -1489,6 +1579,16 @@ cd /root/ckan/lib/default/src/ckanext-data-gov-gr
 
 Όταν υπάρχει `capabilities_file`, ο harvester διαβάζει αυτό το αρχείο αντί να
 κατεβάσει το WMS capabilities URL.
+
+Για local δοκιμές του WFS φίλτρου μπορεί να δηλωθεί και local WFS capabilities
+file:
+
+```json
+{
+  "skip_dataset_when_layer_missing_from_wfs_capabilities": true,
+  "wfs_capabilities_file": "/root/geo/chania/capabilities/wfs.xml"
+}
+```
 
 ### `dataset_name_prefix_from_layer_name`
 
@@ -1572,6 +1672,46 @@ https://gis.crete.gov.gr/geoserver/wms#gisvec:adm_poi_elstat_oikismos
 }
 ```
 
+### `wms_preview_workspace_in_path`
+
+Προαιρετικό boolean. Default: `false`.
+
+Όταν είναι `true`, ο πρώτος WMS preview resource συνεχίζει να χρησιμοποιεί το
+`wms_preview_base_url`, αλλά για layer names της μορφής `workspace:layer`
+μεταφέρει το workspace στο URL path και κρατάει στο fragment μόνο το local layer
+name.
+
+Παράδειγμα:
+
+```json
+{
+  "wms_preview_base_url": "https://gis.piraeus.gov.gr/geoserver/wms#",
+  "wms_preview_workspace_in_path": true
+}
+```
+
+με layer:
+
+```text
+pireas:roads
+```
+
+παράγει resource URL:
+
+```text
+https://gis.piraeus.gov.gr/geoserver/pireas/wms#roads
+```
+
+Το resource `name`, `name_translated` και `description_translated` συνεχίζουν να
+κρατάνε το πλήρες WMS layer name, π.χ. `pireas:roads`.
+
+Αν το layer name δεν έχει workspace ή το `wms_preview_base_url` δεν τελειώνει σε
+`/wms`, ο harvester κάνει fallback στην παλιά συμπεριφορά:
+
+```text
+wms_preview_base_url + layer_name
+```
+
 ### `wms_capabilities_url`
 
 Προαιρετικό string. Δηλώνει το WMS `GetCapabilities` URL.
@@ -1586,6 +1726,9 @@ https://gis.crete.gov.gr/geoserver/wms#gisvec:adm_poi_elstat_oikismos
 
 Ο resource περιλαμβάνει το layer name στο `name_translated` και στο
 `description_translated`, ώστε να μπορεί να εντοπιστεί εύκολα από τον χρήστη.
+Το ίδιο URL καταχωρείται και στα `access_url` και `download_url`, ενώ το
+`mimetype` καταχωρείται ως
+`https://www.iana.org/assignments/media-types/application/xml`.
 
 ### `wfs_capabilities_url`
 
@@ -1598,12 +1741,275 @@ https://gis.crete.gov.gr/geoserver/wms#gisvec:adm_poi_elstat_oikismos
 {
   "format": "XML",
   "resource_locator_protocol": "OGC:WFS",
-  "access_url": "<ίδιο με το url>"
+  "access_url": "<ίδιο με το url>",
+  "download_url": "<ίδιο με το url>",
+  "mimetype": "https://www.iana.org/assignments/media-types/application/xml"
 }
 ```
 
 Και εδώ το layer name μπαίνει στο `name_translated` και στο
 `description_translated`.
+
+Όταν είναι ενεργό το
+`skip_dataset_when_layer_missing_from_wfs_capabilities`, το ίδιο URL
+χρησιμοποιείται και για να φορτωθεί το WFS capabilities document, εκτός αν έχει
+δηλωθεί `wfs_capabilities_file`.
+
+### `skip_wfs_capabilities_resource_when_layer_missing_from_wfs_capabilities`
+
+Προαιρετικό boolean. Default: `false`.
+
+Όταν είναι `true`, ο WMS harvester δεν δημιουργεί WFS capabilities resource για
+datasets των οποίων το WMS layer δεν υπάρχει στο WFS `FeatureTypeList`.
+
+Η επιλογή επηρεάζει μόνο τον WFS capabilities resource που δημιουργείται από το
+`wfs_capabilities_url`. Δεν αλλάζει το filtering των datasets και δεν επηρεάζει
+τον WMS capabilities resource.
+
+Παράδειγμα:
+
+```json
+{
+  "include_only_datasets_when_layer_missing_from_wfs_capabilities": true,
+  "skip_wfs_capabilities_resource_when_layer_missing_from_wfs_capabilities": true,
+  "wfs_capabilities_url": "https://services.heraklion.gr/geoserver/wfs?service=WFS&request=GetCapabilities&version=2.0.0"
+}
+```
+
+Με το παραπάνω, για WMS-only layers καταχωρούνται οι WMS πόροι, αλλά δεν
+καταχωρείται WFS capabilities resource που δεν μπορεί να οδηγήσει σε αντίστοιχο
+WFS FeatureType.
+
+### `wfs_capabilities_file`
+
+Προαιρετικό string. Τοπικό path σε WFS capabilities XML αρχείο.
+
+Χρησιμοποιείται μόνο όταν είναι ενεργό το
+`skip_dataset_when_layer_missing_from_wfs_capabilities`. Αν δηλωθεί, ο harvester
+διαβάζει αυτό το αρχείο αντί να κατεβάσει το `wfs_capabilities_url`.
+
+Χρήσιμο για δοκιμές χωρίς network ή για επαναλήψιμα harvest runs πάνω σε
+συγκεκριμένο snapshot:
+
+```json
+{
+  "skip_dataset_when_layer_missing_from_wfs_capabilities": true,
+  "wfs_capabilities_file": "/root/geo/chania/capabilities/wfs.xml"
+}
+```
+
+### `wfs_getfeature_base_url`
+
+Προαιρετικό string. Δηλώνει το WFS endpoint που χρησιμοποιείται για τα
+παραγόμενα `GetFeature` download resources.
+
+Αν λείπει, ο harvester το διαβάζει από το WFS capabilities
+`OperationsMetadata/GetFeature` `HTTP Get` URL. Αν δεν υπάρχει ούτε εκεί, κάνει
+fallback στο `wfs_capabilities_url` χωρίς query string.
+
+Παράδειγμα:
+
+```json
+{
+  "wfs_getfeature_base_url": "https://gisservices.chania.gr/geoserver/wfs"
+}
+```
+
+### `wms_getmap_resources`
+
+Προαιρετική λίστα. Default: κενή λίστα.
+
+Όταν δηλωθεί, ο harvester δημιουργεί WMS `GetMap` image download resources για
+κάθε WMS layer που έχει `EX_GeographicBoundingBox`. Το resource είναι εικόνα
+χάρτη, όχι επεξεργάσιμα γεωχωρικά δεδομένα όπως GeoJSON/CSV/SHP.
+
+Παράδειγμα:
+
+```json
+{
+  "wms_getmap_resources": [
+    {
+      "format": "PNG",
+      "image_format": "image/png",
+      "mimetype": "https://www.iana.org/assignments/media-types/image/png",
+      "width": 2048,
+      "height": 2048,
+      "crs": "CRS:84",
+      "transparent": true
+    }
+  ]
+}
+```
+
+Ο harvester χτίζει URL με:
+
+```text
+service=WMS
+version=1.3.0
+request=GetMap
+layers=<layer name>
+styles=
+crs=CRS:84
+bbox=<west,south,east,north>
+width=2048
+height=2048
+format=image/png
+transparent=true
+```
+
+Για `CRS:84` το bbox προκύπτει απευθείας από το `EX_GeographicBoundingBox`
+ως `west,south,east,north`. Για WMS `1.3.0` με `EPSG:4326`, ο harvester
+χρησιμοποιεί τη σειρά αξόνων `south,west,north,east`.
+
+Αν το ζητούμενο `crs` δεν υπάρχει στα CRS του layer, ο συγκεκριμένος GetMap
+resource παραλείπεται. Αν δεν υπάρχει bbox, δεν δημιουργείται GetMap resource
+για το layer.
+
+Προαιρετικά μπορεί να δηλωθεί `wms_getmap_base_url`. Αν λείπει, ο harvester
+χρησιμοποιεί το `wms_capabilities_url` χωρίς query string, ή το harvest source
+URL χωρίς query string.
+
+Μπορούν να δηλωθούν επιπλέον σταθερά query params ανά resource:
+
+```json
+{
+  "wms_getmap_resources": [
+    {
+      "format": "PNG",
+      "image_format": "image/png",
+      "params": {
+        "exceptions": "application/vnd.ogc.se_xml"
+      }
+    }
+  ]
+}
+```
+
+Τα standard params `service`, `version`, `request`, `layers`, `styles`, `crs` /
+`srs`, `bbox`, `width`, `height`, `format` και `transparent` τα διαχειρίζεται ο
+harvester και δεν αντικαθίστανται από το `params`.
+
+### `wfs_download_resources`
+
+Προαιρετική λίστα. Default: κενή λίστα.
+
+Όταν δηλωθεί, ο harvester δημιουργεί WFS `GetFeature` download resources για
+κάθε WMS layer που υπάρχει και στο WFS capabilities document. Η δημιουργία των
+download resources δεν απαιτεί να είναι ενεργό το
+`skip_dataset_when_layer_missing_from_wfs_capabilities`: αν το dataset
+δημιουργείται από WMS layer που δεν υπάρχει στο WFS, απλώς δεν παίρνει WFS
+download resources.
+
+Παράδειγμα:
+
+```json
+{
+  "wfs_download_resources": [
+    {
+      "format": "GeoJSON",
+      "output_format": "application/json",
+      "mimetype": "https://www.iana.org/assignments/media-types/application/geo+json"
+    },
+    {
+      "format": "CSV",
+      "output_format": "csv",
+      "mimetype": "https://www.iana.org/assignments/media-types/text/csv"
+    },
+    {
+      "format": "SHAPE-ZIP",
+      "output_format": "SHAPE-ZIP",
+      "mimetype": "https://www.iana.org/assignments/media-types/application/zip"
+    },
+    {
+      "format": "KML",
+      "output_format": "KML",
+      "mimetype": "https://www.iana.org/assignments/media-types/application/vnd.google-earth.kml+xml"
+    }
+  ]
+}
+```
+
+Κάθε resource δημιουργείται μόνο αν το αντίστοιχο `output_format` υπάρχει στα
+WFS `GetFeature` allowed output formats.
+
+Για WFS `2.x` ο harvester χτίζει URL με `typeNames`. Για WFS `1.x` χτίζει URL
+με `typeName`.
+
+Παράδειγμα παραγόμενου GeoJSON resource:
+
+```json
+{
+  "name_translated": {
+    "el": "Λήψη GeoJSON - chaniavec:adm_poi_elstat_oikismos",
+    "en": "GeoJSON download - chaniavec:adm_poi_elstat_oikismos"
+  },
+  "description_translated": {
+    "el": "Λήψη GeoJSON - chaniavec:adm_poi_elstat_oikismos",
+    "en": "GeoJSON download - chaniavec:adm_poi_elstat_oikismos"
+  },
+  "format": "GeoJSON",
+  "mimetype": "https://www.iana.org/assignments/media-types/application/geo+json",
+  "resource_locator_protocol": "OGC:WFS",
+  "url": "https://gisservices.chania.gr/geoserver/wfs?service=WFS&version=2.0.0&request=GetFeature&typeNames=chaniavec%3Aadm_poi_elstat_oikismos&outputFormat=application%2Fjson",
+  "access_url": "https://gisservices.chania.gr/geoserver/wfs?service=WFS&version=2.0.0&request=GetFeature&typeNames=chaniavec%3Aadm_poi_elstat_oikismos&outputFormat=application%2Fjson",
+  "download_url": "https://gisservices.chania.gr/geoserver/wfs?service=WFS&version=2.0.0&request=GetFeature&typeNames=chaniavec%3Aadm_poi_elstat_oikismos&outputFormat=application%2Fjson"
+}
+```
+
+Τα WFS download resources δεν έχουν απλό `name`. Το
+`description_translated` μπαίνει ίδιο με το `name_translated`.
+
+Το `mimetype` είναι προαιρετικό και, όταν δηλωθεί, περνάει αυτούσιο στο resource.
+Ο harvester δεν κάνει validation ούτε εφαρμόζει default IANA mapping.
+
+Μπορούν να δηλωθούν επιπλέον σταθερά query params ανά resource:
+
+```json
+{
+  "wfs_download_resources": [
+    {
+      "format": "GeoJSON",
+      "output_format": "application/json",
+      "base_url": "http://services.heraklion.gr/geoserver/wfs",
+      "params": {
+        "srsName": "EPSG:4326"
+      }
+    }
+  ]
+}
+```
+
+Τα standard params `service`, `version`, `request`, `typeName` / `typeNames` και
+`outputFormat` τα διαχειρίζεται ο harvester και δεν αντικαθίστανται από το
+`params`.
+
+Προαιρετικά, κάθε resource μπορεί να δηλώσει δικό του `base_url`. Όταν υπάρχει,
+υπερισχύει του global `wfs_getfeature_base_url` και του GetFeature URL που
+διαβάζεται από το WFS capabilities document:
+
+```json
+{
+  "wfs_download_resources": [
+    {
+      "format": "GeoJSON",
+      "output_format": "application/json",
+      "base_url": "http://services.heraklion.gr/geoserver/wfs"
+    },
+    {
+      "format": "CSV",
+      "output_format": "csv",
+      "base_url": "https://services.heraklion.gr/geoserver/wfs"
+    }
+  ]
+}
+```
+
+Τα URLs παράγονται deterministic με σταθερή σειρά query params. Σε re-harvest,
+το υπάρχον `preserve_resource_ids_by_url` διατηρεί τα ίδια resource ids όταν το
+URL, το `format` και το `resource_locator_protocol` μένουν ίδια. Έτσι
+παραμένουν και τα CKAN resource views. Αν αλλάξει το `output_format`, το
+`params`, το `base_url`, το `wfs_getfeature_base_url` ή η WFS version, το URL
+αλλάζει και μπορεί να δημιουργηθεί νέο resource id.
 
 ### `capabilities_file`
 
@@ -1797,23 +2203,165 @@ harvester.
 }
 ```
 
+### `include_only_datasets_when_title_matches_layer_name`
+
+Προαιρετικό boolean. Default: `false`.
+
+Όταν είναι `true`, ο WMS harvester κάνει το αντίστροφο από το
+`skip_dataset_when_title_matches_layer_name`: δημιουργεί datasets μόνο για WMS
+layers των οποίων ο τίτλος είναι ίδιος με το WMS layer name ή με το local layer
+name χωρίς workspace. Όλα τα υπόλοιπα layers παραλείπονται στο `gather_stage`.
+
+Η σύγκριση χρησιμοποιεί την ίδια λογική με το
+`skip_dataset_when_title_matches_layer_name`, δηλαδή συγκρίνει και το πλήρες
+layer name και το local layer name, με `_` και `-` ως ισοδύναμα separators.
+
+Παράδειγμα config:
+
+```json
+{
+  "include_only_datasets_when_title_matches_layer_name": true
+}
+```
+
+Παράδειγμα που καταχωρείται:
+
+```xml
+<Layer queryable="1" opaque="0">
+  <Name>workspace:technical_layer</Name>
+  <Title>technical_layer</Title>
+</Layer>
+```
+
+Παράδειγμα που παραλείπεται:
+
+```xml
+<Layer queryable="1" opaque="0">
+  <Name>gisvec:adm_poi_elstat_oikismos</Name>
+  <Title>Οικισμοί</Title>
+</Layer>
+```
+
+Αν ενεργοποιηθούν ταυτόχρονα και τα δύο flags, το
+`include_only_datasets_when_title_matches_layer_name` έχει προτεραιότητα.
+
+Αν ενεργοποιηθεί σε πηγή που είχε ήδη harvested άλλα layers, τα layers που δεν
+ταιριάζουν δεν μπαίνουν στο `guids_in_source`. Άρα στο επόμενο re-harvest
+αντιμετωπίζονται ως missing from source και ακολουθούν τη λογική deletion του
+harvester.
+
+### `skip_dataset_when_layer_missing_from_wfs_capabilities`
+
+Προαιρετικό boolean. Default: `false`.
+
+Όταν είναι `true`, ο WMS harvester φορτώνει και WFS `GetCapabilities` document
+και δημιουργεί dataset μόνο για WMS layers των οποίων το πλήρες layer name
+υπάρχει και στο WFS `FeatureTypeList/FeatureType/Name`.
+
+Παράδειγμα:
+
+```json
+{
+  "skip_dataset_when_layer_missing_from_wfs_capabilities": true,
+  "wfs_capabilities_url": "https://gisservices.chania.gr/geoserver/wfs?service=WFS&request=GetCapabilities&version=2.0.0"
+}
+```
+
+Για layer:
+
+```text
+chaniavec:adm_poi_elstat_oikismos
+```
+
+ο harvester θα δημιουργήσει dataset μόνο αν υπάρχει αντίστοιχο:
+
+```xml
+<FeatureType>
+  <Name>chaniavec:adm_poi_elstat_oikismos</Name>
+</FeatureType>
+```
+
+Η σύγκριση γίνεται με exact match στο πλήρες όνομα, μαζί με το workspace. Αν ο
+harvester δεν μπορεί να φορτώσει ή να διαβάσει WFS capabilities όταν το flag
+είναι ενεργό, το `gather_stage` σταματάει χωρίς να δημιουργήσει harvest objects,
+ώστε να μην καταχωρηθούν κατά λάθος WMS-only datasets.
+
+Αν το flag ενεργοποιηθεί σε source που είχε ήδη harvested WMS-only layers, αυτά
+δεν μπαίνουν πλέον στο `guids_in_source`. Άρα στο επόμενο re-harvest
+αντιμετωπίζονται ως missing from source και ακολουθούν τη λογική deletion του
+harvester.
+
+### `include_only_datasets_when_layer_missing_from_wfs_capabilities`
+
+Προαιρετικό boolean. Default: `false`.
+
+Όταν είναι `true`, ο WMS harvester φορτώνει και WFS `GetCapabilities` document
+και δημιουργεί dataset μόνο για WMS layers των οποίων το πλήρες layer name δεν
+υπάρχει στο WFS `FeatureTypeList/FeatureType/Name`.
+
+Χρησιμοποιείται όταν θέλουμε να καταχωρήσουμε μόνο WMS-only layers, δηλαδή
+layers για τα οποία δεν υπάρχει διαθέσιμη WFS λήψη/ανάκτηση με το ίδιο layer
+name.
+
+Παράδειγμα:
+
+```json
+{
+  "include_only_datasets_when_layer_missing_from_wfs_capabilities": true,
+  "wfs_capabilities_url": "https://services.heraklion.gr/geoserver/wfs?service=WFS&request=GetCapabilities&version=2.0.0"
+}
+```
+
+Για WMS layer:
+
+```text
+heraklion:wms_only_layer
+```
+
+ο harvester θα δημιουργήσει dataset μόνο αν δεν υπάρχει αντίστοιχο:
+
+```xml
+<FeatureType>
+  <Name>heraklion:wms_only_layer</Name>
+</FeatureType>
+```
+
+Η σύγκριση γίνεται με exact match στο πλήρες όνομα, μαζί με το workspace. Αν ο
+harvester δεν μπορεί να φορτώσει ή να διαβάσει WFS capabilities όταν το flag
+είναι ενεργό, το `gather_stage` σταματάει χωρίς να δημιουργήσει harvest objects.
+
+Αν ενεργοποιηθούν ταυτόχρονα και τα δύο WFS filter flags, το
+`include_only_datasets_when_layer_missing_from_wfs_capabilities` έχει
+προτεραιότητα.
+
+Αν ενεργοποιηθεί σε source που είχε ήδη harvested WFS-available layers, αυτά δεν
+μπαίνουν πλέον στο `guids_in_source`. Άρα στο επόμενο re-harvest
+αντιμετωπίζονται ως missing from source και ακολουθούν τη λογική deletion του
+harvester.
+
 ### `default_dataset_fields`
 
 Προαιρετικό. Ίδια λογική με τον CSW harvester. Δηλώνει default τιμές για πεδία
 του CKAN dataset (`package_dict`).
 
-Παράδειγμα για HVD category:
+Παράδειγμα για HVD category και σημεία επικοινωνίας:
 
 ```json
 {
   "default_dataset_fields": {
-    "hvd_category": ["http://data.europa.eu/bna/c_ac64a52d"]
+    "hvd_category": ["http://data.europa.eu/bna/c_ac64a52d"],
+    "contact": [{
+      "uri": "https://example.org/contact",
+      "name": "Γιάννης Παπαδόπουλος",
+      "email": "contact@example.org",
+      "url": "https://example.org"
+    }]
   }
 }
 ```
 
-Το παραπάνω καταχωρεί το `hvd_category` σε κάθε WMS-harvested dataset, αν το
-πεδίο λείπει ή είναι κενό.
+Το παραπάνω καταχωρεί τα `hvd_category` και `contact` σε κάθε WMS-harvested
+dataset, αν το αντίστοιχο πεδίο λείπει ή είναι κενό.
 
 ### `override_default_dataset_fields`
 
@@ -1827,12 +2375,13 @@ harvester.
 Προαιρετικό. Ίδια λογική με τον CSW harvester. Δηλώνει default τιμές για κάθε
 resource που δημιουργεί ο WMS harvester.
 
-Παράδειγμα για άδεια σε όλους τους πόρους:
+Παράδειγμα για άδεια και δικαιώματα χρήσης σε όλους τους πόρους:
 
 ```json
 {
   "default_resource_fields": {
-    "license": "http://publications.europa.eu/resource/authority/licence/CC_BY_4_0"
+    "license": "http://publications.europa.eu/resource/authority/licence/CC_BY_4_0",
+    "rights": "No conditions apply to access and use"
   }
 }
 ```
@@ -1841,7 +2390,8 @@ resource που δημιουργεί ο WMS harvester.
 
 - WMS preview resource,
 - WMS capabilities resource,
-- WFS capabilities resource.
+- WFS capabilities resource,
+- WFS download resources, όταν έχουν δηλωθεί μέσω `wfs_download_resources`.
 
 ### `override_default_resource_fields`
 
@@ -1891,6 +2441,8 @@ WMS capabilities gather progress: 100/1675 layer=<layer_name> guid=<guid>
 Προαιρετικό integer. Default: `60`.
 
 Timeout σε δευτερόλεπτα για το HTTP request προς το WMS capabilities URL.
+Εφαρμόζεται και στο WFS capabilities request όταν ο WMS harvester χρειάζεται να
+φορτώσει WFS capabilities.
 
 ```json
 {
@@ -1898,10 +2450,26 @@ Timeout σε δευτερόλεπτα για το HTTP request προς το WMS
 }
 ```
 
+### `disable_ssl_verification`
+
+Προαιρετικό boolean. Default: `false`.
+
+Όταν είναι `true`, ο WMS harvester κατεβάζει τα WMS/WFS capabilities documents
+χωρίς TLS certificate verification. Χρησιμοποιείται μόνο για πηγές με πρόβλημα
+στο certificate chain, π.χ. missing intermediate CA.
+
+```json
+{
+  "disable_ssl_verification": true
+}
+```
+
 ### `user_agent`
 
 Προαιρετικό string. Αν οριστεί, αποστέλλεται ως HTTP `User-Agent` όταν ο
-harvester κατεβάζει το WMS capabilities document.
+harvester κατεβάζει το WMS capabilities document. Εφαρμόζεται και στο WFS
+capabilities request όταν ο WMS harvester χρειάζεται να φορτώσει WFS
+capabilities.
 
 ```json
 {

@@ -5,19 +5,9 @@ data - other data values, as a dict
 #}
 {% set ckan_29_or_higher = h.check_ckan_version(min_version="2.9.0", max_version="3.0.0") %}
 {% set dataset_read_route = 'dataset.read' if ckan_29_or_higher else 'dataset_read' %}
+{% set selected_organization = options.get('organization') %}
+{% set is_index = selected_organization is none %}
 
-{# --- Υπολογισμός OK / N/A μετρητών στο Jinja (χωρίς αλλαγή στην Python) --- #}
-{% set ns = namespace(ok_count=0, na_count=0) %}
-{% for row in table %}
-  {% if row.is_stale %}
-  {% elif row.days_since_update is not none %}
-    {% set ns.ok_count = ns.ok_count + 1 %}
-  {% else %}
-    {% set ns.na_count = ns.na_count + 1 %}
-  {% endif %}
-{% endfor %}
-
-{# --- Styles --- #}
 <style>
   .pagination > li > a,
   .pagination > li > span {
@@ -58,204 +48,331 @@ data - other data values, as a dict
     color: #fff;
     font-weight: bold;
   }
+  .status-summary {
+    display: flex;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+  .status-summary > [class*="col-"] {
+    display: flex;
+    margin-bottom: 15px;
+  }
+  .status-summary .well {
+    width: 100%;
+    margin-bottom: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 120px;
+  }
+  .status-summary .well p {
+    margin-bottom: 0;
+  }
   .status-stale { color: #d9534f; font-weight: bold; }
   .status-ok { color: #5cb85c; font-weight: bold; }
   .status-na { color: #777; }
+  #stale-report-table td:nth-child(1),
+  #stale-report-table td:nth-child(2) {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+  #stale-report-table .row-index,
+  #stale-report-table .row-index-header {
+    width: 60px;
+    min-width: 60px;
+    white-space: nowrap;
+    text-align: right;
+  }
 </style>
 
-{# --- Σύνοψη --- #}
-<div class="row" style="margin-bottom: 20px;">
-  <div class="col-md-4">
-    <div class="well text-center">
-      <h2>{{ data['num_packages'] }}</h2>
-      <p>{% trans %}Total datasets{% endtrans %}</p>
+{% if is_index %}
+  <div class="row status-summary">
+    <div class="col-md-4">
+      <div class="well text-center">
+        <h2>{{ data.get('total_organizations', table|length) }}</h2>
+        <p>{% trans %}Organizations{% endtrans %}</p>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="well text-center">
+        <h2>{{ data['total_packages'] }}</h2>
+        <p>{% trans %}Total datasets{% endtrans %}</p>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="well text-center" style="border-left: 4px solid #d9534f;">
+        <h2 style="color: #d9534f;">{{ data['num_stale'] }}</h2>
+        <p>{% trans %}Stale datasets{% endtrans %} ({{ data['stale_percentage'] }}%)</p>
+      </div>
     </div>
   </div>
-  <div class="col-md-4">
-    <div class="well text-center" style="border-left: 4px solid #d9534f;">
-      <h2 style="color: #d9534f;">{{ data['num_stale'] }}</h2>
-      <p>{% trans %}Stale datasets{% endtrans %} ({{ data['stale_percentage'] }}%)</p>
+
+  {% if table|length > 0 %}
+    <div class="row" style="margin-bottom: 15px;">
+      <div class="col-md-12 text-right">
+        <label style="font-weight: normal; margin-right: 5px;">{% trans %}Per page{% endtrans %}</label>
+        <select id="stale-per-page-select" class="form-control" style="width: auto; display: inline-block;">
+          <option value="20" selected>20</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+          <option value="all">{% trans %}All{% endtrans %}</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="report-table-wrapper">
+      <table class="table table-striped table-bordered table-hover table-condensed"
+             id="stale-report-table"
+             data-item-label-single="οργανισμό"
+             data-item-label-plural="οργανισμούς"
+             style="width: 100%; margin-top: 8px;">
+        <thead>
+          <tr>
+            <th class="sortable" data-sort="organization" data-sort-type="string">
+              {% trans %}Organization{% endtrans %}
+              <i class="fa fa-sort sort-icon"></i>
+            </th>
+            <th class="sortable" data-sort="datasets" data-sort-type="number">
+              {% trans %}Datasets{% endtrans %}
+              <i class="fa fa-sort sort-icon"></i>
+            </th>
+            <th class="sortable" data-sort="stale" data-sort-type="number">
+              {% trans %}Stale{% endtrans %}
+              <i class="fa fa-sort sort-icon"></i>
+            </th>
+            <th class="sortable" data-sort="ok" data-sort-type="number">
+              {% trans %}Up-to-date{% endtrans %}
+              <i class="fa fa-sort sort-icon"></i>
+            </th>
+            <th class="sortable" data-sort="na" data-sort-type="number">
+              {% trans %}Non-evaluable{% endtrans %}
+              <i class="fa fa-sort sort-icon"></i>
+            </th>
+            <th class="sortable" data-sort="percentage" data-sort-type="number">
+              {{ gettext('Stale percentage', domain='ckanext-report') }}
+              <i class="fa fa-sort sort-icon"></i>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in table %}
+            <tr class="stale-row"
+                data-sort-organization="{{ row.organization_title|lower }}"
+                data-sort-datasets="{{ row.total_packages }}"
+                data-sort-stale="{{ row.num_stale }}"
+                data-sort-ok="{{ row.num_ok }}"
+                data-sort-na="{{ row.num_na }}"
+                data-sort-percentage="{{ row.stale_percentage }}">
+              <td>{{ h.link_to(row.organization_title, h.report__relative_url_for(organization=row.organization_name)) }}</td>
+              <td>{{ row.total_packages }}</td>
+              <td>{{ row.num_stale }}</td>
+              <td>{{ row.num_ok }}</td>
+              <td>{{ row.num_na }}</td>
+              <td>{{ row.stale_percentage }}%</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <nav class="text-center" id="stale-pagination-nav" style="margin-top: 25px;">
+      <ul class="pagination" id="stale-pagination-controls"></ul>
+      <p class="text-muted" id="stale-pagination-info" style="margin-top: 5px;"></p>
+    </nav>
+  {% endif %}
+
+{% else %}
+  <div class="row status-summary">
+    <div class="col-md-3">
+      <div class="well text-center">
+        <h2>{{ data['num_packages'] }}</h2>
+        <p>{% trans %}Total datasets{% endtrans %}</p>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="well text-center" style="border-left: 4px solid #d9534f;">
+        <h2 style="color: #d9534f;">{{ data['num_stale'] }}</h2>
+        <p>{% trans %}Stale datasets{% endtrans %} ({{ data['stale_percentage'] }}%)</p>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="well text-center" style="border-left: 4px solid #5cb85c;">
+        <h2 style="color: #5cb85c;">{{ data['num_ok'] }}</h2>
+        <p>{% trans %}Up-to-date datasets{% endtrans %}</p>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="well text-center" style="border-left: 4px solid #777;">
+        <h2 style="color: #777;">{{ data['num_na'] }}</h2>
+        <p>{% trans %}Non-evaluable datasets{% endtrans %}</p>
+      </div>
     </div>
   </div>
-  <div class="col-md-4">
-    <div class="well text-center" style="border-left: 4px solid #5cb85c;">
-      <h2 style="color: #5cb85c;">{{ data['num_packages'] - data['num_stale'] }}</h2>
-      <p>{% trans %}OK datasets (up-to-date and non-evaluable){% endtrans %}</p>
+
+  {% if table|length > 0 %}
+    <div style="margin-bottom: 15px;">
+      <div style="margin-bottom: 10px;">
+        <div class="btn-group" role="group">
+          <button type="button" class="btn btn-default active" data-filter="all">
+            {% trans %}All{% endtrans %} ({{ data['num_packages'] }})
+          </button>
+          <button type="button" class="btn btn-default" data-filter="stale">
+            <i class="fa fa-exclamation-triangle text-danger"></i>
+            {% trans %}Stale{% endtrans %} ({{ data['num_stale'] }})
+          </button>
+          <button type="button" class="btn btn-default" data-filter="ok">
+            <i class="fa fa-check text-success"></i>
+            {% trans %}Up-to-date{% endtrans %} ({{ data['num_ok'] }})
+          </button>
+          <button type="button" class="btn btn-default" data-filter="na">
+            <i class="fa fa-minus text-muted"></i>
+            {% trans %}Non-evaluable datasets{% endtrans %} ({{ data['num_na'] }})
+          </button>
+        </div>
+      </div>
+      <div>
+        <label style="font-weight: normal; margin-right: 5px;">{% trans %}Per page{% endtrans %}</label>
+        <select id="stale-per-page-select" class="form-control" style="width: auto; display: inline-block;">
+          <option value="20" selected>20</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+          <option value="all">{% trans %}All{% endtrans %}</option>
+        </select>
+      </div>
     </div>
-  </div>
-</div>
+
+    <div class="report-table-wrapper">
+      <table class="table table-striped table-bordered table-hover table-condensed"
+             id="stale-report-table"
+             data-item-label-single="σύνολο δεδομένων"
+             data-item-label-plural="σύνολα δεδομένων"
+             style="width: 100%; margin-top: 8px;">
+        <thead>
+          <tr>
+            <th class="row-index-header">#</th>
+            <th class="sortable" data-sort="title" data-sort-type="string">
+              {% trans %}Dataset{% endtrans %}
+              <i class="fa fa-sort sort-icon"></i>
+            </th>
+            <th class="sortable" data-sort="organization" data-sort-type="string">
+              {% trans %}Organization{% endtrans %}
+              <i class="fa fa-sort sort-icon"></i>
+            </th>
+            <th class="sortable" data-sort="frequency" data-sort-type="string">
+              {% trans %}Frequency{% endtrans %}
+              <i class="fa fa-sort sort-icon"></i>
+            </th>
+            <th class="sortable" data-sort="status" data-sort-type="number">
+              {% trans %}Status{% endtrans %}
+              <i class="fa fa-sort sort-icon"></i>
+            </th>
+            <th class="sortable" data-sort="last_modified" data-sort-type="string">
+              {% trans %}Last Modified{% endtrans %}
+              <i class="fa fa-sort sort-icon"></i>
+            </th>
+            <th class="sortable" data-sort="days" data-sort-type="number">
+              {% trans %}Days Since Update{% endtrans %}
+              <i class="fa fa-sort sort-icon"></i>
+            </th>
+            <th>{% trans %}Notes{% endtrans %}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in table %}
+            <tr class="stale-row
+                {% if row.is_stale %}filter-stale
+                {% elif row.is_evaluable %}filter-ok
+                {% else %}filter-na{% endif %}"
+                data-sort-title="{{ row.title|lower }}"
+                data-sort-organization="{{ (row.organization or '')|lower }}"
+                data-sort-frequency="{{ row.frequency|lower }}"
+                data-sort-status="{% if row.is_stale %}0{% elif row.is_evaluable %}1{% else %}2{% endif %}"
+                data-sort-last_modified="{{ row.last_modified or '' }}"
+                data-sort-days="{{ row.days_since_update if row.days_since_update is not none else -1 }}">
+              <td class="row-index">{{ loop.index }}</td>
+              <td>
+                <a href="{{ h.url_for(dataset_read_route, id=row.name) }}" title="{{ row.title }}">
+                  <strong>{{ row.title }}</strong>
+                </a>
+              </td>
+              <td>{{ row.organization or _('N/A') }}</td>
+              <td>{{ row.frequency }}</td>
+              <td>
+                {% if row.is_stale %}
+                  <span class="label label-danger">{% trans %}STALE{% endtrans %}</span>
+                {% elif row.is_evaluable %}
+                  <span class="label label-success">{% trans %}OK{% endtrans %}</span>
+                {% else %}
+                  <span class="label label-default">{% trans %}Non-evaluable{% endtrans %}</span>
+                {% endif %}
+              </td>
+              <td>{{ row.last_modified or _('N/A') }}</td>
+              <td>
+                {% if row.days_since_update is not none %}
+                  {{ row.days_since_update }}
+                {% else %}
+                  -
+                {% endif %}
+              </td>
+              <td>{{ row.notes or _('No description') }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <nav class="text-center" id="stale-pagination-nav" style="margin-top: 25px;">
+      <ul class="pagination" id="stale-pagination-controls"></ul>
+      <p class="text-muted" id="stale-pagination-info" style="margin-top: 5px;"></p>
+    </nav>
+
+    <p><strong>{% trans %}Status Legend{% endtrans %}</strong></p>
+    <ul>
+      <li><strong class="status-stale">{% trans %}STALE{% endtrans %}</strong> - {% trans %}Dataset has not been updated within its expected frequency schedule{% endtrans %}</li>
+      <li><strong class="status-ok">{% trans %}OK{% endtrans %}</strong> - {% trans %}Dataset is up-to-date according to its frequency schedule{% endtrans %}</li>
+      <li><strong class="status-na">{% trans %}Non-evaluable{% endtrans %}</strong> - {% trans %}Dataset has irregular, continuous, or unknown update frequency{% endtrans %}</li>
+      <li><strong>{% trans %}N/A (Not Available){% endtrans %}</strong> - {% trans %}Information is not available (e.g. frequency not declared){% endtrans %}</li>
+    </ul>
+  {% endif %}
+{% endif %}
 
 {% if table|length > 0 %}
-
-{# --- Toolbar: φίλτρο + items per page --- #}
-<div style="margin-bottom: 15px;">
-  <div style="margin-bottom: 10px;">
-    <div class="btn-group" role="group">
-      <button type="button" class="btn btn-default active" data-filter="all">
-        {% trans %}All{% endtrans %} ({{ data['num_packages'] }})
-      </button>
-      <button type="button" class="btn btn-default" data-filter="stale">
-        <i class="fa fa-exclamation-triangle text-danger"></i>
-        {% trans %}Stale{% endtrans %} ({{ data['num_stale'] }})
-      </button>
-      <button type="button" class="btn btn-default" data-filter="ok">
-        <i class="fa fa-check text-success"></i>
-        {% trans %}Up-to-date{% endtrans %} ({{ ns.ok_count }})
-      </button>
-      <button type="button" class="btn btn-default" data-filter="na">
-        <i class="fa fa-minus text-muted"></i>
-        {% trans %}Non-evaluable datasets{% endtrans %} ({{ ns.na_count }})
-      </button>
-    </div>
-  </div>
-  <div>
-    <label style="font-weight: normal; margin-right: 5px;">{% trans %}Per page{% endtrans %}</label>
-    <select id="stale-per-page-select" class="form-control" style="width: auto; display: inline-block;">
-      <option value="20" selected>20</option>
-      <option value="50">50</option>
-      <option value="100">100</option>
-      <option value="all">{% trans %}All{% endtrans %}</option>
-    </select>
-  </div>
-</div>
-
-{# --- Πίνακας --- #}
-<div class="report-table-wrapper">
-  <table class="table table-striped table-bordered table-hover table-condensed"
-         id="stale-report-table"
-         style="width: 100%; margin-top: 8px;">
-    <thead>
-      <tr>
-        <th style="width: 40px;">#</th>
-        <th class="sortable" data-sort="title">
-          {% trans %}Dataset{% endtrans %}
-          <i class="fa fa-sort sort-icon"></i>
-        </th>
-        <th class="sortable" data-sort="organization">
-          {% trans %}Organization{% endtrans %}
-          <i class="fa fa-sort sort-icon"></i>
-        </th>
-        <th class="sortable" data-sort="frequency">
-          {% trans %}Frequency{% endtrans %}
-          <i class="fa fa-sort sort-icon"></i>
-        </th>
-        <th class="sortable" data-sort="status">
-          {% trans %}Status{% endtrans %}
-          <i class="fa fa-sort sort-icon"></i>
-        </th>
-        <th class="sortable" data-sort="last_modified">
-          {% trans %}Last Modified{% endtrans %}
-          <i class="fa fa-sort sort-icon"></i>
-        </th>
-        <th class="sortable" data-sort="days">
-          {% trans %}Days Since Update{% endtrans %}
-          <i class="fa fa-sort sort-icon"></i>
-        </th>
-        <th>{% trans %}Notes{% endtrans %}</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for row in table %}
-        {# Filter classes βασισμένα σε is_stale + days_since_update (δεν εξαρτώνται από μετάφραση) #}
-        <tr class="stale-row
-            {% if row.is_stale %}filter-stale
-            {% elif row.days_since_update is not none %}filter-ok
-            {% else %}filter-na{% endif %}"
-            data-sort-title="{{ row.title|lower }}"
-            data-sort-organization="{{ (row.organization or '')|lower }}"
-            data-sort-frequency="{{ row.frequency|lower }}"
-            data-sort-status="{% if row.is_stale %}0{% elif row.days_since_update is not none %}1{% else %}2{% endif %}"
-            data-sort-last_modified="{{ row.last_modified or '' }}"
-            data-sort-days="{{ row.days_since_update if row.days_since_update is not none else -1 }}">
-          <td class="row-index">{{ loop.index }}</td>
-          <td>
-            <a href="{{ h.url_for(dataset_read_route, id=row.name) }}" title="{{ row.title }}">
-              <strong>{{ row.title }}</strong>
-            </a>
-          </td>
-          <td>{{ row.organization or _('N/A') }}</td>
-          <td>{{ row.frequency }}</td>
-          <td>
-            {% if row.is_stale %}
-              <span class="label label-danger">{% trans %}STALE{% endtrans %}</span>
-            {% elif row.days_since_update is not none %}
-              <span class="label label-success">{% trans %}OK{% endtrans %}</span>
-            {% else %}
-              <span class="label label-default">{% trans %}Non-evaluable{% endtrans %}</span>
-            {% endif %}
-          </td>
-          <td>{{ row.last_modified or _('N/A') }}</td>
-          <td>
-            {% if row.days_since_update is not none %}
-              {{ row.days_since_update }}
-            {% else %}
-              -
-            {% endif %}
-          </td>
-          <td>{{ row.notes or _('No description') }}</td>
-        </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
-
-{# --- Pagination controls --- #}
-<nav class="text-center" id="stale-pagination-nav" style="margin-top: 25px;">
-  <ul class="pagination" id="stale-pagination-controls">
-    {# Populated by JS #}
-  </ul>
-  <p class="text-muted" id="stale-pagination-info" style="margin-top: 5px;"></p>
-</nav>
-
-{# --- Επεξήγηση Κατάστασης --- #}
-<p><strong>{% trans %}Status Legend{% endtrans %}</strong></p>
-<ul>
-  <li><strong class="status-stale">{% trans %}STALE{% endtrans %}</strong> - {% trans %}Dataset has not been updated within its expected frequency schedule{% endtrans %}</li>
-  <li><strong class="status-ok">{% trans %}OK{% endtrans %}</strong> - {% trans %}Dataset is up-to-date according to its frequency schedule{% endtrans %}</li>
-  <li><strong class="status-na">{% trans %}Non-evaluable{% endtrans %}</strong> - {% trans %}Dataset has irregular, continuous, or unknown update frequency{% endtrans %}</li>
-  <li><strong>{% trans %}N/A (Not Available){% endtrans %}</strong> - {% trans %}Information is not available (e.g. frequency not declared){% endtrans %}</li>
-</ul>
-
-{# --- JavaScript: sorting + filtering + pagination --- #}
 <script>
 (function() {
   'use strict';
 
+  var table = document.getElementById('stale-report-table');
   var ROWS_SELECTOR = '#stale-report-table tbody .stale-row';
   var currentFilter = 'all';
   var perPage = 20;
   var currentPage = 1;
-  var currentSort = { column: null, direction: 'asc' };
+  var currentSort = { column: null, direction: 'asc', type: 'string' };
 
-  // ===================== SORTING =====================
-  function sortRows(column) {
+  function sortRows(column, type) {
     if (currentSort.column === column) {
       currentSort.direction = (currentSort.direction === 'asc') ? 'desc' : 'asc';
     } else {
       currentSort.column = column;
       currentSort.direction = 'asc';
+      currentSort.type = type || 'string';
     }
 
-    var tbody = document.querySelector('#stale-report-table tbody');
+    var tbody = table.querySelector('tbody');
     var rows = Array.prototype.slice.call(tbody.querySelectorAll('.stale-row'));
 
     rows.sort(function(a, b) {
       var valA = a.getAttribute('data-sort-' + column) || '';
       var valB = b.getAttribute('data-sort-' + column) || '';
 
-      if (column === 'days' || column === 'status') {
+      if (currentSort.type === 'number') {
         valA = parseFloat(valA);
         valB = parseFloat(valB);
         if (isNaN(valA)) valA = -1;
         if (isNaN(valB)) valB = -1;
+        return (currentSort.direction === 'desc') ? (valB - valA) : (valA - valB);
       }
 
-      var result;
-      if (typeof valA === 'number') {
-        result = valA - valB;
-      } else {
-        result = valA.localeCompare(valB, 'el');
-      }
+      var result = valA.localeCompare(valB, 'el');
       return (currentSort.direction === 'desc') ? -result : result;
     });
 
@@ -269,7 +386,7 @@ data - other data values, as a dict
   }
 
   function updateSortHeaders() {
-    var headers = document.querySelectorAll('#stale-report-table th.sortable');
+    var headers = table.querySelectorAll('th.sortable');
     headers.forEach(function(th) {
       var col = th.getAttribute('data-sort');
       var icon = th.querySelector('.sort-icon');
@@ -289,21 +406,15 @@ data - other data values, as a dict
     });
   }
 
-  // ===================== FILTERING =====================
   function getFilteredRows() {
-    var rows = Array.prototype.slice.call(
-      document.querySelectorAll(ROWS_SELECTOR)
-    );
+    var rows = Array.prototype.slice.call(document.querySelectorAll(ROWS_SELECTOR));
     if (currentFilter === 'all') return rows;
     var cls = 'filter-' + currentFilter;
     return rows.filter(function(r) { return r.classList.contains(cls); });
   }
 
-  // ===================== RENDER =====================
   function render() {
-    var allRows = Array.prototype.slice.call(
-      document.querySelectorAll(ROWS_SELECTOR)
-    );
+    var allRows = Array.prototype.slice.call(document.querySelectorAll(ROWS_SELECTOR));
     var filtered = getFilteredRows();
     var totalFiltered = filtered.length;
     var totalPages = (perPage === 'all')
@@ -321,25 +432,28 @@ data - other data values, as a dict
       if (visibleSet.has(row)) {
         row.style.display = '';
         visibleIndex++;
-        row.querySelector('.row-index').textContent = visibleIndex;
+        var indexCell = row.querySelector('.row-index');
+        if (indexCell) indexCell.textContent = visibleIndex;
       } else {
         row.style.display = 'none';
       }
     });
 
+    var label = totalFiltered === 1
+      ? table.getAttribute('data-item-label-single')
+      : table.getAttribute('data-item-label-plural');
     var info = document.getElementById('stale-pagination-info');
     if (perPage === 'all') {
-      info.textContent = 'Εμφάνιση ' + totalFiltered + ' συνόλων δεδομένων';
+      info.textContent = 'Εμφάνιση ' + totalFiltered + ' ' + label;
     } else {
       var showStart = totalFiltered > 0 ? startIdx + 1 : 0;
       var showEnd = Math.min(endIdx, totalFiltered);
       info.textContent = 'Εμφάνιση ' + showStart + '-' + showEnd +
-                         ' από ' + totalFiltered + ' σύνολα δεδομένων';
+                         ' από ' + totalFiltered + ' ' + label;
     }
     renderPaginationButtons(totalPages);
   }
 
-  // ===================== PAGINATION =====================
   function renderPaginationButtons(totalPages) {
     var nav = document.getElementById('stale-pagination-controls');
     nav.innerHTML = '';
@@ -387,11 +501,10 @@ data - other data values, as a dict
     nav.appendChild(nextLi);
   }
 
-  // ===================== EVENT LISTENERS =====================
-  var sortHeaders = document.querySelectorAll('#stale-report-table th.sortable');
+  var sortHeaders = table.querySelectorAll('th.sortable');
   sortHeaders.forEach(function(th) {
     th.addEventListener('click', function() {
-      sortRows(this.getAttribute('data-sort'));
+      sortRows(this.getAttribute('data-sort'), this.getAttribute('data-sort-type'));
     });
   });
 
@@ -417,7 +530,4 @@ data - other data values, as a dict
   render();
 })();
 </script>
-
-{% else %}
-<p>{% trans %}No datasets with defined frequencies found in the selected scope.{% endtrans %}</p>
 {% endif %}

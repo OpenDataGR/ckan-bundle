@@ -2035,6 +2035,18 @@ msgstr ""
 msgid "Access URL is accessible"
 msgstr ""
 
+#: ckanext/data_gov_gr/templates/package/mqa.html:271
+msgid "Access URL"
+msgstr ""
+
+#: ckanext/data_gov_gr/templates/package/mqa.html:274
+msgid "Access URL status"
+msgstr ""
+
+#: ckanext/data_gov_gr/templates/package/mqa.html:279
+msgid "Download URL status"
+msgstr ""
+
 #: ckanext/data_gov_gr/templates/package/mqa.html:74
 #: ckanext/data_gov_gr/templates/package/mqa.html:293
 msgid "Reusability"
@@ -2224,14 +2236,6 @@ msgstr ""
 
 #: ckanext/data_gov_gr/templates/package/mqa.html:263
 msgid "Toggle details"
-msgstr ""
-
-#: ckanext/data_gov_gr/templates/package/mqa.html:274
-msgid "Most frequent accessURL status codes"
-msgstr ""
-
-#: ckanext/data_gov_gr/templates/package/mqa.html:283
-msgid "Most frequent downloadURL status codes"
 msgstr ""
 
 #: ckanext/data_gov_gr/templates/package/mqa.html:330

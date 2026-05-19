@@ -132,6 +132,7 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         - ``guides_base_url`` (external guides base URL)
         - ``ckanext.data_gov_gr.contact.gitbook_embed_items`` (contact page GitBook dropdown items as JSON)
         - ``ckanext.data_gov_gr.pages.faq`` (CKAN Pages slug for the FAQ footer link)
+        - ``ckanext.data_gov_gr.pages.accessibility_statement`` (CKAN Pages slug for the Accessibility footer link)
         which are independent from their fallback values in the ini file.
 
         Επιπλέον, ορίζει παραμετρικές επιλογές μενού για τα σύνολα δεδομένων:
@@ -188,6 +189,7 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
             'ckanext.data_gov_gr.activity_stream.dataset.restrict_visibility': [ignore_missing, boolean_validator],
             'ckanext.data_gov_gr.footer.mindigital_logo_variant': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.pages.faq': [ignore_missing, unicode_safe],
+            'ckanext.data_gov_gr.pages.accessibility_statement': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.pages.cookies_policy': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.pages.privacy_policy': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.search.api_doc_url': [ignore_missing, unicode_safe],

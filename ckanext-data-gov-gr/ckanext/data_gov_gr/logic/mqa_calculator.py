@@ -1084,6 +1084,11 @@ class MQACalculator:
             # Add criteria satisfaction to scores
             scores['criteria'] = criteria
 
+            access_url = self._get_resource_access_url(resource)
+            download_url = self._get_resource_download_url(resource)
+            scores['access_url_status'] = self._status_code_cache.get(access_url, '') if access_url else ''
+            scores['download_url_status'] = self._status_code_cache.get(download_url, '') if download_url else ''
+
             # Add resource metadata for display
             scores['resource_id'] = resource.get('id', '')
             scores['name'] = resource.get('name', resource.get('name_translated', {}).get('en', ''))
@@ -1094,10 +1099,6 @@ class MQACalculator:
         # Add dataset-level criteria satisfaction to the first distribution
         if distribution_scores:
             distribution_scores[0]['dataset_criteria'] = dataset_criteria
-
-            # Add most frequent access URL status codes and download URL status codes
-            distribution_scores[0]['most_frequent_access_url_status_codes'] = self.get_most_frequent_access_url_status_codes()
-            distribution_scores[0]['most_frequent_download_url_status_codes'] = self.get_most_frequent_download_url_status_codes()
 
         return distribution_scores
 
@@ -1611,8 +1612,8 @@ class MQACalculator:
                     'formatted_percentage': self.format_percentage(dist.get('percentage', 0)),
                     'quality_level': self.get_quality_level(dist.get('percentage', 0)),
                     'criteria': dist.get('criteria', {}),
-                    'most_frequent_access_url_status_codes': dist.get('most_frequent_access_url_status_codes', []),
-                    'most_frequent_download_url_status_codes': dist.get('most_frequent_download_url_status_codes', [])
+                    'access_url_status': dist.get('access_url_status', ''),
+                    'download_url_status': dist.get('download_url_status', '')
                 }
                 display_data['distributions'].append(distribution_data)
 

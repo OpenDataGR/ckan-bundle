@@ -60,6 +60,7 @@ RESOURCE_RIGHTS_PLAIN_TEXT_FROM_USE_CONSTRAINTS_CONFIG_KEY = (
 )
 DATA_SERVICE_PACKAGE_TYPE = "data-service"
 IANA_MEDIA_TYPE_BASE_URL = "https://www.iana.org/assignments/media-types/"
+XML_MIMETYPE = IANA_MEDIA_TYPE_BASE_URL + "application/xml"
 MEDIA_TYPES_VOCABULARY_NAME = "Media types"
 INSPIRE_CONDITIONS_APPLYING_TO_ACCESS_AND_USE = (
     "http://inspire.ec.europa.eu/metadata-codelist/"
@@ -2123,6 +2124,8 @@ def _configured_capabilities_resource(
         "format": "XML",
         "resource_locator_protocol": protocol,
         "access_url": url,
+        "download_url": url,
+        "mimetype": XML_MIMETYPE,
     }
 
 

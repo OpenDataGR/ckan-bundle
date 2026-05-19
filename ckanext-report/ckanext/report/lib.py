@@ -304,6 +304,8 @@ def filter_report_data_by_package_show_access(data, context, report=None):
 
     table = data.get('table')
     if not isinstance(table, list) or not table:
+        if data.get('_requires_post_access_filter'):
+            return _apply_post_access_filter(report, data, context)
         return data
 
     try:
@@ -327,7 +329,11 @@ def filter_report_data_by_package_show_access(data, context, report=None):
         if cached_access is False:
             continue
         try:
-            logic.check_access('package_show', context, {'id': package_id})
+            if hasattr(toolkit, 'fresh_context'):
+                action_context = toolkit.fresh_context(context)
+            else:
+                action_context = dict(context)
+            logic.check_access('package_show', action_context, {'id': package_id})
         except toolkit.NotAuthorized:
             package_access_cache[package_id] = False
             continue
@@ -342,5 +348,6 @@ def filter_report_data_by_package_show_access(data, context, report=None):
     data['table'] = filtered
     if was_filtered:
         data['access_filtered'] = True
+    if was_filtered or data.get('_requires_post_access_filter'):
         data = _apply_post_access_filter(report, data, context)
     return data

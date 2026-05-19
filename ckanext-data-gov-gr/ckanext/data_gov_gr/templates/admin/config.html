@@ -266,6 +266,19 @@
           </p>
 
           {{ form.input(
+            'ckanext.data_gov_gr.pages.accessibility_statement',
+            id='field-ckanext.data_gov_gr.pages.accessibility_statement',
+            label=_('Σελίδα Δήλωσης Προσβασιμότητας — όνομα σελίδας'),
+            value=data.get('ckanext.data_gov_gr.pages.accessibility_statement', ''),
+            error=errors.get('ckanext.data_gov_gr.pages.accessibility_statement'),
+            placeholder='accessibility',
+            classes=['control-medium']
+          ) }}
+          <p class="help-block" style="margin-top: -24px; margin-bottom: 16px">
+            {{ _('Αν συμπληρωθεί, εμφανίζεται στη στήλη «Σχετικά» του footer σύνδεσμος «Προσβασιμότητα» που παραπέμπει στο /pages/{slug}. Αφήστε κενό για να μη φαίνεται.') }}
+          </p>
+
+          {{ form.input(
             'ckanext.data_gov_gr.pages.cookies_policy',
             id='field-ckanext.data_gov_gr.pages.cookies_policy',
             label=_('Σελίδα Πολιτικής Cookies — όνομα σελίδας'),
@@ -1730,6 +1743,7 @@
         <li><strong>{{ _('Εμφάνιση λογοτύπου Γραμματείας στο header') }}:</strong> {{ _('Εμφανίζει το λογότυπο της Γραμματείας Διακυβέρνησης Δεδομένων AI δεξιά του λογοτύπου data.gov.gr, με λευκή κάθετη γραμμή ως διαχωριστικό.') }}</li>
         <li><strong>{{ _('Λειτουργία συγκατάθεσης Matomo') }}:</strong> {{ _('Ελέγχει αν εμφανίζεται banner συγκατάθεσης cookies/tracking. Απενεργοποιημένο = τρέχουσα συμπεριφορά χωρίς banner. Tracking consent = πλήρης συναίνεση πριν οποιοδήποτε tracking. Cookie consent = tracking χωρίς cookies μέχρι αποδοχή. Opt-out = tracking by default, ο χρήστης μπορεί να εξαιρεθεί.') }}</li>
         <li><strong>{{ _('Σελίδα Συχνών Ερωτήσεων (FAQ)') }}:</strong> {{ _('Αν συμπληρωθεί με το slug της CKAN σελίδας (π.χ. faq), εμφανίζεται σύνδεσμος «Συχνές Ερωτήσεις» στη στήλη Κοινότητας του footer.') }}</li>
+        <li><strong>{{ _('Σελίδα Δήλωσης Προσβασιμότητας') }}:</strong> {{ _('Αν συμπληρωθεί με το slug της CKAN σελίδας (π.χ. accessibility), εμφανίζεται σύνδεσμος «Προσβασιμότητα» στη στήλη Σχετικά του footer.') }}</li>
         <li><strong>{{ _('Σελίδα Πολιτικής Cookies') }}:</strong> {{ _('Αν συμπληρωθεί με το slug της CKAN σελίδας (π.χ. cookies-policy), εμφανίζεται σύνδεσμος «Πολιτική Cookies» στη στήλη Σχετικά του footer.') }}</li>
         <li><strong>{{ _('Σελίδα Πολιτικής Απορρήτου') }}:</strong> {{ _('Αν συμπληρωθεί με το slug της CKAN σελίδας (π.χ. privacy-policy), εμφανίζεται σύνδεσμος «Πολιτική Απορρήτου» στη στήλη Σχετικά του footer.') }}</li>
         <li><strong>{{ _('Εμφάνιση λογοτύπου Κυβέρνησης στο footer') }}:</strong> {{ _('Εμφανίζει το λογότυπο gov.gr αριστερά στο footer, δίπλα στο λογότυπο του Υπουργείου Ψηφιακής Διακυβέρνησης.') }}</li>

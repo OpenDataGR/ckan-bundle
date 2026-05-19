@@ -6,6 +6,7 @@ from . import utils
 from ckan.plugins import toolkit
 from ckan import model
 from ckan.lib.mailer import _mail_recipient
+from ckanext.report import lib as report_lib
 from ckanext.report.stale_datasets_report import stale_datasets_report
 from ckan.logic import get_action
 
@@ -76,13 +77,18 @@ def send_stale_report(organization=None, send_emails=False, test_email=None):
     Use -t to send a test email to a specific address.
     """
     try:
-        # Generate the report
+        # Generate the report. The web report's default view is an
+        # organization aggregate; emails need dataset-level rows.
         report_data = stale_datasets_report(organization=organization)
+        email_report_data = (
+            _dataset_level_stale_report_data(organization)
+            if send_emails or test_email else report_data
+        )
         
         if test_email:
             # Send test email
             _send_report_email(
-                report_data, 
+                email_report_data,
                 'Μη Επικαιροποιημένα Σύνολα Δεδομένων',
                 test_email, 
                 'Test Recipient'
@@ -92,7 +98,7 @@ def send_stale_report(organization=None, send_emails=False, test_email=None):
             
         if send_emails:
             # Send emails to organization admins
-            org_emails_sent = _send_emails_to_org_admins(report_data, organization)
+            org_emails_sent = _send_emails_to_org_admins(email_report_data, organization)
             click.secho('Sent emails to {} organizations'.format(org_emails_sent), fg='green')
         else:
             # Just display summary
@@ -103,6 +109,36 @@ def send_stale_report(organization=None, send_emails=False, test_email=None):
         raise
 
 
+def _dataset_level_stale_report_data(organization=None):
+    if organization:
+        return stale_datasets_report(organization=organization)
+
+    rows = []
+    num_packages = 0
+    num_stale = 0
+    num_ok = 0
+    num_na = 0
+
+    for org_name in report_lib.all_organizations():
+        org_report_data = stale_datasets_report(organization=org_name)
+        rows.extend(org_report_data['table'])
+        num_packages += org_report_data.get('num_packages', 0)
+        num_stale += org_report_data.get('num_stale', 0)
+        num_ok += org_report_data.get('num_ok', 0)
+        num_na += org_report_data.get('num_na', 0)
+
+    return {
+        'table': rows,
+        'num_packages': num_packages,
+        'total_packages': num_packages,
+        'num_stale': num_stale,
+        'num_ok': num_ok,
+        'num_na': num_na,
+        'stale_percentage': report_lib.percent(num_stale, num_packages),
+        'total_datasets': num_packages,
+    }
+
+
 def _send_emails_to_org_admins(report_data, organization=None):
     """
     Send emails to organization admins with their stale datasets report.
@@ -110,7 +146,7 @@ def _send_emails_to_org_admins(report_data, organization=None):
     # Group datasets by organization
     org_datasets = {}
     for row in report_data['table']:
-        org_name = row['organization']
+        org_name = row.get('organization_name') or row['organization']
         if org_name not in org_datasets:
             org_datasets[org_name] = []
         org_datasets[org_name].append(row)
@@ -122,7 +158,7 @@ def _send_emails_to_org_admins(report_data, organization=None):
             continue
             
         # Count stale datasets for this organization
-        stale_count = len([d for d in datasets if d['status'] == toolkit._('STALE')])
+        stale_count = len([d for d in datasets if d.get('is_stale')])
         
         # Skip organizations with no stale datasets
         if stale_count == 0:
@@ -132,12 +168,13 @@ def _send_emails_to_org_admins(report_data, organization=None):
         org_admins = _get_org_admins(org_name)
         
         if org_admins:
+            org_title = datasets[0].get('organization') or org_name
             # Generate organization-specific report data
             org_report_data = {
                 'table': datasets,
                 'num_packages': len(datasets),
                 'num_stale': stale_count,
-                'stale_percentage': (stale_count / len(datasets)) * 100 if datasets else 0,
+                'stale_percentage': report_lib.percent(stale_count, len(datasets)),
                 'total_datasets': len(datasets),
             }
             
@@ -145,10 +182,10 @@ def _send_emails_to_org_admins(report_data, organization=None):
             for admin in org_admins:
                 _send_report_email(
                     org_report_data, 
-                    toolkit._('Μη Επικαιροποιημένα Σύνολα Δεδομένων για {}').format(org_name),
+                    toolkit._('Μη Επικαιροποιημένα Σύνολα Δεδομένων για {}').format(org_title),
                     admin['email'], 
                     admin['name'],
-                    org_name
+                    org_title
                 )
                 emails_sent += 1
                 
@@ -260,7 +297,7 @@ def _create_html_email_body(report_data, org_name=None):
     report_url = '{}/report/stale-datasets'.format(site_url.rstrip('/'))
     
     # Prepare report data in the format expected by the template
-    stale_datasets = [row for row in report_data['table'] if row['status'] == 'STALE']
+    stale_datasets = [row for row in report_data['table'] if row.get('is_stale')]
     up_to_date_datasets = report_data['num_packages'] - report_data['num_stale']
     
     template_data = {
@@ -309,7 +346,7 @@ def _create_text_email_body(report_data, org_name=None):
     report_url = '{}/report/stale-datasets'.format(site_url.rstrip('/'))
     
     # Prepare report data in the format expected by the template
-    stale_datasets = [row for row in report_data['table'] if row['status'] == 'STALE']
+    stale_datasets = [row for row in report_data['table'] if row.get('is_stale')]
     up_to_date_datasets = report_data['num_packages'] - report_data['num_stale']
     
     template_data = {

@@ -86,3 +86,15 @@ msgstr "Tagless Datasets"
 
 msgid "Datasets which have no tags."
 msgstr "Datasets which have no tags."
+
+msgid "Organizations"
+msgstr "Organizations"
+
+msgid "Total datasets"
+msgstr "Total datasets"
+
+msgid "Datasets"
+msgstr "Datasets"
+
+msgid "Stale percentage"
+msgstr "Stale percentage"
