@@ -1557,6 +1557,7 @@ cd /root/ckan/lib/default/src/ckanext-data-gov-gr
   "default_tags": ["gis", "crete", "INSPIRE", "γεωχωρικά"],
   "skip_dataset_when_title_matches_layer_name": true,
   "include_only_datasets_when_title_matches_layer_name": false,
+  "title_prefix_for_layer_name_titles": "Layer-επίπεδο: ",
   "skip_dataset_when_layer_missing_from_wfs_capabilities": true,
   "include_only_datasets_when_layer_missing_from_wfs_capabilities": false,
   "skip_wfs_capabilities_resource_when_layer_missing_from_wfs_capabilities": false,
@@ -2249,6 +2250,45 @@ layer name και το local layer name, με `_` και `-` ως ισοδύνα
 ταιριάζουν δεν μπαίνουν στο `guids_in_source`. Άρα στο επόμενο re-harvest
 αντιμετωπίζονται ως missing from source και ακολουθούν τη λογική deletion του
 harvester.
+
+### `title_prefix_for_layer_name_titles`
+
+Προαιρετικό string. Default: κενό.
+
+Όταν οριστεί, ο WMS harvester προσθέτει το prefix μόνο στο
+`title_translated` για layers των οποίων ο τίτλος είναι ίδιος με το WMS layer
+name ή με το local layer name χωρίς workspace. Το απλό dataset `title`
+παραμένει όπως ήρθε από το WMS capabilities document.
+
+Παράδειγμα config:
+
+```json
+{
+  "include_only_datasets_when_title_matches_layer_name": true,
+  "title_prefix_for_layer_name_titles": "Layer-επίπεδο: "
+}
+```
+
+Για WMS layer:
+
+```xml
+<Layer queryable="1" opaque="0">
+  <Name>workspace:technical_layer</Name>
+  <Title>technical_layer</Title>
+</Layer>
+```
+
+το dataset κρατάει:
+
+```json
+{
+  "title": "technical_layer",
+  "title_translated": {
+    "el": "Layer-επίπεδο: technical_layer",
+    "en": "Layer-επίπεδο: technical_layer"
+  }
+}
+```
 
 ### `skip_dataset_when_layer_missing_from_wfs_capabilities`
 

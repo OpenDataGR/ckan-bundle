@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import time
 import unicodedata
 from hashlib import sha1
 from typing import Any
@@ -59,6 +60,7 @@ SKIP_DATASET_WHEN_TITLE_MATCHES_LAYER_NAME_CONFIG_KEY = (
 INCLUDE_ONLY_DATASETS_WHEN_TITLE_MATCHES_LAYER_NAME_CONFIG_KEY = (
     "include_only_datasets_when_title_matches_layer_name"
 )
+TITLE_PREFIX_FOR_LAYER_NAME_TITLES_CONFIG_KEY = "title_prefix_for_layer_name_titles"
 SKIP_DATASET_WHEN_LAYER_MISSING_FROM_WFS_CAPABILITIES_CONFIG_KEY = (
     "skip_dataset_when_layer_missing_from_wfs_capabilities"
 )
@@ -301,7 +303,13 @@ class WmsCapabilitiesHarvester(HarvesterBase):
             return []
 
         try:
+            started_at = time.monotonic()
             parsed = parse_wms_capabilities(capabilities_xml)
+            log.info(
+                "Parsed WMS capabilities: %d layers in %.2fs",
+                len(parsed["layers"]),
+                time.monotonic() - started_at,
+            )
         except Exception as e:
             self._save_gather_error("Could not parse WMS capabilities: %s" % e, harvest_job)
             log.exception("Could not parse WMS capabilities")
@@ -639,7 +647,13 @@ class WmsCapabilitiesHarvester(HarvesterBase):
             return None
 
         try:
+            started_at = time.monotonic()
             wfs_info = parse_wfs_capabilities(capabilities_xml)
+            log.info(
+                "Parsed WFS capabilities: %d feature types in %.2fs",
+                len(wfs_info.get("layer_names") or []),
+                time.monotonic() - started_at,
+            )
         except Exception as e:
             self._save_gather_error(
                 "Could not parse WFS capabilities: %s" % e,
@@ -742,6 +756,12 @@ class WmsCapabilitiesHarvester(HarvesterBase):
             verify_ssl = self._verify_ssl(config)
             if not verify_ssl:
                 log.warning("SSL verification disabled for WMS capabilities: %s", url)
+            log.info(
+                "Fetching WMS capabilities: %s timeout=%s",
+                url,
+                self._request_timeout(config),
+            )
+            started_at = time.monotonic()
             response = requests.get(
                 url,
                 headers=self._request_headers(config),
@@ -749,7 +769,14 @@ class WmsCapabilitiesHarvester(HarvesterBase):
                 verify=verify_ssl,
             )
             response.raise_for_status()
-            return response.content
+            content = response.content
+            log.info(
+                "Fetched WMS capabilities: status=%s bytes=%d in %.2fs",
+                response.status_code,
+                len(content),
+                time.monotonic() - started_at,
+            )
+            return content
         except Exception as e:
             self._save_gather_error("Could not fetch WMS capabilities %s: %s" % (url, e), harvest_job)
             return None
@@ -786,6 +813,12 @@ class WmsCapabilitiesHarvester(HarvesterBase):
             verify_ssl = self._verify_ssl(config)
             if not verify_ssl:
                 log.warning("SSL verification disabled for WFS capabilities: %s", url)
+            log.info(
+                "Fetching WFS capabilities: %s timeout=%s",
+                url,
+                self._request_timeout(config),
+            )
+            started_at = time.monotonic()
             response = requests.get(
                 url,
                 headers=self._request_headers(config),
@@ -793,7 +826,14 @@ class WmsCapabilitiesHarvester(HarvesterBase):
                 verify=verify_ssl,
             )
             response.raise_for_status()
-            return response.content
+            content = response.content
+            log.info(
+                "Fetched WFS capabilities: status=%s bytes=%d in %.2fs",
+                response.status_code,
+                len(content),
+                time.monotonic() - started_at,
+            )
+            return content
         except Exception as e:
             self._save_gather_error(
                 "Could not fetch WFS capabilities %s: %s" % (url, e),
@@ -870,7 +910,11 @@ class WmsCapabilitiesHarvester(HarvesterBase):
         package_dict = {
             "name": payload["dataset_name"],
             "title": title,
-            "title_translated": _translated(title, layer_name),
+            "title_translated": self._title_translated_for_layer(
+                layer,
+                title,
+                config,
+            ),
             "notes": notes,
             "notes_translated": _translated(notes, title),
             "private": bool(config.get("private", False)),
@@ -906,6 +950,21 @@ class WmsCapabilitiesHarvester(HarvesterBase):
         apply_default_resource_fields_from_config(package_dict, harvest_object)
         preserve_resource_ids_by_url(package_dict, harvest_object)
         return package_dict
+
+    def _title_translated_for_layer(
+        self,
+        layer: dict[str, Any],
+        title: str,
+        config: dict[str, Any],
+    ) -> dict[str, str]:
+        layer_name = str(layer.get("name") or "").strip()
+        prefix = str(
+            config.get(TITLE_PREFIX_FOR_LAYER_NAME_TITLES_CONFIG_KEY) or ""
+        )
+        if not prefix or not self._title_matches_layer_name(layer):
+            return _translated(title, layer_name)
+
+        return _translated("%s%s" % (prefix, title), layer_name)
 
     def _source_package(self, harvest_object):
         source = getattr(getattr(harvest_object, "job", None), "source", None)
