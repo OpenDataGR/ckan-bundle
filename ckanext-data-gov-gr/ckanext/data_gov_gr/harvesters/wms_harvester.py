@@ -49,6 +49,9 @@ DISABLE_SSL_VERIFICATION_CONFIG_KEY = "disable_ssl_verification"
 SKIP_WFS_CAPABILITIES_RESOURCE_WHEN_LAYER_MISSING_FROM_WFS_CAPABILITIES_CONFIG_KEY = (
     "skip_wfs_capabilities_resource_when_layer_missing_from_wfs_capabilities"
 )
+SKIP_WMS_GETMAP_RESOURCES_WHEN_LAYER_PRESENT_IN_WFS_CAPABILITIES_CONFIG_KEY = (
+    "skip_wms_getmap_resources_when_layer_present_in_wfs_capabilities"
+)
 DEFAULT_THEME_CONFIG_KEY = "default_theme"
 GATHER_LOG_EVERY_CONFIG_KEY = "gather_log_every"
 INCLUDE_LAYER_NAME_KEYWORDS_CONFIG_KEY = "include_layer_name_keywords"
@@ -712,6 +715,9 @@ class WmsCapabilitiesHarvester(HarvesterBase):
             or config.get(
                 SKIP_WFS_CAPABILITIES_RESOURCE_WHEN_LAYER_MISSING_FROM_WFS_CAPABILITIES_CONFIG_KEY
             )
+            or config.get(
+                SKIP_WMS_GETMAP_RESOURCES_WHEN_LAYER_PRESENT_IN_WFS_CAPABILITIES_CONFIG_KEY
+            )
             or self._wfs_download_resource_configs(config)
         )
 
@@ -1145,6 +1151,9 @@ class WmsCapabilitiesHarvester(HarvesterBase):
         payload: dict[str, Any],
         config: dict[str, Any],
     ) -> list[dict[str, Any]]:
+        if self._skip_wms_getmap_resources(payload, config):
+            return []
+
         bbox = layer.get("bbox")
         if not isinstance(bbox, dict):
             return []
@@ -1208,6 +1217,19 @@ class WmsCapabilitiesHarvester(HarvesterBase):
             resources.append(resource)
 
         return resources
+
+    def _skip_wms_getmap_resources(
+        self,
+        payload: dict[str, Any],
+        config: dict[str, Any],
+    ) -> bool:
+        if not config.get(
+            SKIP_WMS_GETMAP_RESOURCES_WHEN_LAYER_PRESENT_IN_WFS_CAPABILITIES_CONFIG_KEY
+        ):
+            return False
+
+        wfs_payload = payload.get("wfs") or {}
+        return bool(wfs_payload.get("layer_available"))
 
     def _wms_getmap_resource_configs(
         self,

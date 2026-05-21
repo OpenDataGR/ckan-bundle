@@ -1487,10 +1487,12 @@ cd /root/ckan/lib/default/src/ckanext-data-gov-gr
 Η σειρά των resources είναι:
 
 1. WMS preview resource, όταν υπάρχει `wms_preview_base_url`,
-2. WFS download resources, με τη σειρά που δηλώνονται στο
+2. WMS GetMap image resources, με τη σειρά που δηλώνονται στο
+   `wms_getmap_resources`,
+3. WFS download resources, με τη σειρά που δηλώνονται στο
    `wfs_download_resources`,
-3. WMS capabilities resource,
-4. WFS capabilities resource.
+4. WMS capabilities resource,
+5. WFS capabilities resource.
 
 Τα ελληνικά WMS metadata χρησιμοποιούνται και στα δύο language slots
 (`el`, `en`) όταν δεν υπάρχει ξεχωριστή αγγλική τιμή στην πηγή.
@@ -1561,6 +1563,7 @@ cd /root/ckan/lib/default/src/ckanext-data-gov-gr
   "skip_dataset_when_layer_missing_from_wfs_capabilities": true,
   "include_only_datasets_when_layer_missing_from_wfs_capabilities": false,
   "skip_wfs_capabilities_resource_when_layer_missing_from_wfs_capabilities": false,
+  "skip_wms_getmap_resources_when_layer_present_in_wfs_capabilities": false,
   "include_layer_name_keywords": false,
   "skip_keywords_matching": ["^v_[a-z0-9_]+$"],
   "gather_log_every": 100,
@@ -1889,6 +1892,45 @@ URL χωρίς query string.
 Τα standard params `service`, `version`, `request`, `layers`, `styles`, `crs` /
 `srs`, `bbox`, `width`, `height`, `format` και `transparent` τα διαχειρίζεται ο
 harvester και δεν αντικαθίστανται από το `params`.
+
+### `skip_wms_getmap_resources_when_layer_present_in_wfs_capabilities`
+
+Προαιρετικό boolean. Default: `false`.
+
+Όταν είναι `true`, ο harvester δεν δημιουργεί WMS `GetMap` image resources για
+datasets των οποίων το WMS layer υπάρχει και στο WFS `FeatureTypeList`.
+
+Η επιλογή επηρεάζει μόνο τους image resources που δημιουργούνται από το
+`wms_getmap_resources`. Δεν αλλάζει το filtering των datasets, δεν επηρεάζει το
+WMS preview resource, δεν επηρεάζει τα WFS download resources και δεν επηρεάζει
+τους WMS/WFS capabilities resources.
+
+Χρησιμοποιείται όταν θέλουμε PNG/image resource μόνο για WMS-only layers, ενώ
+για τα WFS-backed layers αρκούν τα WFS download resources:
+
+```json
+{
+  "wms_getmap_resources": [
+    {
+      "format": "PNG",
+      "image_format": "image/png",
+      "crs": "CRS:84"
+    }
+  ],
+  "wfs_download_resources": [
+    {
+      "format": "GeoJSON",
+      "output_format": "application/json"
+    }
+  ],
+  "skip_wms_getmap_resources_when_layer_present_in_wfs_capabilities": true
+}
+```
+
+Όταν ενεργοποιείται, ο harvester πρέπει να φορτώσει WFS capabilities ώστε να
+γνωρίζει αν το layer υπάρχει στο WFS. Αν δεν μπορεί να φορτώσει ή να διαβάσει
+το WFS capabilities document, το `gather_stage` σταματάει χωρίς να δημιουργήσει
+harvest objects.
 
 ### `wfs_download_resources`
 
@@ -2429,6 +2471,7 @@ resource που δημιουργεί ο WMS harvester.
 Η τιμή εφαρμόζεται σε:
 
 - WMS preview resource,
+- WMS GetMap image resources, όταν έχουν δηλωθεί μέσω `wms_getmap_resources`,
 - WMS capabilities resource,
 - WFS capabilities resource,
 - WFS download resources, όταν έχουν δηλωθεί μέσω `wfs_download_resources`.
