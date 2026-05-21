@@ -1507,6 +1507,7 @@ cd /root/ckan/lib/default/src/ckanext-data-gov-gr
   "dataset_name_prefix_from_layer_name": "gis-perifereia-kritis-selected-1-",
   "dataset_name_max_length": 100,
   "wms_preview_base_url": "https://gis.crete.gov.gr/geoserver/wms#",
+  "wms_preview_resource_urls_use_dataset_url": true,
   "wms_preview_workspace_in_path": false,
   "wms_capabilities_url": "https://gis.crete.gov.gr/geoserver/wms?service=WMS&request=GetCapabilities&version=1.3.0",
   "wfs_capabilities_url": "https://gis.crete.gov.gr/geoserver/wfs?service=WFS&request=GetCapabilities&version=2.0.0",
@@ -1675,6 +1676,52 @@ https://gis.crete.gov.gr/geoserver/wms#gisvec:adm_poi_elstat_oikismos
   "access_url": "<ίδιο με το url>"
 }
 ```
+
+### `wms_preview_resource_urls_use_dataset_url`
+
+Προαιρετικό boolean. Default: `false`.
+
+Όταν είναι `true`, ο WMS preview resource κρατάει ως κύριο `url` το preview URL
+που παράγεται από το `wms_preview_base_url`, αλλά τα `access_url` και
+`download_url` καταχωρούνται με το CKAN dataset URL:
+
+```text
+<ckan.site_url>/dataset/<dataset_name>
+```
+
+Παράδειγμα:
+
+```json
+{
+  "wms_preview_base_url": "https://syros.getmap.gr/geoserver/wms#",
+  "wms_preview_resource_urls_use_dataset_url": true
+}
+```
+
+με `ckan.site_url`:
+
+```text
+https://data.gov.gr/
+```
+
+και dataset name:
+
+```text
+gis-syros-wms-1-syros-roads
+```
+
+παράγει στον WMS preview resource:
+
+```json
+{
+  "url": "https://syros.getmap.gr/geoserver/wms#syros:roads",
+  "access_url": "https://data.gov.gr/dataset/gis-syros-wms-1-syros-roads",
+  "download_url": "https://data.gov.gr/dataset/gis-syros-wms-1-syros-roads"
+}
+```
+
+Αν το `ckan.site_url` έχει `/` στο τέλος, ο harvester το αφαιρεί πριν προσθέσει
+το `/dataset/<dataset_name>`.
 
 ### `wms_preview_workspace_in_path`
 

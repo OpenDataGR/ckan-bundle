@@ -38,6 +38,9 @@ LEGACY_DATASET_NAME_PREFIX_CONFIG_KEY = "dataset_name_prefix_from_file_identifie
 DATASET_NAME_MAX_LENGTH_CONFIG_KEY = "dataset_name_max_length"
 WMS_PREVIEW_BASE_URL_CONFIG_KEY = "wms_preview_base_url"
 WMS_PREVIEW_WORKSPACE_IN_PATH_CONFIG_KEY = "wms_preview_workspace_in_path"
+WMS_PREVIEW_RESOURCE_URLS_USE_DATASET_URL_CONFIG_KEY = (
+    "wms_preview_resource_urls_use_dataset_url"
+)
 WMS_CAPABILITIES_URL_CONFIG_KEY = "wms_capabilities_url"
 WMS_GETMAP_BASE_URL_CONFIG_KEY = "wms_getmap_base_url"
 WMS_GETMAP_RESOURCES_CONFIG_KEY = "wms_getmap_resources"
@@ -1070,7 +1073,7 @@ class WmsCapabilitiesHarvester(HarvesterBase):
 
         resources = []
         if wms_preview_base_url:
-            resources.append(self._resource(
+            preview_resource = self._resource(
                 url=self._wms_preview_url(layer_name, config),
                 layer_name=layer_name,
                 title_el="Προεπισκόπηση WMS layer - %s" % layer_name,
@@ -1079,7 +1082,16 @@ class WmsCapabilitiesHarvester(HarvesterBase):
                 description_en="Preview of WMS layer %s." % layer_name,
                 resource_format="WMS",
                 protocol="OGC:WMS",
-            ))
+            )
+            if self._bool_value(
+                config.get(WMS_PREVIEW_RESOURCE_URLS_USE_DATASET_URL_CONFIG_KEY),
+                False,
+            ):
+                dataset_url = self._dataset_url(payload)
+                if dataset_url:
+                    preview_resource["access_url"] = dataset_url
+                    preview_resource["download_url"] = dataset_url
+            resources.append(preview_resource)
 
         resources.extend(self._wms_getmap_resources(layer, payload, config))
         resources.extend(self._wfs_download_resources(layer, payload, config))
@@ -1536,6 +1548,13 @@ class WmsCapabilitiesHarvester(HarvesterBase):
             parsed.query,
             local_layer_name,
         ))
+
+    def _dataset_url(self, payload: dict[str, Any]) -> str:
+        site_url = str(toolkit.config.get("ckan.site_url") or "").strip().rstrip("/")
+        dataset_name = str(payload.get("dataset_name") or "").strip()
+        if not site_url or not dataset_name:
+            return ""
+        return "%s/dataset/%s" % (site_url, dataset_name)
 
     def _resource(
         self,
