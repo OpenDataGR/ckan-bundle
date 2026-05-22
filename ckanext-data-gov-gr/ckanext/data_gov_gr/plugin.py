@@ -71,6 +71,16 @@ DEFAULT_DATASET_POPULARITY_SORT_CONFIG = (
 DEFAULT_DATASET_POPULARITY_SORT_PACKAGE_TYPES = ('dataset', 'data-service')
 
 
+def _positive_integer_or_default(default):
+    def validator(value, context):
+        if value is None or (hasattr(value, 'strip') and not value.strip()):
+            return default
+
+        return toolkit.get_validator('is_positive_integer')(value, context)
+
+    return validator
+
+
 class DataGovGrPlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IConfigurer)
     plugins.implements(plugins.IConfigDeclaration)
@@ -142,6 +152,8 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         ignore_missing = toolkit.get_validator('ignore_missing')
         unicode_safe = toolkit.get_validator('unicode_safe')
         boolean_validator = toolkit.get_validator('boolean_validator')
+        geojson_max_features_validator = _positive_integer_or_default(500)
+        geojson_max_coordinates_validator = _positive_integer_or_default(400000)
 
         schema.update({
             'ckanext.data_gov_gr.powerbi_embed_url': [ignore_missing, unicode_safe],
@@ -193,6 +205,8 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
             'ckanext.data_gov_gr.pages.cookies_policy': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.pages.privacy_policy': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.search.api_doc_url': [ignore_missing, unicode_safe],
+            'ckanext.geoview.geojson.max_features': [ignore_missing, geojson_max_features_validator],
+            'ckanext.geoview.geojson.max_coordinates': [ignore_missing, geojson_max_coordinates_validator],
             DEFAULT_DATASET_POPULARITY_SORT_CONFIG: [ignore_missing, boolean_validator],
             'ckanext.matomo.consent_mode': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.header.logo_preset': [ignore_missing, unicode_safe],

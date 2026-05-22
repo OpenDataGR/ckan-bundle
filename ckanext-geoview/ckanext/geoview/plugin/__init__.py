@@ -770,6 +770,8 @@ class GeoJSONView(GeoViewBase):
         return {
             "get_common_map_config_geojson": utils.get_common_map_config,
             "geojson_get_max_file_size": utils.get_max_file_size,
+            "geojson_get_max_features": utils.get_max_features,
+            "geojson_get_max_coordinates": utils.get_max_coordinates,
             "get_geoview_sas_url": self.get_geoview_sas_url,
         }
         

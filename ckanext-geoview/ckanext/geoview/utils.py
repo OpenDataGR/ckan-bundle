@@ -12,6 +12,8 @@ from ckan.plugins import toolkit
 log = logging.getLogger(__name__)
 
 GEOJSON_MAX_FILE_SIZE = 25 * 1024 * 1024
+GEOJSON_MAX_FEATURES = 500
+GEOJSON_MAX_COORDINATES = 400000
 
 
 MAX_FILE_SIZE = 3 * 1024 * 1024  # 1MB
@@ -192,6 +194,18 @@ def get_shapefile_viewer_config():
 def get_max_file_size():
     return toolkit.config.get(
         "ckanext.geoview.geojson.max_file_size", GEOJSON_MAX_FILE_SIZE
+    )
+
+
+def get_max_features():
+    return toolkit.config.get(
+        "ckanext.geoview.geojson.max_features", GEOJSON_MAX_FEATURES
+    )
+
+
+def get_max_coordinates():
+    return toolkit.config.get(
+        "ckanext.geoview.geojson.max_coordinates", GEOJSON_MAX_COORDINATES
     )
 
 

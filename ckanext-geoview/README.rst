@@ -285,6 +285,12 @@ If you want the views to be created by default on all GeoJSON files, add the plu
 You can use the ``ckanext.geoview.geojson.max_file_size`` configuration option to define the maximum file size (in bytes) that will be rendered in the map widget. Default is 25 Mb.
 Note that this relies on the resource ``size`` field being set (ie it will only work with uploaded files, not linked externally).
 
+Μπορείτε επίσης να χρησιμοποιήσετε τις επιλογές ``ckanext.geoview.geojson.max_features`` και ``ckanext.geoview.geojson.max_coordinates`` για να περιορίσετε πόσο GeoJSON δίνεται στο Leaflet για απόδοση στον χάρτη. Οι προεπιλογές είναι 500 features και 400000 σημεία συντεταγμένων. Αν ένας πόρος ξεπερνά αυτά τα όρια, η προεπισκόπηση εμφανίζει το πρώτο ασφαλές υποσύνολο και προβάλλει προειδοποίηση, αντί να προσπαθήσει να αποδώσει ολόκληρο το dataset στον browser.
+
+Τα δύο όρια εφαρμόζονται συνδυαστικά και η προεπισκόπηση σταματά στο πρώτο όριο που θα συμπληρωθεί. Το ``max_features`` μετρά GeoJSON Feature objects, ανεξάρτητα από το αν η γεωμετρία τους είναι Point, LineString, Polygon, MultiPolygon κ.λπ. Είναι η βασική προστασία για datasets με πολλά point features, όπου κάθε feature συνήθως γίνεται ξεχωριστό marker/layer στο Leaflet.
+
+Το ``max_coordinates`` μετρά αθροιστικά τα σημεία συντεταγμένων σε όλα τα features που θα αποδοθούν. Είναι συνολικό όριο για την προεπισκόπηση, όχι όριο ανά feature. Ένα Point μετρά ως 1 σημείο συντεταγμένων, ένα LineString με τρεις κορυφές μετρά ως 3, και ένας δακτύλιος Polygon με πέντε κορυφές μετρά ως 5. Αυτό προστατεύει τον browser από μικρό αριθμό πολύ σύνθετων γραμμών ή πολυγώνων. Η προεπισκόπηση δεν κόβει ποτέ τη γεωμετρία ενός feature στη μέση· περιλαμβάνει μόνο ολόκληρα features μέχρι το επόμενο feature να ξεπερνά το όριο συντεταγμένων.
+
 
 
 

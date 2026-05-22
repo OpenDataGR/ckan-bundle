@@ -120,6 +120,37 @@
             </script>
 
           <hr>
+          <h4>{{ _('GeoJSON preview') }}</h4>
+
+          {{ form.input(
+            'ckanext.geoview.geojson.max_features',
+            id='field-ckanext.geoview.geojson.max_features',
+            label=_('Μέγιστος αριθμός GeoJSON features στο preview'),
+            value=data.get('ckanext.geoview.geojson.max_features', 500),
+            error=errors.get('ckanext.geoview.geojson.max_features'),
+            type='number',
+            classes=['control-medium'],
+            attrs={'class': 'form-control', 'min': '1', 'step': '1'}
+          ) }}
+          <p class="help-block" style="margin-top: -24px; margin-bottom: 16px">
+            {{ _('Περιορίζει πόσα features αποδίδονται στον χάρτη για να μην κολλά ο browser. Επηρεάζει μόνο την προεπισκόπηση, όχι το αρχείο ή τη λήψη του.') }}
+          </p>
+
+          {{ form.input(
+            'ckanext.geoview.geojson.max_coordinates',
+            id='field-ckanext.geoview.geojson.max_coordinates',
+            label=_('Μέγιστος αριθμός σημείων συντεταγμένων στο GeoJSON preview'),
+            value=data.get('ckanext.geoview.geojson.max_coordinates', 400000),
+            error=errors.get('ckanext.geoview.geojson.max_coordinates'),
+            type='number',
+            classes=['control-medium'],
+            attrs={'class': 'form-control', 'min': '1', 'step': '1'}
+          ) }}
+          <p class="help-block" style="margin-top: -24px; margin-bottom: 16px">
+            {{ _('Περιορίζει το πλήθος coordinate positions που θα σταλούν στο Leaflet. Χρήσιμο για βαριές γραμμές ή πολύγωνα με λίγα features αλλά πολλά σημεία.') }}
+          </p>
+
+          <hr>
           <h4>{{ _('Header') }}</h4>
 
           {% set secretariat_logo_enabled = h.get_config_as_bool('ckanext.data_gov_gr.header.secretariat_logo.enabled', False) %}
@@ -1740,6 +1771,8 @@
         <li><strong>{{ _('Site Title') }}:</strong> {{ _('Ο τίτλος της πύλης, όπως εμφανίζεται στην κεφαλίδα και σε διάφορα σημεία του CKAN.') }}</li>
         <li><strong>{{ _('Site logo') }}:</strong> {{ _('Το λογότυπο που εμφανίζεται στην κεφαλίδα όλων των σελίδων της πύλης (μπορεί να δοθεί ως URL ή να ανέβει ως εικόνα).') }}</li>
         <li><strong>{{ _('Εμφάνιση Botaki (webchat)') }}:</strong> {{ _('Ενεργοποιεί/απενεργοποιεί την εμφάνιση του Botaki στο site.') }}</li>
+        <li><strong>{{ _('Μέγιστος αριθμός GeoJSON features στο preview') }}:</strong> {{ _('Ορίζει πόσα GeoJSON features θα αποδοθούν στον χάρτη προεπισκόπησης. Αν το αρχείο έχει περισσότερα, εμφανίζεται μόνο ασφαλές υποσύνολο με προειδοποίηση, χωρίς να επηρεάζεται η λήψη του αρχείου.') }}</li>
+        <li><strong>{{ _('Μέγιστος αριθμός σημείων συντεταγμένων στο GeoJSON preview') }}:</strong> {{ _('Ορίζει το μέγιστο πλήθος coordinate positions που θα σταλούν στο Leaflet. Προστατεύει τον browser από βαριές γραμμές ή πολύγωνα με πολλά σημεία.') }}</li>
         <li><strong>{{ _('Εμφάνιση λογοτύπου Γραμματείας στο header') }}:</strong> {{ _('Εμφανίζει το λογότυπο της Γραμματείας Διακυβέρνησης Δεδομένων AI δεξιά του λογοτύπου data.gov.gr, με λευκή κάθετη γραμμή ως διαχωριστικό.') }}</li>
         <li><strong>{{ _('Λειτουργία συγκατάθεσης Matomo') }}:</strong> {{ _('Ελέγχει αν εμφανίζεται banner συγκατάθεσης cookies/tracking. Απενεργοποιημένο = τρέχουσα συμπεριφορά χωρίς banner. Tracking consent = πλήρης συναίνεση πριν οποιοδήποτε tracking. Cookie consent = tracking χωρίς cookies μέχρι αποδοχή. Opt-out = tracking by default, ο χρήστης μπορεί να εξαιρεθεί.') }}</li>
         <li><strong>{{ _('Σελίδα Συχνών Ερωτήσεων (FAQ)') }}:</strong> {{ _('Αν συμπληρωθεί με το slug της CKAN σελίδας (π.χ. faq), εμφανίζεται σύνδεσμος «Συχνές Ερωτήσεις» στη στήλη Κοινότητας του footer.') }}</li>
