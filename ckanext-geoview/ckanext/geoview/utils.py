@@ -192,21 +192,34 @@ def get_shapefile_viewer_config():
 
 
 def get_max_file_size():
-    return toolkit.config.get(
+    return _get_positive_int_config(
         "ckanext.geoview.geojson.max_file_size", GEOJSON_MAX_FILE_SIZE
     )
 
 
 def get_max_features():
-    return toolkit.config.get(
+    return _get_positive_int_config(
         "ckanext.geoview.geojson.max_features", GEOJSON_MAX_FEATURES
     )
 
 
 def get_max_coordinates():
-    return toolkit.config.get(
+    return _get_positive_int_config(
         "ckanext.geoview.geojson.max_coordinates", GEOJSON_MAX_COORDINATES
     )
+
+
+def _get_positive_int_config(config_key, default):
+    value = toolkit.config.get(config_key)
+    if value is None or (hasattr(value, "strip") and not value.strip()):
+        return default
+
+    try:
+        value = int(value)
+    except (TypeError, ValueError):
+        return default
+
+    return value if value > 0 else default
 
 
 def get_openlayers_viewer_config():
