@@ -156,6 +156,18 @@ Optional settings:
     # Μπορεί επίσης να αλλάξει από το /ckan-admin/config → Γενικά → Header.
     ckanext.data_gov_gr.header.secretariat_logo.enabled = no
 
+    # Υπολογισμός ειδοποιήσεων dashboard στο header.
+    # Αν είναι no, το badge επιστρέφει 0 χωρίς activity queries σε κάθε logged-in page.
+    # (προαιρετικό, default: no)
+    # Μπορεί επίσης να αλλάξει από το /ckan-admin/config → Γενικά → Header μόνο αν
+    # ckanext.data_gov_gr.config_ui.dashboard_activity_count.enabled = yes.
+    ckanext.data_gov_gr.header.dashboard_activity_count.enabled = no
+
+    # Εμφάνιση του checkbox για τον υπολογισμό ειδοποιήσεων dashboard στο /ckan-admin/config.
+    # Ini-only επιλογή. Αν είναι no, το checkbox δεν εμφανίζεται και δεν αλλάζει από το admin UI.
+    # (προαιρετικό, default: no)
+    ckanext.data_gov_gr.config_ui.dashboard_activity_count.enabled = no
+
     # Εμφάνιση λογοτύπου gov.gr στο footer (κάτω αριστερά, πριν το λογότυπο Υπ. Ψηφιακής Διακυβέρνησης).
     # (προαιρετικό, default: yes)
     # Μπορεί επίσης να αλλάξει από το /ckan-admin/config → Γενικά → Footer.

@@ -2930,6 +2930,24 @@ def should_skip_tables_view_render(resource, resource_view):
 
 # ---------------------------------------------------------------------------------------
 
+def data_gov_gr_new_activities():
+    """Optionally disable per-page dashboard activity counting in the header."""
+    if not get_config_as_bool(
+        'ckanext.data_gov_gr.header.dashboard_activity_count.enabled',
+        False,
+    ):
+        return 0
+
+    try:
+        from ckanext.activity.helpers import new_activities as activity_new_activities
+    except Exception:
+        log.debug('Unable to load CKAN activity new_activities helper.', exc_info=True)
+        return 0
+
+    return activity_new_activities()
+
+# ---------------------------------------------------------------------------------------
+
 def rendered_resource_view(resource_view, resource, package, *args, **kwargs):
     if should_skip_tables_view_render(resource, resource_view):
         return toolkit.literal(
@@ -2961,6 +2979,7 @@ def get_helpers():
         "get_allowed_view_types": get_allowed_view_types,
         "should_skip_tables_view_render": should_skip_tables_view_render,
         "rendered_resource_view": rendered_resource_view,
+        "new_activities": data_gov_gr_new_activities,
         "vocabulary_facet_item_label": vocabulary_facet_item_label,
         "vocabulary_facet_title": vocabulary_facet_title,
         "get_vocabulary_id_for_field": get_vocabulary_id_for_field,

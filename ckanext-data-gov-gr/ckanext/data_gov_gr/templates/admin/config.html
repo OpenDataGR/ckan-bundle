@@ -9,6 +9,7 @@
 {% set show_home_showcases_section = h.get_config_as_bool('ckanext.data_gov_gr.config_ui.home_showcases.enabled', False) %}
 {% set show_dataset_menu_section = h.get_config_as_bool('ckanext.data_gov_gr.config_ui.dataset_menu.enabled', False) %}
 {% set show_guides_section = h.get_config_as_bool('ckanext.data_gov_gr.config_ui.guides.enabled', False) %}
+{% set show_dashboard_activity_count_setting = h.get_config_as_bool('ckanext.data_gov_gr.config_ui.dashboard_activity_count.enabled', False) %}
 {% set contact_gitbook_embed_items_raw = config.get('ckanext.data_gov_gr.contact.gitbook_embed_items') %}
 {% set contact_gitbook_embed_has_value = contact_gitbook_embed_items_raw is not none %}
 
@@ -186,6 +187,42 @@
                 syncHidden();
               });
             </script>
+
+          {% if show_dashboard_activity_count_setting %}
+            {% set dashboard_activity_count_enabled = h.get_config_as_bool('ckanext.data_gov_gr.header.dashboard_activity_count.enabled', False) %}
+              <input
+                type="hidden"
+                id="field-ckanext.data_gov_gr.header.dashboard_activity_count.enabled-hidden"
+                name="ckanext.data_gov_gr.header.dashboard_activity_count.enabled"
+                value="false"
+                {% if dashboard_activity_count_enabled %}disabled="disabled"{% endif %}
+              />
+              {% call form.checkbox(
+                'ckanext.data_gov_gr.header.dashboard_activity_count.enabled',
+                id='field-ckanext.data_gov_gr.header.dashboard_activity_count.enabled',
+                label=_('Υπολογισμός ειδοποιήσεων dashboard στο header'),
+                value='true',
+                checked=dashboard_activity_count_enabled
+              ) %}
+                <p class="help-block">
+                  {{ _('Όταν είναι απενεργοποιημένο, το badge του dashboard επιστρέφει 0 χωρίς να εκτελεί activity queries σε κάθε σελίδα συνδεδεμένου χρήστη.') }}
+                </p>
+              {% endcall %}
+              <script>
+                document.addEventListener('DOMContentLoaded', function () {
+                  var checkbox = document.getElementById('field-ckanext.data_gov_gr.header.dashboard_activity_count.enabled');
+                  var hidden = document.getElementById('field-ckanext.data_gov_gr.header.dashboard_activity_count.enabled-hidden');
+                  if (!checkbox || !hidden) {
+                    return;
+                  }
+                  function syncHidden() {
+                    hidden.disabled = !!checkbox.checked;
+                  }
+                  checkbox.addEventListener('change', syncHidden);
+                  syncHidden();
+                });
+              </script>
+          {% endif %}
 
           <hr>
           <h4>{{ _('Matomo — Συγκατάθεση Cookies') }}</h4>
@@ -1779,6 +1816,9 @@
         <li><strong>{{ _('Σελίδα Δήλωσης Προσβασιμότητας') }}:</strong> {{ _('Αν συμπληρωθεί με το slug της CKAN σελίδας (π.χ. accessibility), εμφανίζεται σύνδεσμος «Προσβασιμότητα» στη στήλη Σχετικά του footer.') }}</li>
         <li><strong>{{ _('Σελίδα Πολιτικής Cookies') }}:</strong> {{ _('Αν συμπληρωθεί με το slug της CKAN σελίδας (π.χ. cookies-policy), εμφανίζεται σύνδεσμος «Πολιτική Cookies» στη στήλη Σχετικά του footer.') }}</li>
         <li><strong>{{ _('Σελίδα Πολιτικής Απορρήτου') }}:</strong> {{ _('Αν συμπληρωθεί με το slug της CKAN σελίδας (π.χ. privacy-policy), εμφανίζεται σύνδεσμος «Πολιτική Απορρήτου» στη στήλη Σχετικά του footer.') }}</li>
+        {% if show_dashboard_activity_count_setting %}
+          <li><strong>{{ _('Υπολογισμός ειδοποιήσεων dashboard στο header') }}:</strong> {{ _('Όταν είναι απενεργοποιημένο, το badge του dashboard δείχνει 0 και δεν εκτελούνται activity queries σε κάθε σελίδα συνδεδεμένου χρήστη.') }}</li>
+        {% endif %}
         <li><strong>{{ _('Εμφάνιση λογοτύπου Κυβέρνησης στο footer') }}:</strong> {{ _('Εμφανίζει το λογότυπο gov.gr αριστερά στο footer, δίπλα στο λογότυπο του Υπουργείου Ψηφιακής Διακυβέρνησης.') }}</li>
         <li><strong>{{ _('Εμφάνιση λογοτύπου Greece 2.0 NextGenerationEU στο footer') }}:</strong> {{ _('Εμφανίζει το λογότυπο Greece 2.0 NextGenerationEU στο footer, μετά τα υπάρχοντα λογότυπα.') }}</li>
         <li><strong>{{ _('Λογότυπο Footer (Υπ. Ψηφιακής Διακυβέρνησης)') }}:</strong> {{ _('Επιλέγει την παραλλαγή του λογοτύπου του Υπουργείου Ψηφιακής Διακυβέρνησης που εμφανίζεται κάτω αριστερά στο footer (light ή dark).') }}</li>
