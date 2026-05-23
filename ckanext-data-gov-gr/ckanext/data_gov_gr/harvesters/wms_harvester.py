@@ -43,11 +43,13 @@ WMS_PREVIEW_RESOURCE_URLS_USE_DATASET_URL_CONFIG_KEY = (
 )
 WMS_CAPABILITIES_URL_CONFIG_KEY = "wms_capabilities_url"
 WMS_GETMAP_BASE_URL_CONFIG_KEY = "wms_getmap_base_url"
+WMS_GETMAP_BASE_URL_PRESERVE_QUERY_CONFIG_KEY = "wms_getmap_base_url_preserve_query"
 WMS_GETMAP_RESOURCES_CONFIG_KEY = "wms_getmap_resources"
 WFS_CAPABILITIES_URL_CONFIG_KEY = "wfs_capabilities_url"
 WFS_CAPABILITIES_FILE_CONFIG_KEY = "wfs_capabilities_file"
 WFS_GETFEATURE_BASE_URL_CONFIG_KEY = "wfs_getfeature_base_url"
 WFS_DOWNLOAD_RESOURCES_CONFIG_KEY = "wfs_download_resources"
+WFS_LAYER_NAME_PREFIX_CONFIG_KEY = "wfs_layer_name_prefix"
 DISABLE_SSL_VERIFICATION_CONFIG_KEY = "disable_ssl_verification"
 SKIP_WFS_CAPABILITIES_RESOURCE_WHEN_LAYER_MISSING_FROM_WFS_CAPABILITIES_CONFIG_KEY = (
     "skip_wfs_capabilities_resource_when_layer_missing_from_wfs_capabilities"
@@ -341,9 +343,6 @@ class WmsCapabilitiesHarvester(HarvesterBase):
         wfs_info = self._wfs_info_for_gather(config, harvest_job)
         if wfs_info is None:
             return []
-        wfs_layer_names = (
-            wfs_info.get("layer_names") if isinstance(wfs_info, dict) else False
-        )
         skip_layers_missing_from_wfs = bool(
             config.get(
                 SKIP_DATASET_WHEN_LAYER_MISSING_FROM_WFS_CAPABILITIES_CONFIG_KEY
@@ -404,9 +403,11 @@ class WmsCapabilitiesHarvester(HarvesterBase):
                 )
                 continue
 
-            layer_available_in_wfs = (
-                wfs_layer_names is not False and layer["name"] in wfs_layer_names
-            )
+            layer_available_in_wfs = False
+            if isinstance(wfs_info, dict):
+                layer_available_in_wfs = bool(
+                    self._wfs_feature_type_name_for_layer(layer["name"], wfs_info)
+                )
             if include_only_layers_missing_from_wfs and layer_available_in_wfs:
                 skipped_present_wfs_count += 1
                 if (
@@ -424,7 +425,7 @@ class WmsCapabilitiesHarvester(HarvesterBase):
             if (
                 not include_only_layers_missing_from_wfs
                 and skip_layers_missing_from_wfs
-                and wfs_layer_names is not False
+                and isinstance(wfs_info, dict)
                 and not layer_available_in_wfs
             ):
                 skipped_missing_wfs_count += 1
@@ -685,6 +686,9 @@ class WmsCapabilitiesHarvester(HarvesterBase):
             wfs_info["getfeature_base_url"] = self._base_url_without_query(
                 str(config.get(WFS_CAPABILITIES_URL_CONFIG_KEY) or "")
             )
+        wfs_info["layer_name_prefix"] = str(
+            config.get(WFS_LAYER_NAME_PREFIX_CONFIG_KEY) or ""
+        ).strip()
 
         wfs_download_resource_configs = self._wfs_download_resource_configs(config)
         if (
@@ -729,13 +733,40 @@ class WmsCapabilitiesHarvester(HarvesterBase):
         layer_name: str,
         wfs_info: dict[str, Any],
     ) -> dict[str, Any]:
-        layer_names = wfs_info.get("layer_names") or set()
+        feature_type_name = self._wfs_feature_type_name_for_layer(
+            layer_name,
+            wfs_info,
+        )
         return {
-            "layer_available": layer_name in layer_names,
+            "layer_available": bool(feature_type_name),
+            "feature_type_name": feature_type_name,
             "version": wfs_info.get("version") or "2.0.0",
             "getfeature_base_url": wfs_info.get("getfeature_base_url") or "",
             "output_formats": sorted(wfs_info.get("output_formats") or []),
         }
+
+    def _wfs_feature_type_name_for_layer(
+        self,
+        layer_name: str,
+        wfs_info: dict[str, Any],
+    ) -> str:
+        layer_name = str(layer_name or "").strip()
+        if not layer_name:
+            return ""
+
+        layer_names = wfs_info.get("layer_names") or set()
+        if layer_name in layer_names:
+            return layer_name
+
+        prefix = str(wfs_info.get("layer_name_prefix") or "").strip()
+        if not prefix:
+            return ""
+
+        prefixed_layer_name = "%s%s" % (prefix, layer_name)
+        if prefixed_layer_name in layer_names:
+            return prefixed_layer_name
+
+        return ""
 
     def _base_url_without_query(self, url: str) -> str:
         if not url:
@@ -1176,7 +1207,11 @@ class WmsCapabilitiesHarvester(HarvesterBase):
             or config.get(WMS_CAPABILITIES_URL_CONFIG_KEY)
             or source_url
         ).strip()
-        base_url = self._base_url_without_query(base_url)
+        if not self._bool_value(
+            config.get(WMS_GETMAP_BASE_URL_PRESERVE_QUERY_CONFIG_KEY),
+            False,
+        ):
+            base_url = self._base_url_without_query(base_url)
         if not base_url:
             return []
 
@@ -1423,7 +1458,7 @@ class WmsCapabilitiesHarvester(HarvesterBase):
 
             url = self._wfs_getfeature_url(
                 base_url=resource_base_url,
-                layer_name=layer["name"],
+                layer_name=wfs_payload.get("feature_type_name") or layer["name"],
                 version=str(wfs_payload.get("version") or "2.0.0"),
                 output_format=output_format,
                 extra_params=resource_config.get("params") or {},

@@ -1920,6 +1920,29 @@ resource παραλείπεται. Αν δεν υπάρχει bbox, δεν δη�
 χρησιμοποιεί το `wms_capabilities_url` χωρίς query string, ή το harvest source
 URL χωρίς query string.
 
+Από default ο harvester αφαιρεί το query string από το base URL πριν χτίσει το
+`GetMap` URL. Αυτό ταιριάζει στα περισσότερα GeoServer endpoints, όπου το base
+endpoint είναι απλώς `/geoserver/wms`. Για MapServer/EVRYMAP endpoints που
+χρειάζονται σταθερό query parameter, όπως `map=...`, μπορεί να ενεργοποιηθεί:
+
+```json
+{
+  "wms_getmap_base_url": "https://thermaikosgis.open1.eu/mapserver/mapserv?map=C%3A%5CConsortis%5Cdata%5Cthermaikos-postgres_evrymap2.map",
+  "wms_getmap_base_url_preserve_query": true,
+  "wms_getmap_resources": [
+    {
+      "format": "PNG",
+      "image_format": "image/png",
+      "crs": "CRS:84"
+    }
+  ]
+}
+```
+
+Με `wms_getmap_base_url_preserve_query: true`, το `map=...` παραμένει στο URL
+και τα WMS `GetMap` params προστίθενται με `&`. Χωρίς αυτό το flag, το query
+string αφαιρείται όπως πριν.
+
 Μπορούν να δηλωθούν επιπλέον σταθερά query params ανά resource:
 
 ```json
@@ -2410,10 +2433,11 @@ chaniavec:adm_poi_elstat_oikismos
 </FeatureType>
 ```
 
-Η σύγκριση γίνεται με exact match στο πλήρες όνομα, μαζί με το workspace. Αν ο
-harvester δεν μπορεί να φορτώσει ή να διαβάσει WFS capabilities όταν το flag
-είναι ενεργό, το `gather_stage` σταματάει χωρίς να δημιουργήσει harvest objects,
-ώστε να μην καταχωρηθούν κατά λάθος WMS-only datasets.
+Η σύγκριση γίνεται με exact match στο πλήρες όνομα, μαζί με το workspace, εκτός
+αν έχει δηλωθεί `wfs_layer_name_prefix`. Αν ο harvester δεν μπορεί να φορτώσει
+ή να διαβάσει WFS capabilities όταν το flag είναι ενεργό, το `gather_stage`
+σταματάει χωρίς να δημιουργήσει harvest objects, ώστε να μην καταχωρηθούν κατά
+λάθος WMS-only datasets.
 
 Αν το flag ενεργοποιηθεί σε source που είχε ήδη harvested WMS-only layers, αυτά
 δεν μπαίνουν πλέον στο `guids_in_source`. Άρα στο επόμενο re-harvest
@@ -2455,9 +2479,10 @@ heraklion:wms_only_layer
 </FeatureType>
 ```
 
-Η σύγκριση γίνεται με exact match στο πλήρες όνομα, μαζί με το workspace. Αν ο
-harvester δεν μπορεί να φορτώσει ή να διαβάσει WFS capabilities όταν το flag
-είναι ενεργό, το `gather_stage` σταματάει χωρίς να δημιουργήσει harvest objects.
+Η σύγκριση γίνεται με exact match στο πλήρες όνομα, μαζί με το workspace, εκτός
+αν έχει δηλωθεί `wfs_layer_name_prefix`. Αν ο harvester δεν μπορεί να φορτώσει
+ή να διαβάσει WFS capabilities όταν το flag είναι ενεργό, το `gather_stage`
+σταματάει χωρίς να δημιουργήσει harvest objects.
 
 Αν ενεργοποιηθούν ταυτόχρονα και τα δύο WFS filter flags, το
 `include_only_datasets_when_layer_missing_from_wfs_capabilities` έχει
@@ -2467,6 +2492,59 @@ harvester δεν μπορεί να φορτώσει ή να διαβάσει WFS
 μπαίνουν πλέον στο `guids_in_source`. Άρα στο επόμενο re-harvest
 αντιμετωπίζονται ως missing from source και ακολουθούν τη λογική deletion του
 harvester.
+
+### `wfs_layer_name_prefix`
+
+Προαιρετικό string. Default: κενό.
+
+Χρησιμοποιείται όταν τα WMS layer names και τα WFS `FeatureType` names
+αντιστοιχούν μεταξύ τους, αλλά το WFS χρησιμοποιεί σταθερό prefix που δεν
+υπάρχει στα WMS layer names.
+
+Ο harvester δοκιμάζει πρώτα exact match. Αν δεν βρει WFS `FeatureType` με το
+ίδιο όνομα, δοκιμάζει ξανά με το configured prefix:
+
+```text
+<wfs_layer_name_prefix><wms layer name>
+```
+
+Παράδειγμα:
+
+```json
+{
+  "wfs_layer_name_prefix": "ms:",
+  "skip_dataset_when_layer_missing_from_wfs_capabilities": true,
+  "wfs_capabilities_url": "https://thermaikosgis.open1.eu/mapserver/mapserv?map=C%3A%5CConsortis%5Cdata%5Cthermaikos-postgres_evrymap2.map&service=WFS&request=GetCapabilities&version=2.0.0"
+}
+```
+
+Για WMS layer:
+
+```text
+corine2018
+```
+
+ο harvester θα το θεωρήσει διαθέσιμο στο WFS αν υπάρχει:
+
+```xml
+<FeatureType>
+  <Name>ms:corine2018</Name>
+</FeatureType>
+```
+
+Το πραγματικό WFS FeatureType name αποθηκεύεται στο harvest payload και
+χρησιμοποιείται στα WFS `GetFeature` download URLs. Έτσι το παραγόμενο URL
+χρησιμοποιεί:
+
+```text
+typeNames=ms%3Acorine2018
+```
+
+και όχι:
+
+```text
+typeNames=corine2018
+```
 
 ### `default_dataset_fields`
 
