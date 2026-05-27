@@ -167,6 +167,7 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
             HVD_CATEGORY_NOTICE_URL_CONFIG: [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.dataset.show_metadata_license_disclaimer': [ignore_missing, boolean_validator],
             'ckanext.data_gov_gr.dataset.redirect_to_resource_after_create': [ignore_missing, boolean_validator],
+            'ckanext.dcat.output_resource_format_as_file_type_uri': [ignore_missing, boolean_validator],
             'ckanext.data_gov_gr.resource.license.default': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.dataset.spatial_coverage.default': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.dataset.spatial_coverage.default.geonames_id': [ignore_missing, unicode_safe],

@@ -1235,7 +1235,7 @@ msgid "Cookie consent"
 msgstr "Συγκατάθεση cookies"
 
 msgid "This portal uses cookies and analytics to improve your experience. Please choose whether to accept or decline."
-msgstr "Αυτή η πύλη χρησιμοποιεί cookies και analytics για τη βελτίωση της εμπειρίας σας. Παρακαλούμε επιλέξτε αν αποδέχεστε ή απορρίπτετε."
+msgstr "Η ιστοσελίδα χρησιμοποιεί cookies που είναι αναγκαία για την ορθή λειτουργία της, τη μέτρηση επισκεψιμότητας και τη βελτίωση της εμπειρίας σας. Μπορείτε να επιλέξετε αν αποδέχεστε ή απορρίπτετε και να μάθετε περισσότερα στην "
 
 msgid "This portal uses cookies and analytics to improve your experience. You can opt out of tracking at any time."
 msgstr "Αυτή η πύλη χρησιμοποιεί cookies και analytics για τη βελτίωση της εμπειρίας σας. Μπορείτε να εξαιρεθείτε από την παρακολούθηση ανά πάσα στιγμή."

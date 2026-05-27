@@ -470,6 +470,26 @@
             {{ _('Αν συμπληρωθεί, εμφανίζεται στη σελίδα αναζήτησης συνόλων δεδομένων σύνδεσμος «API Docs» που ανοίγει σε νέα καρτέλα. Αφήστε κενό για να χρησιμοποιηθεί η προεπιλεγμένη τεκμηρίωση του CKAN.') }}
           </p>
 
+          {% set output_resource_format_as_file_type_uri = h.get_config_as_bool('ckanext.dcat.output_resource_format_as_file_type_uri', False) %}
+          <input
+            type="hidden"
+            id="field-ckanext.dcat.output_resource_format_as_file_type_uri-hidden"
+            name="ckanext.dcat.output_resource_format_as_file_type_uri"
+            value="false"
+            {% if output_resource_format_as_file_type_uri %}disabled="disabled"{% endif %}
+          />
+          {% call form.checkbox(
+            'ckanext.dcat.output_resource_format_as_file_type_uri',
+            id='field-ckanext.dcat.output_resource_format_as_file_type_uri',
+            label=_('Εξαγωγή μορφής πόρου RDF ως URI λεξιλογίου File Type'),
+            value='true',
+            checked=output_resource_format_as_file_type_uri
+          ) %}
+            <p class="help-block">
+              {{ _('Όταν είναι ενεργό, το RDF dct:format των πόρων γράφεται ως URI από το λεξιλόγιο «File Type» όπου υπάρχει αντιστοίχιση.') }}
+            </p>
+          {% endcall %}
+
           {% set redirect_to_resource_after_create = h.get_config_as_bool('ckanext.data_gov_gr.dataset.redirect_to_resource_after_create', False) %}
           <input
             type="hidden"
@@ -523,6 +543,10 @@
                 checkbox.addEventListener('change', syncHidden);
                 syncHidden();
               }
+              syncCheckboxHidden(
+                'field-ckanext.dcat.output_resource_format_as_file_type_uri',
+                'field-ckanext.dcat.output_resource_format_as_file_type_uri-hidden'
+              );
               syncCheckboxHidden(
                 'field-ckanext.data_gov_gr.dataset.redirect_to_resource_after_create',
                 'field-ckanext.data_gov_gr.dataset.redirect_to_resource_after_create-hidden'

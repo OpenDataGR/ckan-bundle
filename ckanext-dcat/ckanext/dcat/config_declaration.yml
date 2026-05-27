@@ -53,6 +53,13 @@ groups:
           This allows for instance to populate the CKAN resource format field
           with a value that view plugins, etc will understand (`csv`, `xml`, etc.)
 
+      - key: ckanext.dcat.output_resource_format_as_file_type_uri
+        type: bool
+        default: False
+        description: |
+          When true, serialize resource format values as EU File Type vocabulary
+          URIs in dct:format when they match the local "File Type" vocabulary.
+
       - key: ckanext.dcat.clean_tags
         type: bool
         default: False

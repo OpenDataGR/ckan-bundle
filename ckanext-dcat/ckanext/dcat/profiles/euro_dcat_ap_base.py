@@ -36,6 +36,11 @@ config = toolkit.config
 
 DISTRIBUTION_LICENSE_FALLBACK_CONFIG = "ckanext.dcat.resource.inherit.license"
 INCLUDE_DOWNLOADALL_RESOURCE_CONFIG = "ckanext.dcat.include_downloadall_resource"
+OUTPUT_RESOURCE_FORMAT_AS_FILE_TYPE_URI_CONFIG = (
+    "ckanext.dcat.output_resource_format_as_file_type_uri"
+)
+FILE_TYPE_VOCABULARY_NAME = "File Type"
+FILE_TYPE_URI_BY_CODE_GRAPH_CACHE = "_dcat_file_type_uri_by_code_cache"
 
 
 class BaseEuropeanDCATAPProfile(RDFProfile):
@@ -43,6 +48,55 @@ class BaseEuropeanDCATAPProfile(RDFProfile):
     A base profile with common RDF properties across the different DCAT-AP versions
 
     """
+
+    def _file_type_uri_by_code(self):
+        if hasattr(self.g, FILE_TYPE_URI_BY_CODE_GRAPH_CACHE):
+            return getattr(self.g, FILE_TYPE_URI_BY_CODE_GRAPH_CACHE)
+
+        mapping = {}
+        try:
+            vocabulary_show = toolkit.get_action("vocabularyadmin_vocabulary_show")
+            vocabulary = vocabulary_show(
+                {"ignore_auth": True},
+                {"id": FILE_TYPE_VOCABULARY_NAME},
+            )
+        except Exception:
+            setattr(self.g, FILE_TYPE_URI_BY_CODE_GRAPH_CACHE, mapping)
+            return mapping
+
+        tags = vocabulary.get("tags", []) if isinstance(vocabulary, dict) else []
+        for tag in tags:
+            if not isinstance(tag, dict):
+                continue
+
+            value_uri = tag.get("value_uri")
+            name = tag.get("name")
+            code = None
+            if isinstance(value_uri, str) and value_uri.strip():
+                code = value_uri.rstrip("/").split("/")[-1]
+            elif isinstance(name, str) and name.strip():
+                code = name
+
+            if code and value_uri:
+                mapping[code.strip().upper()] = value_uri.strip()
+
+        setattr(self.g, FILE_TYPE_URI_BY_CODE_GRAPH_CACHE, mapping)
+        return mapping
+
+    def _file_type_uri_for_format(self, fmt):
+        if not fmt or not isinstance(fmt, str):
+            return None
+
+        if not toolkit.asbool(
+            config.get(OUTPUT_RESOURCE_FORMAT_AS_FILE_TYPE_URI_CONFIG, False)
+        ):
+            return None
+
+        stripped = fmt.strip()
+        if not stripped or stripped.startswith(("http://", "https://")):
+            return None
+
+        return self._file_type_uri_by_code().get(stripped.upper())
 
     def _parse_dataset_base(self, dataset_dict, dataset_ref):
 
@@ -723,7 +777,8 @@ class BaseEuropeanDCATAPProfile(RDFProfile):
                     g.add((mimetype, RDF.type, DCT.MediaType))
 
             if fmt:
-                fmt = URIRefOrLiteral(fmt)
+                file_type_uri = self._file_type_uri_for_format(fmt)
+                fmt = URIRef(file_type_uri) if file_type_uri else URIRefOrLiteral(fmt)
                 g.add((distribution, DCT["format"], fmt))
                 if isinstance(fmt, URIRef):
                     g.add((fmt, RDF.type, DCT.MediaTypeOrExtent))
