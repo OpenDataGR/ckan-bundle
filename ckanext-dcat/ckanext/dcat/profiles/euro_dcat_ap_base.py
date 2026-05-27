@@ -88,7 +88,7 @@ class BaseEuropeanDCATAPProfile(RDFProfile):
             return None
 
         if not toolkit.asbool(
-            config.get(OUTPUT_RESOURCE_FORMAT_AS_FILE_TYPE_URI_CONFIG, False)
+            config.get(OUTPUT_RESOURCE_FORMAT_AS_FILE_TYPE_URI_CONFIG) or False
         ):
             return None
 
