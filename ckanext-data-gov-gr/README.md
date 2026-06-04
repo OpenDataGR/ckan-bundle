@@ -1570,6 +1570,7 @@ cd /root/ckan/lib/default/src/ckanext-data-gov-gr
     "rights": "No conditions apply to access and use"
   },
   "default_tags": ["gis", "crete", "INSPIRE", "γεωχωρικά"],
+  "preserve_existing_theme": true,
   "skip_dataset_when_title_matches_layer_name": true,
   "include_only_datasets_when_title_matches_layer_name": false,
   "title_prefix_for_layer_name_titles": "Layer-επίπεδο: ",
@@ -2588,6 +2589,47 @@ dataset, αν το αντίστοιχο πεδίο λείπει ή είναι κ
 
 Όταν είναι `false` ή λείπει, το `default_dataset_fields` δεν αντικαθιστά
 υπάρχουσες μη κενές τιμές. Όταν είναι `true`, τις αντικαθιστά.
+
+### `preserve_existing_theme`
+
+Προαιρετικό boolean. Default: `false`.
+
+Όταν είναι `true`, ο WMS harvester διατηρεί το υπάρχον `theme` ενός ήδη
+harvested CKAN dataset κατά το re-harvest, εφόσον:
+
+- το harvest object αντιστοιχεί σε υπάρχον package (`package_id`),
+- το layer δεν είναι καινούριο,
+- το νέο `package_dict` δεν έχει ήδη `theme` από το config.
+
+Δεν εφαρμόζεται σε καινούρια WMS layers και δεν δημιουργεί theme από μόνο του.
+
+Προτεραιότητα κατά το import:
+
+1. `default_theme`, όταν έχει δηλωθεί.
+2. `default_dataset_fields.theme`, όταν έχει δηλωθεί.
+3. υπάρχον package `theme`, μόνο όταν `preserve_existing_theme` είναι `true`.
+4. κανένα `theme`.
+
+Παράδειγμα διατήρησης υπάρχοντος theme:
+
+```json
+{
+  "preserve_existing_theme": true
+}
+```
+
+Αν δηλωθεί ρητά theme στο config, αυτό υπερισχύει του υπάρχοντος package theme:
+
+```json
+{
+  "preserve_existing_theme": true,
+  "default_dataset_fields": {
+    "theme": [
+      "http://publications.europa.eu/resource/authority/data-theme/ENVI"
+    ]
+  }
+}
+```
 
 ### `default_resource_fields`
 

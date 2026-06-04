@@ -62,6 +62,7 @@ GATHER_LOG_EVERY_CONFIG_KEY = "gather_log_every"
 INCLUDE_LAYER_NAME_KEYWORDS_CONFIG_KEY = "include_layer_name_keywords"
 SKIP_KEYWORDS_MATCHING_CONFIG_KEY = "skip_keywords_matching"
 DEFAULT_TAGS_CONFIG_KEY = "default_tags"
+PRESERVE_EXISTING_THEME_CONFIG_KEY = "preserve_existing_theme"
 SKIP_DATASET_WHEN_TITLE_MATCHES_LAYER_NAME_CONFIG_KEY = (
     "skip_dataset_when_title_matches_layer_name"
 )
@@ -986,10 +987,55 @@ class WmsCapabilitiesHarvester(HarvesterBase):
             package_dict["theme"] = themes
 
         apply_default_dataset_fields_from_config(package_dict, harvest_object)
+        self._preserve_existing_theme(package_dict, harvest_object, config)
         ensure_applicable_legislation(package_dict, protected=False)
         apply_default_resource_fields_from_config(package_dict, harvest_object)
         preserve_resource_ids_by_url(package_dict, harvest_object)
         return package_dict
+
+    def _preserve_existing_theme(
+        self,
+        package_dict: dict[str, Any],
+        harvest_object,
+        config: dict[str, Any],
+    ) -> None:
+        if not self._bool_value(
+            config.get(PRESERVE_EXISTING_THEME_CONFIG_KEY),
+            False,
+        ):
+            return
+
+        if package_dict.get("theme"):
+            return
+
+        package_id = getattr(harvest_object, "package_id", None)
+        if not package_id:
+            return
+
+        context = {
+            "model": model,
+            "session": model.Session,
+            "user": self._get_user_name(),
+            "ignore_auth": True,
+        }
+        try:
+            existing_package = toolkit.get_action("package_show")(
+                context,
+                {"id": package_id},
+            )
+        except toolkit.ObjectNotFound:
+            return
+        except Exception as e:
+            log.warning(
+                "Could not preserve existing theme for WMS package %s: %s",
+                package_id,
+                e,
+            )
+            return
+
+        existing_theme = existing_package.get("theme")
+        if existing_theme:
+            package_dict["theme"] = existing_theme
 
     def _title_translated_for_layer(
         self,
