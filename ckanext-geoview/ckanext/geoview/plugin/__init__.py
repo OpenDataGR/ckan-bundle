@@ -84,6 +84,12 @@ class GeoViewBase(p.SingletonPlugin):
             "proxy."
         )
         declare_once(
+            geoview.service_proxy.max_file_size_mb,
+            "3",
+            "Maximum response size in MB that the geoview service proxy will "
+            "fetch for OGC services such as WMS, WFS and WMTS."
+        )
+        declare_once(
             ol_viewer.proxy_wms_getmap,
             "False",
             "If true, WMS GetMap tile requests are sent through the CKAN "

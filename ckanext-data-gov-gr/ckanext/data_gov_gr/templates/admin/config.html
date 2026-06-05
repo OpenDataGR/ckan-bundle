@@ -151,6 +151,22 @@
             {{ _('Περιορίζει το πλήθος coordinate positions που θα σταλούν στο Leaflet. Χρήσιμο για βαριές γραμμές ή πολύγωνα με λίγα features αλλά πολλά σημεία.') }}
           </p>
 
+          <h4>{{ _('Geoview service proxy') }}</h4>
+
+          {{ form.input(
+            'ckanext.geoview.service_proxy.max_file_size_mb',
+            id='field-ckanext.geoview.service_proxy.max_file_size_mb',
+            label=_('Μέγιστο μέγεθος απόκρισης service proxy (MB)'),
+            value=data.get('ckanext.geoview.service_proxy.max_file_size_mb', 3),
+            error=errors.get('ckanext.geoview.service_proxy.max_file_size_mb'),
+            type='number',
+            classes=['control-medium'],
+            attrs={'class': 'form-control', 'min': '1', 'step': '1'}
+          ) }}
+          <p class="help-block" style="margin-top: -24px; margin-bottom: 16px">
+            {{ _('Ορίζει πόσα MB μπορεί να ανακτήσει το geoview service proxy για WMS/WFS/WMTS responses όπως GetCapabilities. Δεν επηρεάζει τα upload limits ή τη λήψη των πόρων.') }}
+          </p>
+
           <hr>
           <h4>{{ _('Header') }}</h4>
 
@@ -1834,6 +1850,7 @@
         <li><strong>{{ _('Εμφάνιση Botaki (webchat)') }}:</strong> {{ _('Ενεργοποιεί/απενεργοποιεί την εμφάνιση του Botaki στο site.') }}</li>
         <li><strong>{{ _('Μέγιστος αριθμός GeoJSON features στο preview') }}:</strong> {{ _('Ορίζει πόσα GeoJSON features θα αποδοθούν στον χάρτη προεπισκόπησης. Αν το αρχείο έχει περισσότερα, εμφανίζεται μόνο ασφαλές υποσύνολο με προειδοποίηση, χωρίς να επηρεάζεται η λήψη του αρχείου.') }}</li>
         <li><strong>{{ _('Μέγιστος αριθμός σημείων συντεταγμένων στο GeoJSON preview') }}:</strong> {{ _('Ορίζει το μέγιστο πλήθος coordinate positions που θα σταλούν στο Leaflet. Προστατεύει τον browser από βαριές γραμμές ή πολύγωνα με πολλά σημεία.') }}</li>
+        <li><strong>{{ _('Μέγιστο μέγεθος απόκρισης service proxy (MB)') }}:</strong> {{ _('Ορίζει πόσα MB μπορεί να ανακτήσει το geoview service proxy για WMS/WFS/WMTS responses, όπως GetCapabilities. Αυξήστε το όταν μεγάλα WMS capabilities κόβονται με μήνυμα «Content is too large to be proxied».') }}</li>
         <li><strong>{{ _('Εμφάνιση λογοτύπου Γραμματείας στο header') }}:</strong> {{ _('Εμφανίζει το λογότυπο της Γραμματείας Διακυβέρνησης Δεδομένων AI δεξιά του λογοτύπου data.gov.gr, με λευκή κάθετη γραμμή ως διαχωριστικό.') }}</li>
         <li><strong>{{ _('Λειτουργία συγκατάθεσης Matomo') }}:</strong> {{ _('Ελέγχει αν εμφανίζεται banner συγκατάθεσης cookies/tracking. Απενεργοποιημένο = τρέχουσα συμπεριφορά χωρίς banner. Tracking consent = πλήρης συναίνεση πριν οποιοδήποτε tracking. Cookie consent = tracking χωρίς cookies μέχρι αποδοχή. Opt-out = tracking by default, ο χρήστης μπορεί να εξαιρεθεί.') }}</li>
         <li><strong>{{ _('Σελίδα Συχνών Ερωτήσεων (FAQ)') }}:</strong> {{ _('Αν συμπληρωθεί με το slug της CKAN σελίδας (π.χ. faq), εμφανίζεται σύνδεσμος «Συχνές Ερωτήσεις» στη στήλη Κοινότητας του footer.') }}</li>

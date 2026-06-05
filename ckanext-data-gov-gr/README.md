@@ -134,6 +134,15 @@ Optional settings:
     # Αν είναι yes, το tab κρύβεται από το navigation του dashboard.
     ckanext.data_gov_gr.user.hide_showcase_tab = no
 
+    # Geoview service proxy: μέγιστο μέγεθος απόκρισης σε MB.
+    # Επηρεάζει OGC service previews (WMS/WFS/WMTS), π.χ. WMS GetCapabilities
+    # που περνάει από το geoview service proxy πριν εμφανιστεί ο χάρτης.
+    # Αυξήστε το όταν μεγάλα capabilities documents κόβονται με μήνυμα
+    # "Content is too large to be proxied".
+    # (προαιρετικό, default: 3)
+    # Μπορεί επίσης να αλλάξει από το /ckan-admin/config → Γενικά → Geoview service proxy.
+    ckanext.geoview.service_proxy.max_file_size_mb = 3
+
     # Header: preset λογότυπο data.gov.gr.
     # Επιλέγει ποια εικόνα από τον φάκελο /images/data-gov-gr/ εμφανίζεται στο header
     # όταν το ckan.site_logo είναι άδειο (δεν έχει ανέβει custom logo).
@@ -312,6 +321,161 @@ Optional settings:
     # στο banner εμφανίζεται αυτόματα σύνδεσμος «Πολιτική Cookies» που οδηγεί στη
     # σελίδα /pages/<slug>. Αν η ρύθμιση είναι κενή, ο σύνδεσμος δεν εμφανίζεται.
     ckanext.matomo.consent_mode = disabled
+
+## Core CKAN harvester source config
+
+Ο `core_ckan_harvester` harvestάρει datasets από remote CKAN instances.
+
+Οι παρακάτω επιλογές δηλώνονται στο JSON config του harvest source, όχι στο
+`ckan.ini`.
+
+### `dataset_name_prefix`
+
+Προαιρετικό string. Όταν οριστεί, προστίθεται ως prefix στο `name` του dataset
+που έρχεται από το remote CKAN. Αν το name ξεκινάει ήδη με το prefix, δεν
+προστίθεται ξανά.
+
+```json
+{
+  "dataset_name_prefix": "geodm-"
+}
+```
+
+Με remote dataset name `my-dataset`, το τελικό name γίνεται `geodm-my-dataset`.
+
+**Σημείωση:** Το prefix εφαρμόζεται μόνο κατά τη **δημιουργία** νέων datasets.
+Αν τα datasets υπάρχουν ήδη (π.χ. από προηγούμενο harvest με άλλον harvester ή
+χωρίς prefix), ο upstream CKAN harvester διατηρεί το υπάρχον name και το prefix
+δεν εφαρμόζεται. Σε αυτή την περίπτωση πρέπει πρώτα να διαγραφούν τα παλιά
+datasets (ή η παλιά harvest source) και να ξανατρέξει το harvest.
+
+### `import_relationships`
+
+Προαιρετικό boolean. Default: `false`.
+
+Ελέγχει αν εισάγονται τα πεδία `relationships_as_object` και
+`relationships_as_subject` που έρχονται από το remote CKAN.
+
+Όταν είναι `false` ή λείπει από το config (default), οι συσχετίσεις αφαιρούνται
+και δεν καταχωρούνται τοπικά. Αυτό αποτρέπει σφάλματα validation ή ανεπιθύμητη
+δημιουργία relationships κατά το import.
+
+Για ενεργοποίηση:
+
+```json
+{
+  "import_relationships": true
+}
+```
+
+### `landing_page_base_url`
+
+Προαιρετικό string. Όταν οριστεί, το `landing_page` του dataset παράγεται από
+το base URL και το `id` του remote package.
+
+```json
+{
+  "landing_page_base_url": "http://smartcity.heraklion.gr/opendata",
+  "landing_page_path_template": "/dataset/{id}"
+}
+```
+
+Αν λείπει το `landing_page_path_template`, χρησιμοποιείται `/dataset/{id}`.
+
+### `default_dataset_fields`
+
+Προαιρετικό. Επιτρέπει να δηλωθούν default τιμές για πεδία του CKAN dataset
+από το JSON config του harvest source.
+
+```json
+{
+  "default_dataset_fields": {
+    "temporal_coverage": [
+      {
+        "start": "1900-01-01",
+        "end": "2099-12-31"
+      }
+    ],
+    "spatial_coverage": [
+      {
+        "uri": "",
+        "text": "Ελλάδα",
+        "geom": "",
+        "bbox": "",
+        "centroid": ""
+      }
+    ]
+  }
+}
+```
+
+Αν το dataset έχει ήδη μη κενή τιμή στο πεδίο, η υπάρχουσα τιμή διατηρείται.
+
+### `override_default_dataset_fields`
+
+Προαιρετικό boolean. Default: `false`.
+
+Όταν είναι `true`, οι τιμές του `default_dataset_fields` αντικαθιστούν
+υπάρχουσες τιμές στο dataset.
+
+### `default_resource_fields`
+
+Προαιρετικό. Επιτρέπει να δηλωθούν default τιμές για πεδία κάθε CKAN resource
+από το JSON config του harvest source.
+
+```json
+{
+  "default_resource_fields": {
+    "size": 1,
+    "license": "http://publications.europa.eu/resource/authority/licence/CC_BY_4_0",
+    "rights": "Τα δεδομένα διατίθενται υπό την άδεια : Creative Commons Attribution 4.0 International"
+  }
+}
+```
+
+Αν το resource έχει ήδη μη κενή τιμή στο πεδίο, η υπάρχουσα τιμή διατηρείται.
+
+### `override_default_resource_fields`
+
+Προαιρετικό boolean. Default: `false`.
+
+Όταν είναι `true`, οι τιμές του `default_resource_fields` αντικαθιστούν
+υπάρχουσες τιμές στα resources.
+
+```json
+{
+  "default_resource_fields": {
+    "license": "http://publications.europa.eu/resource/authority/licence/CC_BY_4_0"
+  },
+  "override_default_resource_fields": true
+}
+```
+
+### `resource_access_url_from_url`
+
+Προαιρετικό boolean. Default: `false`.
+
+Όταν είναι `true`, το `access_url` κάθε resource συμπληρώνεται από το `url`,
+μόνο αν το `access_url` λείπει ή είναι κενό.
+
+```json
+{
+  "resource_access_url_from_url": true
+}
+```
+
+### `resource_download_url_from_url`
+
+Προαιρετικό boolean. Default: `false`.
+
+Όταν είναι `true`, το `download_url` κάθε resource συμπληρώνεται από το `url`,
+μόνο αν το `download_url` λείπει ή είναι κενό.
+
+```json
+{
+  "resource_download_url_from_url": true
+}
+```
 
 ## CSW harvester source config
 
@@ -2559,10 +2723,37 @@ typeNames=ms%3Acorine2018
 typeNames=corine2018
 ```
 
+### `default_theme`
+
+Προαιρετική λίστα DCAT theme URIs. Default: κενό.
+
+Όταν δηλωθεί, ο harvester γράφει το `theme` σε κάθε dataset **πάντα**,
+ανεξαρτήτως αν υπάρχει ήδη τιμή.
+
+```json
+{
+  "default_theme": [
+    "http://publications.europa.eu/resource/authority/data-theme/ENVI"
+  ]
+}
+```
+
+Στην πράξη, το `default_dataset_fields.theme` καλύπτει το ίδιο σενάριο:
+επειδή τα WMS capabilities δεν περιέχουν theme, το πεδίο στο νέο `package_dict`
+είναι πάντα κενό, άρα το `default_dataset_fields.theme` γράφει πάντα χωρίς να
+χρειάζεται `override_default_dataset_fields`. Η μόνη διαφορά είναι ότι το
+`default_theme` εκτελείται πρώτο στη σειρά προτεραιότητας.
+
 ### `default_dataset_fields`
 
 Προαιρετικό. Ίδια λογική με τον CSW harvester. Δηλώνει default τιμές για πεδία
 του CKAN dataset (`package_dict`).
+
+Ο έλεγχος «αν το πεδίο λείπει ή είναι κενό» αφορά το **νέο `package_dict`** που
+χτίζεται κατά το import, όχι αυτό που είναι αποθηκευμένο στο CKAN. Επειδή τα
+WMS capabilities δεν περιέχουν πεδία όπως `theme`, `hvd_category`, `contact`
+κλπ., αυτά τα πεδία είναι πάντα κενά στο νέο `package_dict` και οι τιμές του
+`default_dataset_fields` γράφονται πάντα.
 
 Παράδειγμα για HVD category και σημεία επικοινωνίας:
 
@@ -2581,33 +2772,44 @@ typeNames=corine2018
 ```
 
 Το παραπάνω καταχωρεί τα `hvd_category` και `contact` σε κάθε WMS-harvested
-dataset, αν το αντίστοιχο πεδίο λείπει ή είναι κενό.
+dataset.
 
 ### `override_default_dataset_fields`
 
 Προαιρετικό boolean. Default: `false`.
 
 Όταν είναι `false` ή λείπει, το `default_dataset_fields` δεν αντικαθιστά
-υπάρχουσες μη κενές τιμές. Όταν είναι `true`, τις αντικαθιστά.
+υπάρχουσες μη κενές τιμές στο νέο `package_dict`. Όταν είναι `true`, τις
+αντικαθιστά. Στον WMS harvester αυτό έχει πρακτική σημασία μόνο αν το
+`default_theme` έχει ήδη γράψει `theme` πριν εκτελεστεί το
+`default_dataset_fields`.
 
 ### `preserve_existing_theme`
 
 Προαιρετικό boolean. Default: `false`.
 
-Όταν είναι `true`, ο WMS harvester διατηρεί το υπάρχον `theme` ενός ήδη
-harvested CKAN dataset κατά το re-harvest, εφόσον:
+Όταν είναι `true`, ο WMS harvester κοιτάει το **αποθηκευμένο στο CKAN** package
+και διατηρεί το υπάρχον `theme` κατά το re-harvest, εφόσον:
 
+- κανένα από τα `default_theme` ή `default_dataset_fields.theme` δεν έχει
+  γράψει theme στο νέο `package_dict`,
 - το harvest object αντιστοιχεί σε υπάρχον package (`package_id`),
-- το layer δεν είναι καινούριο,
-- το νέο `package_dict` δεν έχει ήδη `theme` από το config.
+- το αποθηκευμένο package στο CKAN έχει μη κενό `theme`.
 
 Δεν εφαρμόζεται σε καινούρια WMS layers και δεν δημιουργεί theme από μόνο του.
 
+Αυτός είναι ο **μόνος μηχανισμός** που ελέγχει τι υπάρχει ήδη αποθηκευμένο στο
+CKAN — τα `default_theme` και `default_dataset_fields` ελέγχουν μόνο το νέο
+`package_dict`.
+
 Προτεραιότητα κατά το import:
 
-1. `default_theme`, όταν έχει δηλωθεί.
-2. `default_dataset_fields.theme`, όταν έχει δηλωθεί.
-3. υπάρχον package `theme`, μόνο όταν `preserve_existing_theme` είναι `true`.
+1. `default_theme` — γράφει πάντα, ανεξαρτήτως υπάρχουσας τιμής.
+2. `default_dataset_fields.theme` — γράφει αν το πεδίο είναι κενό στο νέο
+   `package_dict` (στον WMS harvester γράφει πάντα, εκτός αν το `default_theme`
+   έγραψε πρώτο).
+3. `preserve_existing_theme` — fallback: αν κανένα από τα παραπάνω δεν έγραψε
+   theme, κρατάει αυτό που υπάρχει ήδη στο CKAN.
 4. κανένα `theme`.
 
 Παράδειγμα διατήρησης υπάρχοντος theme:
@@ -2618,7 +2820,8 @@ harvested CKAN dataset κατά το re-harvest, εφόσον:
 }
 ```
 
-Αν δηλωθεί ρητά theme στο config, αυτό υπερισχύει του υπάρχοντος package theme:
+Αν δηλωθεί ρητά theme στο config, αυτό υπερισχύει του αποθηκευμένου package
+theme:
 
 ```json
 {
@@ -2738,6 +2941,25 @@ capabilities.
   "user_agent": "data.gov.gr CKAN WMS Harvester"
 }
 ```
+
+### `private`
+
+Προαιρετικό boolean. Default: `false`.
+
+Όταν είναι `true`, τα datasets δημιουργούνται ως private (ορατά μόνο στα μέλη
+του organization).
+
+```json
+{
+  "private": true
+}
+```
+
+Ο harvester χρησιμοποιεί `ignore_auth: True` σε όλα τα σημεία που ψάχνει ή
+ενημερώνει υπάρχοντα datasets (`package_show`, `package_update`,
+`package_create`, `package_delete`). Άρα η αλλαγή από `"private": true` σε
+`"private": false` σε επόμενο re-harvest δουλεύει κανονικά — ο harvester βρίσκει
+τα private datasets και τα ενημερώνει σε public.
 
 ### Σύγκριση λειτουργιών consent — Analytics vs Privacy
 

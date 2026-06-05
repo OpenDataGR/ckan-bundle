@@ -179,7 +179,7 @@
                 var url = proxyServiceUrl || rawGetMapUrl;
 
                 var layerName = parsedUrl.length > 1 && parsedUrl[1];
-                OL_HELPERS.withWMSLayers(url, getMapUrl, layerProcessor, layerName, true /* useTiling*/, map, wmsOptions );
+                return OL_HELPERS.withWMSLayers(url, getMapUrl, layerProcessor, layerName, true /* useTiling*/, map, wmsOptions );
             },
             'wmts' : function(resource, proxyUrl, proxyServiceUrl, layerProcessor, map) {
                 var parsedUrl = resource.url.split('#');
@@ -204,7 +204,7 @@
         var withLayers = function (resource, proxyUrl, proxyServiceUrl, layerProcessor, map, olConfig) {
 
             var withLayers = ckan.geoview.layerExtractors[resource.format && resource.format.toLocaleLowerCase()];
-            withLayers && withLayers(resource, proxyUrl, proxyServiceUrl, layerProcessor, map, olConfig);
+            return withLayers && withLayers(resource, proxyUrl, proxyServiceUrl, layerProcessor, map, olConfig);
         }
 
         return {
@@ -384,7 +384,14 @@
                 ckan.geoview.googleApiKey = this.options.gapi_key;
 
 
-                withLayers(preload_resource, proxyUrl, proxyServiceUrl, $_.bind(this.addLayer, this), this.map, this.options.ol_config);
+                var layerResult = withLayers(preload_resource, proxyUrl, proxyServiceUrl, $_.bind(this.addLayer, this), this.map, this.options.ol_config);
+                if (layerResult && layerResult.then) {
+                    layerResult.then(null, function(err) {
+                        if (map && map.logError) {
+                            map.logError(err);
+                        }
+                    });
+                }
             },
 
             _onReady: function () {

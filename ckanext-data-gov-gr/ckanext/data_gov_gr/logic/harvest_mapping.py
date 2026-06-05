@@ -52,6 +52,7 @@ RESOURCE_MIMETYPE_FROM_DISTRIBUTION_FORMAT_CONFIG_KEY = (
 )
 RESOURCE_DESCRIPTION_FROM_NAME_CONFIG_KEY = "resource_description_from_name"
 RESOURCE_ACCESS_URL_FROM_URL_CONFIG_KEY = "resource_access_url_from_url"
+RESOURCE_DOWNLOAD_URL_FROM_URL_CONFIG_KEY = "resource_download_url_from_url"
 RESOURCE_RIGHTS_FROM_USE_CONSTRAINTS_CONFIG_KEY = (
     "resource_rights_from_use_constraints"
 )
@@ -550,6 +551,42 @@ def apply_resource_access_url_from_url(
             continue
 
         resource["access_url"] = url
+
+
+def apply_resource_download_url_from_url(
+    package_dict: dict[str, Any],
+    harvest_object: Any = None,
+    *,
+    overwrite: bool = False,
+) -> None:
+    """
+    Sets missing resource['download_url'] from resource['url'].
+
+    The rule is disabled unless the harvest source config contains:
+      {"resource_download_url_from_url": true}
+    """
+    if not isinstance(package_dict, dict):
+        return
+
+    config = get_harvest_source_config(harvest_object)
+    if not config.get(RESOURCE_DOWNLOAD_URL_FROM_URL_CONFIG_KEY):
+        return
+
+    resources = package_dict.get("resources")
+    if not isinstance(resources, list):
+        return
+
+    for resource in resources:
+        if not isinstance(resource, dict):
+            continue
+        if not overwrite and str(resource.get("download_url") or "").strip():
+            continue
+
+        url = str(resource.get("url") or "").strip()
+        if not url:
+            continue
+
+        resource["download_url"] = url
 
 
 # -----------------------------------------------------------------------------

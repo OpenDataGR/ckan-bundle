@@ -16,7 +16,7 @@ GEOJSON_MAX_FEATURES = 500
 GEOJSON_MAX_COORDINATES = 400000
 
 
-MAX_FILE_SIZE = 3 * 1024 * 1024  # 1MB
+SERVICE_PROXY_MAX_FILE_SIZE_MB = 3
 CHUNK_SIZE = 512
 
 # HTTP request parameters that may conflict with OGC services
@@ -32,6 +32,29 @@ OGC_EXCLUDED_PARAMS = [
     "bbox",
     "maxfeatures",
 ]
+
+
+def _plain_text_response(status_code, body):
+    if toolkit.check_ckan_version("2.9"):
+        from flask import make_response
+
+        response = make_response(body, status_code)
+    else:
+        response = toolkit.response
+        response.status_int = status_code
+        response.body = body
+
+    response.content_type = "text/plain"
+    response.charset = "utf-8"
+    return response
+
+
+def _service_proxy_too_large_response(max_file_size, actual_size, url):
+    message = (
+        "Content is too large to be proxied. Allowed file size: {allowed}, "
+        "Content-Length: {actual}. Url: {url}"
+    ).format(allowed=max_file_size, actual=actual_size, url=url)
+    return _plain_text_response(409, message)
 
 
 def _as_config_list(value):
@@ -105,16 +128,10 @@ def proxy_service_url(req, url):
         # log.info('Request: {req}'.format(req=r.request.url))
         # log.info('Request Headers: {h}'.format(h=r.request.headers))
 
+        max_file_size = get_service_proxy_max_file_size()
         cl = r.headers.get("content-length")
-        if cl and int(cl) > MAX_FILE_SIZE:
-            toolkit.abort(
-                409,
-                (
-                    """Content is too large to be proxied. Allowed
-                file size: {allowed}, Content-Length: {actual}. Url: """
-                    + url
-                ).format(allowed=MAX_FILE_SIZE, actual=cl),
-            )
+        if cl and int(cl) > max_file_size:
+            return _service_proxy_too_large_response(max_file_size, cl, url)
         if toolkit.check_ckan_version("2.9"):
             from flask import make_response
 
@@ -133,15 +150,8 @@ def proxy_service_url(req, url):
                 response.body_file.write(chunk)
             length += len(chunk)
 
-            if length >= MAX_FILE_SIZE:
-                toolkit.abort(
-                    409,
-                    (
-                        """Content is too large to be proxied. Allowed
-                file size: {allowed}, Content-Length: {actual}. Url: """
-                        + url
-                    ).format(allowed=MAX_FILE_SIZE, actual=length),
-                )
+            if length >= max_file_size:
+                return _service_proxy_too_large_response(max_file_size, length, url)
 
     except requests.exceptions.HTTPError as error:
         details = "Could not proxy resource. Server responded with %s %s" % (
@@ -207,6 +217,14 @@ def get_max_coordinates():
     return _get_positive_int_config(
         "ckanext.geoview.geojson.max_coordinates", GEOJSON_MAX_COORDINATES
     )
+
+
+def get_service_proxy_max_file_size():
+    max_file_size_mb = _get_positive_int_config(
+        "ckanext.geoview.service_proxy.max_file_size_mb",
+        SERVICE_PROXY_MAX_FILE_SIZE_MB,
+    )
+    return max_file_size_mb * 1024 * 1024
 
 
 def _get_positive_int_config(config_key, default):

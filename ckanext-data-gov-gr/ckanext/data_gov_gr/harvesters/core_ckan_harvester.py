@@ -12,6 +12,12 @@ import ckan.plugins as plugins
 
 from ckanext.data_gov_gr.harvesters.base import DataGovGrHarvester
 from ckanext.data_gov_gr import helpers as data_gov_helpers
+from ckanext.data_gov_gr.logic.harvest_mapping import (
+    apply_default_dataset_fields_from_config,
+    apply_default_resource_fields_from_config,
+    apply_resource_access_url_from_url,
+    apply_resource_download_url_from_url,
+)
 
 log = logging.getLogger(__name__)
 
@@ -114,6 +120,9 @@ class CoreCkanHarvester(DataGovGrHarvester, CKANHarvester):
             else:
                 log.debug("❌ No isopen found in remote package")
 
+            # Apply dataset name prefix if configured
+            self._apply_dataset_name_prefix(package_dict, harvest_object)
+
             # Apply all fixes
             self._fix_required_fields(package_dict)
             self._fix_common_mime_types(package_dict, remote_package_dict)
@@ -128,7 +137,11 @@ class CoreCkanHarvester(DataGovGrHarvester, CKANHarvester):
             # Ensure applicable_legislation is set for PUBLIC datasets
             self._ensure_applicable_legislation(package_dict)
             self._set_landing_page_from_remote_id_config(package_dict, remote_package_dict, harvest_object)
-            
+            apply_default_dataset_fields_from_config(package_dict, harvest_object)
+            apply_default_resource_fields_from_config(package_dict, harvest_object)
+            apply_resource_access_url_from_url(package_dict, harvest_object)
+            apply_resource_download_url_from_url(package_dict, harvest_object)
+
             # Remove original description when we have translated version
             if 'notes_translated-el' in package_dict:
                 package_dict.pop('notes', None)
@@ -306,6 +319,24 @@ class CoreCkanHarvester(DataGovGrHarvester, CKANHarvester):
         except Exception as e:
             log.error(f"❌ Error in license processing: {e}", exc_info=True)
         return package_dict
+
+    def _apply_dataset_name_prefix(self, package_dict, harvest_object):
+        """Prepend a configurable prefix to the dataset name."""
+        try:
+            config = self._get_harvest_source_config(harvest_object)
+            prefix = config.get('dataset_name_prefix', '')
+            if not isinstance(prefix, str) or not prefix.strip():
+                return
+
+            prefix = prefix.strip()
+            name = package_dict.get('name', '')
+            if not name or name.startswith(prefix):
+                return
+
+            package_dict['name'] = prefix + name
+            log.debug(f"Applied dataset name prefix: {package_dict['name']}")
+        except Exception as e:
+            log.error(f"Error applying dataset name prefix: {e}", exc_info=True)
 
     def _get_harvest_source_config(self, harvest_object):
         """

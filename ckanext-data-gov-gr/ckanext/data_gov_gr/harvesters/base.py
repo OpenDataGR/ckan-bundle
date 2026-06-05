@@ -1,3 +1,4 @@
+import json
 import logging
 from datetime import timezone
 
@@ -61,6 +62,18 @@ class DataGovGrHarvester(object):
             'source_hash'
         }
         
+        source_config = {}
+        try:
+            raw = getattr(getattr(harvest_object, 'source', None), 'config', None)
+            if isinstance(raw, str) and raw.strip():
+                source_config = json.loads(raw)
+        except Exception:
+            pass
+
+        if not source_config.get('import_relationships', False):
+            package_dict.pop('relationships_as_object', None)
+            package_dict.pop('relationships_as_subject', None)
+
         if 'extras' in package_dict and isinstance(package_dict['extras'], list):
             filtered_extras = []
             

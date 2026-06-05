@@ -452,10 +452,17 @@ ol.proj.addProjection(createEPSG4326Proj('EPSG:4326:LONLAT', 'enu'));
 
 
         logError(err) {
+            var errText = err && err.message ? err.message : err;
+            if (!errText || typeof errText !== "string") {
+                errText = String(errText || "Unknown error");
+            }
             if (!this.get('errors')) {
-                this.set('errors', [err]);
+                this.set('errors', [errText]);
             } else {
-                this.get('errors').push(err);
+                if (this.get('errors').indexOf(errText) >= 0) {
+                    return;
+                }
+                this.get('errors').push(errText);
                 this.dispatchEvent("change:errors");
             }
         }
@@ -977,11 +984,36 @@ ol.proj.addProjection(createEPSG4326Proj('EPSG:4326:LONLAT', 'enu'));
             })
     }
 
+    var summarizeHTTPErrorText = function(text, response) {
+        var body = text && text.trim ? text.trim() : text;
+        if (!body) {
+            return response.statusText || "Failed to read WMS capabilities";
+        }
+
+        var contentType = response.headers && response.headers.get &&
+            response.headers.get("content-type");
+        var looksHTML = (contentType && contentType.toLowerCase().indexOf("html") >= 0) ||
+            /^\s*(<!doctype html|<html)/i.test(body);
+
+        if (looksHTML) {
+            var titleMatch = body.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+            if (titleMatch && titleMatch[1]) {
+                return titleMatch[1].replace(/\s+/g, " ").trim();
+            }
+            return response.statusText || "HTML error response";
+        }
+
+        if (body.length > 500) {
+            return body.substring(0, 500) + "...";
+        }
+        return body;
+    }
+
     var parseWMSCapas = OL_HELPERS.parseWMSCapas = function (url, version, callback, failCallback) {
 
         if (version === undefined) {
             // try to force 1.3.0
-            return parseWMSCapas(url, "1.3.0", callback, failCallback)
+            return parseWMSCapas(url, "1.3.0", callback)
                 .catch(function(err) {
                     // if it fails, let the server choose the version
                     return parseWMSCapas(url, "auto", callback, failCallback)
@@ -1001,12 +1033,22 @@ ol.proj.addProjection(createEPSG4326Proj('EPSG:4326:LONLAT', 'enu'));
                 {method:'GET', credentials: 'include'}
             ).then(
                 function(response) {
-                    return response.text();
+                    return response.text().then(function(text) {
+                        if (!response.ok) {
+                            var status = response.status ? "HTTP " + response.status : "HTTP error";
+                            var message = summarizeHTTPErrorText(text, response);
+                            throw new Error(status + ": " + message);
+                        }
+                        return text;
+                    });
                 }
             ).then(_.bind(parser.read, parser)
             ).then(callback)
                 .catch(function(err) {
-                    var msg = "Failed to read WMS capabilities";
+                    var msg = err && err.message ? err.message : err;
+                    if (!msg || typeof msg !== "string") {
+                        msg = "Failed to read WMS capabilities";
+                    }
                     console.warn("Failed to read capabilities from "+url);
                     console.warn(err);
                     failCallback && failCallback(msg);
@@ -1707,6 +1749,9 @@ ol.proj.addProjection(createEPSG4326Proj('EPSG:4326:LONLAT', 'enu'));
             },
             // failure callback
             function(err) {
+                if (map && map.logError) {
+                    map.logError(err);
+                }
                 deferredResult.reject(err);
             }
         )
@@ -1947,7 +1992,7 @@ ol.proj.addProjection(createEPSG4326Proj('EPSG:4326:LONLAT', 'enu'));
         var wmsExceptions = options && options.exceptions || "INIMAGE";
         var logTileErrors = options && options.logTileErrors;
 
-        parseWMSCapas(
+        var capaPromise = parseWMSCapas(
             capaUrl,
             undefined, /* version */
             function (capas) {
@@ -2053,6 +2098,9 @@ ol.proj.addProjection(createEPSG4326Proj('EPSG:4326:LONLAT', 'enu'));
                 deferredResult.reject(err);
             }
         )
+        if (capaPromise && capaPromise.catch) {
+            capaPromise.catch(function() {});
+        }
 
         return deferredResult;
 

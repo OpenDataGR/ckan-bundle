@@ -154,6 +154,9 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         boolean_validator = toolkit.get_validator('boolean_validator')
         geojson_max_features_validator = _positive_integer_or_default(500)
         geojson_max_coordinates_validator = _positive_integer_or_default(400000)
+        geoview_service_proxy_max_file_size_mb_validator = (
+            _positive_integer_or_default(3)
+        )
 
         schema.update({
             'ckanext.data_gov_gr.powerbi_embed_url': [ignore_missing, unicode_safe],
@@ -209,6 +212,10 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
             'ckanext.data_gov_gr.search.api_doc_url': [ignore_missing, unicode_safe],
             'ckanext.geoview.geojson.max_features': [ignore_missing, geojson_max_features_validator],
             'ckanext.geoview.geojson.max_coordinates': [ignore_missing, geojson_max_coordinates_validator],
+            'ckanext.geoview.service_proxy.max_file_size_mb': [
+                ignore_missing,
+                geoview_service_proxy_max_file_size_mb_validator,
+            ],
             DEFAULT_DATASET_POPULARITY_SORT_CONFIG: [ignore_missing, boolean_validator],
             'ckanext.matomo.consent_mode': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.header.logo_preset': [ignore_missing, unicode_safe],
