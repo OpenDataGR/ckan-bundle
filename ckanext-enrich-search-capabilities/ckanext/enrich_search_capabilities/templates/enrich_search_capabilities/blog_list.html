@@ -1,0 +1,40 @@
+{% extends 'ckanext_pages/blog_edit_base.html' %}
+
+{% block page_primary_action %}
+  {% if h.check_access('ckanext_pages_update', {}) %}
+    {% link_for _('Add Article'), named_route='pages.blog_new', page='', class_='btn btn-primary', icon='plus-square' %}
+  {% endif %}
+{% endblock %}
+
+{% block primary_content_inner %}
+  {% snippet 'enrich_search_capabilities/snippets/search_form.html',
+    q=q,
+    result_count=result_count,
+    placeholder=_('Search blog articles'),
+    clear_url=h.url_for('pages.blog_index')
+  %}
+
+  {% if page.items %}
+    {% snippet 'enrich_search_capabilities/snippets/pages_list.html',
+      pages=page.items,
+      type='blog',
+      title=_('Blog')
+    %}
+    {{ page.pager() }}
+  {% elif q %}
+    <h1 class="page-heading page-list-header">{{ _('Blog') }}</h1>
+    <p class="empty">{{ _('No blog articles match your search.') }}</p>
+  {% else %}
+    {% snippet 'enrich_search_capabilities/snippets/pages_list.html',
+      pages=page.items,
+      type='blog',
+      title=_('Blog')
+    %}
+  {% endif %}
+{% endblock %}
+
+{% block main_content %}
+  <div class="wrapper no-nav">
+    {{ self.primary_content() }}
+  </div>
+{% endblock %}

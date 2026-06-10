@@ -70,6 +70,7 @@ INCLUDE_ONLY_DATASETS_WHEN_TITLE_MATCHES_LAYER_NAME_CONFIG_KEY = (
     "include_only_datasets_when_title_matches_layer_name"
 )
 TITLE_PREFIX_FOR_LAYER_NAME_TITLES_CONFIG_KEY = "title_prefix_for_layer_name_titles"
+TITLE_MATCH_IGNORE_TRAILING_DIGITS_CONFIG_KEY = "title_match_ignore_trailing_digits"
 SKIP_DATASET_WHEN_LAYER_MISSING_FROM_WFS_CAPABILITIES_CONFIG_KEY = (
     "skip_dataset_when_layer_missing_from_wfs_capabilities"
 )
@@ -372,7 +373,7 @@ class WmsCapabilitiesHarvester(HarvesterBase):
         skipped_present_wfs_count = 0
 
         for index, layer in enumerate(parsed["layers"], start=1):
-            title_matches_layer_name = self._title_matches_layer_name(layer)
+            title_matches_layer_name = self._title_matches_layer_name(layer, config)
             if include_only_title_matches_layer_name and not title_matches_layer_name:
                 skipped_non_matching_title_count += 1
                 if (
@@ -625,7 +626,11 @@ class WmsCapabilitiesHarvester(HarvesterBase):
             max_length = DEFAULT_DATASET_NAME_MAX_LENGTH
         return max(1, max_length)
 
-    def _title_matches_layer_name(self, layer: dict[str, Any]) -> bool:
+    def _title_matches_layer_name(
+        self,
+        layer: dict[str, Any],
+        config: dict[str, Any] | None = None,
+    ) -> bool:
         layer_name = str(layer.get("name") or "").strip()
         title = str(layer.get("title") or "").strip()
         if not layer_name or not title:
@@ -633,10 +638,31 @@ class WmsCapabilitiesHarvester(HarvesterBase):
 
         local_layer_name = layer_name.split(":", 1)[-1]
         normalized_title = self._normalize_title_for_match(title)
-        return normalized_title in {
+        candidates = {
             self._normalize_title_for_match(layer_name),
             self._normalize_title_for_match(local_layer_name),
         }
+        if normalized_title in candidates:
+            return True
+
+        if self._bool_value(
+            (config or {}).get(TITLE_MATCH_IGNORE_TRAILING_DIGITS_CONFIG_KEY),
+            False,
+        ):
+            for candidate in candidates:
+                if self._near_title_match(normalized_title, candidate):
+                    return True
+
+        return False
+
+    def _near_title_match(self, a: str, b: str) -> bool:
+        if not a or not b or a == b:
+            return not a and not b
+        shorter, longer = (a, b) if len(a) <= len(b) else (b, a)
+        if not longer.startswith(shorter):
+            return False
+        suffix = longer[len(shorter):]
+        return bool(re.fullmatch(r"-?\d+", suffix))
 
     def _normalize_title_for_match(self, value: str) -> str:
         normalized = re.sub(r"\s+", " ", str(value or "").strip()).lower()
@@ -1047,7 +1073,7 @@ class WmsCapabilitiesHarvester(HarvesterBase):
         prefix = str(
             config.get(TITLE_PREFIX_FOR_LAYER_NAME_TITLES_CONFIG_KEY) or ""
         )
-        if not prefix or not self._title_matches_layer_name(layer):
+        if not prefix or not self._title_matches_layer_name(layer, config):
             return _translated(title, layer_name)
 
         return _translated("%s%s" % (prefix, title), layer_name)

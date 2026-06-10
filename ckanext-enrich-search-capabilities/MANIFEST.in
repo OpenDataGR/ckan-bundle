@@ -1,0 +1,6 @@
+include README.rst
+include LICENSE
+include requirements.txt
+recursive-include ckanext/enrich_search_capabilities *.html *.json *.js *.less *.css *.po *.pot *.mo *.yml
+recursive-include ckanext/enrich_search_capabilities/migration *.ini *.py *.mako
+recursive-include ckanext/enrich_search_capabilities/public *.*

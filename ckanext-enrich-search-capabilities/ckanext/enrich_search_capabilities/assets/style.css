@@ -1,0 +1,66 @@
+.masthead .main-navbar .enrich-header-search {
+  position: relative;
+}
+
+.masthead .main-navbar .enrich-header-search-menu {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  z-index: 1050;
+  width: max-content;
+  min-width: 310px;
+  max-width: min(420px, calc(100vw - 2rem));
+  padding: 0.4rem;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 0.5rem;
+  background: #fff;
+  box-shadow: 0 0.5rem 1.25rem rgba(0, 0, 0, 0.2);
+}
+
+.masthead .main-navbar .enrich-header-search-menu[hidden] {
+  display: none;
+}
+
+.masthead .main-navbar .site-search .enrich-header-search-option {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  border: 0;
+  border-radius: 0.35rem;
+  background: transparent;
+  color: #212529;
+  text-align: left;
+  white-space: normal;
+}
+
+.masthead .main-navbar .site-search .enrich-header-search-option:hover,
+.masthead .main-navbar .site-search .enrich-header-search-option:focus {
+  background: #f0f4f7;
+  color: #003647;
+  outline: none;
+}
+
+.masthead .main-navbar .enrich-header-search-option .fa {
+  flex: 0 0 auto;
+  margin-right: 0.65rem;
+  color: inherit;
+}
+
+.masthead .main-navbar .enrich-header-search-query {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 991.98px) {
+  .masthead .main-navbar .enrich-header-search {
+    margin-top: 0.75rem;
+  }
+
+  .masthead .main-navbar .enrich-header-search-menu {
+    right: auto;
+    left: 0;
+    width: 100%;
+    min-width: 100%;
+  }
+}

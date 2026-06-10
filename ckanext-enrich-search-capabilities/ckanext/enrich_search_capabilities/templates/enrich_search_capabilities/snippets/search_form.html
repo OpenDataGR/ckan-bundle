@@ -1,0 +1,36 @@
+<form class="search-form" method="get">
+  <div class="input-group search-input-group">
+    <input
+      id="field-pages-search"
+      type="search"
+      name="q"
+      value="{{ q }}"
+      class="form-control input-lg"
+      autocomplete="off"
+      maxlength="200"
+      placeholder="{{ placeholder }}"
+      aria-label="{{ placeholder }}">
+    <span class="input-group-btn">
+      <button class="btn btn-default btn-lg" type="submit">
+        <i class="fa fa-search" aria-hidden="true"></i>
+        <span class="sr-only">{{ _('Search') }}</span>
+      </button>
+    </span>
+  </div>
+
+  {% if q %}
+    <div class="search-form-summary">
+      <p>
+        {% trans count=result_count %}
+          {{ count }} result found
+        {% pluralize %}
+          {{ count }} results found
+        {% endtrans %}
+      </p>
+      <a class="btn btn-default btn-sm" href="{{ clear_url }}">
+        <i class="fa fa-times" aria-hidden="true"></i>
+        {{ _('Clear search') }}
+      </a>
+    </div>
+  {% endif %}
+</form>

@@ -1,0 +1,32 @@
+<div class="row page-list-item dataset-item">
+  {% if page.image %}
+    <div class="span3 col-md-2 image">
+      <a href="{{ url }}"><img width="100%" src="{{ page.image }}"></a>
+    </div>
+  {% endif %}
+
+  <div class="{% if page.image %}span8 col-md-10{% else %}span11 col-md-12{% endif %}">
+    <h3 class="dataset-heading">
+      <a href="{{ url }}">{{ page.title }}</a>
+      {% if page.private %}
+        <span class="label label-danger">
+          <i class="fa fa-lock" aria-hidden="true"></i>
+          {{ _('Private') }}
+        </span>
+      {% endif %}
+      {% if page.publish_date %}
+        <small class="date">{{ h.render_datetime(page.publish_date) }}</small>
+      {% endif %}
+    </h3>
+
+    {% if page.content %}
+      {% if editor %}
+        <div>{{ page.content|striptags|truncate }}</div>
+      {% else %}
+        {{ h.markdown_extract(page.content) }}
+      {% endif %}
+    {% else %}
+      <p class="empty">{{ _('This page currently has no content') }}</p>
+    {% endif %}
+  </div>
+</div>

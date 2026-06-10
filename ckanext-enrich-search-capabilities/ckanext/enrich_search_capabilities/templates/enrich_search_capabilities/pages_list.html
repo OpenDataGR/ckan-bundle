@@ -1,0 +1,40 @@
+{% extends 'ckanext_pages/edit_base.html' %}
+
+{% block page_primary_action %}
+  {% if h.check_access('ckanext_pages_update', {}) %}
+    {% link_for _('Add page'), named_route='pages.new', page='', class_='btn btn-primary', icon='plus-square' %}
+  {% endif %}
+{% endblock %}
+
+{% block primary_content_inner %}
+  {% snippet 'enrich_search_capabilities/snippets/search_form.html',
+    q=q,
+    result_count=result_count,
+    placeholder=_('Search pages'),
+    clear_url=h.url_for('pages.pages_index')
+  %}
+
+  {% if page.items %}
+    {% snippet 'enrich_search_capabilities/snippets/pages_list.html',
+      pages=page.items,
+      title=_('Pages')
+    %}
+    {{ page.pager() }}
+  {% elif q %}
+    <h1 class="page-heading page-list-header">{{ _('Pages') }}</h1>
+    <p class="empty">{{ _('No pages match your search.') }}</p>
+  {% else %}
+    {% snippet 'enrich_search_capabilities/snippets/pages_list.html',
+      pages=page.items,
+      title=_('Pages')
+    %}
+  {% endif %}
+{% endblock %}
+
+{% block main_content %}
+  <div class="row wrapper no-nav">
+    <main class="primary col-md-12 col-xs-12" role="main">
+      {{ self.primary_content() }}
+    </main>
+  </div>
+{% endblock %}

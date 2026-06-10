@@ -1,0 +1,38 @@
+[project]
+name = "ckanext-enrich-search-capabilities"
+version = "0.0.1"
+description = ""
+readme = "README.md"
+authors = [
+    {name = "Apostolos Vadrachanis", email = "apostolosvadrachanis@gmail.com"}
+]
+license = {text = "AGPL"}
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+]
+
+keywords = [ "CKAN", ]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/apostolosvadrachanis/ckanext-enrich-search-capabilities"
+
+[project.entry-points."ckan.plugins"]
+enrich_search_capabilities = "ckanext.enrich_search_capabilities.plugin:EnrichSearchCapabilitiesPlugin"
+
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+filterwarnings = [
+        "ignore::sqlalchemy.exc.SADeprecationWarning",
+        "ignore::sqlalchemy.exc.SAWarning",
+        "ignore::DeprecationWarning",
+]
+addopts = "--ckan-ini test.ini"

@@ -2579,6 +2579,47 @@ name ή με το local layer name χωρίς workspace. Το απλό dataset `
 }
 ```
 
+### `title_match_ignore_trailing_digits`
+
+Προαιρετικό boolean. Default: `false`.
+
+Όταν είναι `true`, η σύγκριση τίτλου με layer name που χρησιμοποιείται από τα
+`skip_dataset_when_title_matches_layer_name`,
+`include_only_datasets_when_title_matches_layer_name` και
+`title_prefix_for_layer_name_titles` γίνεται πιο ελαστική: θεωρεί ως match
+και περιπτώσεις που μετά την κανονικοποίηση διαφέρουν μόνο κατά trailing
+ψηφία (π.χ. ένα `0` στο τέλος ή ένα `-1`).
+
+Χωρίς αυτή την επιλογή, ο παρακάτω τίτλος **δεν** θεωρείται ίδιος με το
+layer name:
+
+```xml
+<Layer queryable="1" opaque="0">
+  <Name>mes_ano:ano_ras_121675FS000134_1984E0</Name>
+  <Title>ano_ras_121675FS000134-1984E</Title>
+</Layer>
+```
+
+Μετά την κανονικοποίηση (`_`/`-` ισοδύναμα, lowercase):
+
+```text
+local name: ano-ras-121675fs000134-1984e0
+title:      ano-ras-121675fs000134-1984e
+```
+
+Η μόνη διαφορά είναι το trailing `0`. Με `title_match_ignore_trailing_digits`
+ενεργό, αυτό θεωρείται match.
+
+Παράδειγμα config:
+
+```json
+{
+  "include_only_datasets_when_title_matches_layer_name": true,
+  "title_match_ignore_trailing_digits": true,
+  "title_prefix_for_layer_name_titles": "Layer-επίπεδο: "
+}
+```
+
 ### `skip_dataset_when_layer_missing_from_wfs_capabilities`
 
 Προαιρετικό boolean. Default: `false`.

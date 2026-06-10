@@ -1,0 +1,31 @@
+{% set action = '{0}_show'.format(type) %}
+
+<h1 class="page-heading page-list-header">
+  {{ title or (_('Blog') if type == 'blog' else _('Pages')) }}
+</h1>
+
+{% if pages %}
+  <div class="page-list">
+    {% set editor = h.pages_get_wysiwyg_editor() %}
+
+    {% for page in pages %}
+      {% if id %}
+        {% set url = h.url_for('pages.{}_pages_show'.format(g.group_dict['type']), id=id, page=page.name) %}
+      {% elif type == 'blog' %}
+        {% set url = h.url_for('pages.blog_show', page=page.name) %}
+      {% else %}
+        {% set url = h.url_for('pages.show', page=page.name) %}
+      {% endif %}
+
+      {% snippet 'enrich_search_capabilities/snippets/page_item.html',
+        url=url,
+        page=page,
+        editor=editor
+      %}
+    {% endfor %}
+  </div>
+{% elif type == 'blog' %}
+  <p class="empty">{{ _('There are currently no blog articles here') }}</p>
+{% else %}
+  <p class="empty">{{ _('There are currently no pages here') }}</p>
+{% endif %}

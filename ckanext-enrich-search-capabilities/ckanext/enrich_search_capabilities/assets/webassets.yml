@@ -1,0 +1,12 @@
+header-search-js:
+  output: enrich_search_capabilities/%(version)s-header-search.js
+  contents:
+    - script.js
+  extra:
+    preload:
+      - base/main
+
+header-search-css:
+  output: enrich_search_capabilities/%(version)s-header-search.css
+  contents:
+    - style.css

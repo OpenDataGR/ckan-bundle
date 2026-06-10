@@ -1,0 +1,69 @@
+{% ckan_extends %}
+
+{% block header_site_search %}
+  {% if h.enrich_header_search_enabled() %}
+    {% set search_targets = h.enrich_header_search_targets() %}
+    {% if search_targets %}
+      {% asset 'enrich_search_capabilities/header-search-css' %}
+      {% asset 'enrich_search_capabilities/header-search-js' %}
+
+      <form
+        class="d-flex site-search enrich-header-search"
+        action="{{ search_targets[0].url }}"
+        method="get"
+        data-module="enrich-header-search">
+        <label class="visually-hidden" for="field-sitewide-search">
+          {{ _('Search') }}
+        </label>
+        <input
+          id="field-sitewide-search"
+          class="form-control me-2"
+          type="search"
+          name="q"
+          placeholder="{{ _('Search') }}"
+          aria-label="{{ _('Search') }}"
+          aria-controls="enrich-header-search-menu"
+          aria-autocomplete="none"
+          autocomplete="off">
+        <button
+          class="btn enrich-header-search-toggle"
+          type="button"
+          aria-label="{{ _('Choose where to search') }}"
+          aria-haspopup="menu"
+          aria-expanded="false"
+          aria-controls="enrich-header-search-menu">
+          <i class="fa fa-search" aria-hidden="true"></i>
+        </button>
+
+        <div
+          id="enrich-header-search-menu"
+          class="enrich-header-search-menu"
+          role="menu"
+          hidden>
+          {% for target in search_targets %}
+            <button
+              class="enrich-header-search-option"
+              type="submit"
+              role="menuitem"
+              data-search-target="{{ target.endpoint }}"
+              formaction="{{ target.url }}">
+              <i class="fa fa-search" aria-hidden="true"></i>
+              <span>
+                {{ _('Search in') }}
+                <strong>{{ target.label }}</strong>
+                <span class="enrich-header-search-query-wrapper" hidden>
+                  {{ _('for') }}
+                  &ldquo;<span class="enrich-header-search-query"></span>&rdquo;
+                </span>
+              </span>
+            </button>
+          {% endfor %}
+        </div>
+      </form>
+    {% else %}
+      {{ super() }}
+    {% endif %}
+  {% else %}
+    {{ super() }}
+  {% endif %}
+{% endblock %}

@@ -1,0 +1,182 @@
+# Greek translations for ckanext-enrich-search-capabilities.
+# Copyright (C) 2026 ORGANIZATION
+# This file is distributed under the same license as the
+# ckanext-enrich-search-capabilities project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: ckanext-enrich-search-capabilities 0.0.1\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-06-09 21:41+0300\n"
+"PO-Revision-Date: 2026-06-09 20:35+0300\n"
+"Last-Translator: \n"
+"Language: el\n"
+"Language-Team: Greek\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.15.0\n"
+
+#: ckanext/enrich_search_capabilities/actions.py:50
+msgid "Search query must be text"
+msgstr "Ο όρος αναζήτησης πρέπει να είναι κείμενο"
+
+#: ckanext/enrich_search_capabilities/actions.py:58
+msgid "Search query must not exceed {limit} characters"
+msgstr "Ο όρος αναζήτησης δεν πρέπει να υπερβαίνει τους {limit} χαρακτήρες"
+
+#: ckanext/enrich_search_capabilities/actions.py:97
+msgid "Page and blog search is disabled"
+msgstr "Η αναζήτηση σελίδων και ιστολογίου είναι απενεργοποιημένη"
+
+#: ckanext/enrich_search_capabilities/actions.py:107
+msgid "Page type must be either page or blog"
+msgstr "Ο τύπος πρέπει να αντιστοιχεί σε σελίδα ή ιστολόγιο"
+
+#: ckanext/enrich_search_capabilities/helpers.py:25
+msgid "Datasets"
+msgstr "Σύνολα δεδομένων"
+
+#: ckanext/enrich_search_capabilities/helpers.py:26
+msgid "Data Services"
+msgstr "Υπηρεσίες δεδομένων"
+
+#: ckanext/enrich_search_capabilities/helpers.py:29
+msgid "Showcases"
+msgstr "Εφαρμογές"
+
+#: ckanext/enrich_search_capabilities/helpers.py:33
+msgid "Organizations"
+msgstr "Οργανισμοί"
+
+#: ckanext/enrich_search_capabilities/helpers.py:40
+#: ckanext/enrich_search_capabilities/templates/enrich_search_capabilities/pages_list.html:20
+#: ckanext/enrich_search_capabilities/templates/enrich_search_capabilities/pages_list.html:24
+#: ckanext/enrich_search_capabilities/templates/enrich_search_capabilities/pages_list.html:29
+#: ckanext/enrich_search_capabilities/templates/enrich_search_capabilities/snippets/pages_list.html:4
+msgid "Pages"
+msgstr "Σελίδες"
+
+#: ckanext/enrich_search_capabilities/helpers.py:41
+#: ckanext/enrich_search_capabilities/templates/enrich_search_capabilities/blog_list.html:21
+#: ckanext/enrich_search_capabilities/templates/enrich_search_capabilities/blog_list.html:25
+#: ckanext/enrich_search_capabilities/templates/enrich_search_capabilities/blog_list.html:31
+#: ckanext/enrich_search_capabilities/templates/enrich_search_capabilities/snippets/pages_list.html:4
+msgid "Blog"
+msgstr "Ιστολόγιο"
+
+#: ckanext/enrich_search_capabilities/plugin.py:64
+msgid "Enable keyword search on the ckanext-pages /pages and /blog indexes."
+msgstr ""
+"Ενεργοποίηση αναζήτησης με λέξεις-κλειδιά στις λίστες /pages και /blog του "
+"ckanext-pages."
+
+#: ckanext/enrich_search_capabilities/plugin.py:73
+msgid "Enable the search destination dropdown in the site header."
+msgstr ""
+"Ενεργοποίηση του αναπτυσσόμενου μενού επιλογής προορισμού αναζήτησης στην "
+"κεφαλίδα του ιστότοπου."
+
+#: ckanext/enrich_search_capabilities/templates/enrich_search_capabilities/snippets/search_form.html:16
+#: ckanext/enrich_search_capabilities/templates/header.html:16
+#: ckanext/enrich_search_capabilities/templates/header.html:23
+#: ckanext/enrich_search_capabilities/templates/header.html:24
+msgid "Search"
+msgstr "Αναζήτηση"
+
+#: ckanext/enrich_search_capabilities/templates/header.html:31
+msgid "Choose where to search"
+msgstr "Επιλέξτε πού θα γίνει η αναζήτηση"
+
+#: ckanext/enrich_search_capabilities/templates/header.html:52
+msgid "Search in"
+msgstr "Αναζήτηση σε"
+
+#: ckanext/enrich_search_capabilities/templates/header.html:55
+msgid "for"
+msgstr "για"
+
+#: ckanext/enrich_search_capabilities/templates/admin/config.html:10
+msgid "Pages / Blog Search"
+msgstr "Αναζήτηση Σελίδων / Ιστολογίου"
+
+#: ckanext/enrich_search_capabilities/templates/admin/config.html:24
+msgid "Enable search in pages and blog"
+msgstr "Ενεργοποίηση αναζήτησης στις σελίδες και το ιστολόγιο"
+
+#: ckanext/enrich_search_capabilities/templates/admin/config.html:29
+msgid ""
+"Adds keyword filtering to /pages and /blog. When disabled, the original "
+"ckanext-pages indexes are displayed."
+msgstr ""
+"Προσθέτει φιλτράρισμα με λέξεις-κλειδιά στα /pages και /blog. Όταν είναι "
+"απενεργοποιημένο, εμφανίζονται οι αρχικές λίστες του ckanext-pages."
+
+#: ckanext/enrich_search_capabilities/templates/admin/config.html:36
+msgid "Header Search"
+msgstr "Αναζήτηση Κεφαλίδας"
+
+#: ckanext/enrich_search_capabilities/templates/admin/config.html:50
+msgid "Enable search destinations in the header"
+msgstr "Ενεργοποίηση επιλογών αναζήτησης στην κεφαλίδα"
+
+#: ckanext/enrich_search_capabilities/templates/admin/config.html:55
+msgid ""
+"Displays search destinations for datasets, data services, showcases, "
+"organizations, pages and blog."
+msgstr ""
+"Εμφανίζει επιλογές αναζήτησης για σύνολα δεδομένων, υπηρεσίες δεδομένων, "
+"εφαρμογές, οργανισμούς, σελίδες και ιστολόγιο."
+
+#: ckanext/enrich_search_capabilities/templates/enrich_search_capabilities/blog_list.html:5
+msgid "Add Article"
+msgstr "Προσθήκη άρθρου"
+
+#: ckanext/enrich_search_capabilities/templates/enrich_search_capabilities/blog_list.html:13
+msgid "Search blog articles"
+msgstr "Αναζήτηση άρθρων ιστολογίου"
+
+#: ckanext/enrich_search_capabilities/templates/enrich_search_capabilities/blog_list.html:26
+msgid "No blog articles match your search."
+msgstr "Δεν βρέθηκαν άρθρα ιστολογίου που να ταιριάζουν στην αναζήτησή σας."
+
+#: ckanext/enrich_search_capabilities/templates/enrich_search_capabilities/pages_list.html:5
+msgid "Add page"
+msgstr "Προσθήκη σελίδας"
+
+#: ckanext/enrich_search_capabilities/templates/enrich_search_capabilities/pages_list.html:13
+msgid "Search pages"
+msgstr "Αναζήτηση σελίδων"
+
+#: ckanext/enrich_search_capabilities/templates/enrich_search_capabilities/pages_list.html:25
+msgid "No pages match your search."
+msgstr "Δεν βρέθηκαν σελίδες που να ταιριάζουν στην αναζήτησή σας."
+
+#: ckanext/enrich_search_capabilities/templates/enrich_search_capabilities/snippets/page_item.html:14
+msgid "Private"
+msgstr "Ιδιωτικό"
+
+#: ckanext/enrich_search_capabilities/templates/enrich_search_capabilities/snippets/page_item.html:29
+msgid "This page currently has no content"
+msgstr "Αυτή η σελίδα δεν έχει περιεχόμενο"
+
+#: ckanext/enrich_search_capabilities/templates/enrich_search_capabilities/snippets/pages_list.html:28
+msgid "There are currently no blog articles here"
+msgstr "Δεν υπάρχουν άρθρα ιστολογίου αυτή τη στιγμή"
+
+#: ckanext/enrich_search_capabilities/templates/enrich_search_capabilities/snippets/pages_list.html:30
+msgid "There are currently no pages here"
+msgstr "Δεν υπάρχουν σελίδες αυτή τη στιγμή"
+
+#: ckanext/enrich_search_capabilities/templates/enrich_search_capabilities/snippets/search_form.html:24
+#, python-format
+msgid "%(count)s result found"
+msgid_plural "%(count)s results found"
+msgstr[0] "Βρέθηκε %(count)s αποτέλεσμα"
+msgstr[1] "Βρέθηκαν %(count)s αποτελέσματα"
+
+#: ckanext/enrich_search_capabilities/templates/enrich_search_capabilities/snippets/search_form.html:32
+msgid "Clear search"
+msgstr "Καθαρισμός αναζήτησης"

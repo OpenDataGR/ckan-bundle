@@ -1,0 +1,76 @@
+{% ckan_extends %}
+
+{% import 'macros/form.html' as form %}
+
+{% block admin_form %}
+  {{ super() }}
+
+  <hr>
+  <section>
+    <h3>{{ _('Pages / Blog Search') }}</h3>
+
+    {% set search_enabled = h.get_config_as_bool('ckanext.enrich_search_capabilities.enabled', False) %}
+    <input
+      type="hidden"
+      id="field-ckanext.enrich_search_capabilities.enabled-hidden"
+      name="ckanext.enrich_search_capabilities.enabled"
+      value="false"
+      data-enrich-checkbox="field-ckanext.enrich_search_capabilities.enabled"
+      {% if search_enabled %}disabled="disabled"{% endif %}
+    />
+    {% call form.checkbox(
+      'ckanext.enrich_search_capabilities.enabled',
+      id='field-ckanext.enrich_search_capabilities.enabled',
+      label=_('Enable search in pages and blog'),
+      value='true',
+      checked=search_enabled
+    ) %}
+      <p class="help-block">
+        {{ _('Adds keyword filtering to /pages and /blog. When disabled, the original ckanext-pages indexes are displayed.') }}
+      </p>
+    {% endcall %}
+  </section>
+
+  <hr>
+  <section>
+    <h3>{{ _('Header Search') }}</h3>
+
+    {% set header_search_enabled = h.get_config_as_bool('ckanext.enrich_search_capabilities.header_search_enabled', False) %}
+    <input
+      type="hidden"
+      id="field-ckanext.enrich_search_capabilities.header_search_enabled-hidden"
+      name="ckanext.enrich_search_capabilities.header_search_enabled"
+      value="false"
+      data-enrich-checkbox="field-ckanext.enrich_search_capabilities.header_search_enabled"
+      {% if header_search_enabled %}disabled="disabled"{% endif %}
+    />
+    {% call form.checkbox(
+      'ckanext.enrich_search_capabilities.header_search_enabled',
+      id='field-ckanext.enrich_search_capabilities.header_search_enabled',
+      label=_('Enable search destinations in the header'),
+      value='true',
+      checked=header_search_enabled
+    ) %}
+      <p class="help-block">
+        {{ _('Displays search destinations for datasets, data services, showcases, organizations, pages and blog.') }}
+      </p>
+    {% endcall %}
+  </section>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      var hiddenInputs = document.querySelectorAll('[data-enrich-checkbox]');
+      hiddenInputs.forEach(function (hidden) {
+        var checkbox = document.getElementById(hidden.dataset.enrichCheckbox);
+        if (!checkbox) {
+          return;
+        }
+        function syncHidden() {
+          hidden.disabled = !!checkbox.checked;
+        }
+        checkbox.addEventListener('change', syncHidden);
+        syncHidden();
+      });
+    });
+  </script>
+{% endblock %}
