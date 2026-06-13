@@ -7,15 +7,28 @@ Adds database-backed keyword filtering to the public `ckanext-pages` indexes:
 - `/pages?q=keyword`
 - `/blog?q=keyword`
 
+It can also show live search suggestions (the first matching datasets in a
+dropdown) while typing in the `/dataset` search field.
+
 The search covers titles, slugs, and content. Anonymous and regular users only
 see public results. Users with `ckanext_pages_update` access can also see
 private results, which are clearly labelled. Organization/group pages remain
 excluded.
 
+Page and blog search is insensitive to letter case, Greek accents, and the
+final sigma (`ΠΟΛΗ`, `πολη`, and `πόλη` all match), and queries of three or
+more characters also tolerate small typos through trigram word similarity.
+When a search term is given, results are ordered by relevance (title matches
+rank above slug matches above content matches) before the usual date ordering.
+
 ## Requirements
 
 - CKAN 2.11
 - ckanext-pages 0.5.2
+- PostgreSQL `unaccent` and `pg_trgm` extensions, created in the CKAN
+  database (`CREATE EXTENSION IF NOT EXISTS unaccent; CREATE EXTENSION IF
+  NOT EXISTS pg_trgm;`). Both are trusted extensions, so the database owner
+  can create them without superuser rights.
 
 
 ## Installation
@@ -66,6 +79,33 @@ ckanext.enrich_search_capabilities.header_search_enabled = true
 When enabled, the header search offers the available dataset, data service,
 showcase, organization, page, and blog search destinations. Page and blog
 destinations are shown only when page search is enabled.
+
+The dataset live search is disabled by default and can also be enabled
+independently:
+
+```ini
+ckanext.enrich_search_capabilities.dataset_live_search_enabled = true
+```
+
+When enabled, typing two or more characters in the `/dataset` search field
+shows the first matching datasets in a dropdown, using the same query the
+search button runs (`package_search` with the plain `q` text and no extra
+filters). Results link straight to the dataset page, and a final entry
+submits the regular search. The action behind it is also available over the
+API:
+
+    /api/3/action/enrich_dataset_live_search?q=keyword&limit=10
+
+How many suggestions are shown is configurable from the admin config page or
+the INI file, with a hard maximum of 10. The value also caps the `limit`
+parameter of API callers:
+
+```ini
+ckanext.enrich_search_capabilities.dataset_live_search_limit = 10
+```
+
+The regular search form keeps working unchanged when the option is disabled
+or JavaScript is unavailable.
 
 
 ## Developer installation

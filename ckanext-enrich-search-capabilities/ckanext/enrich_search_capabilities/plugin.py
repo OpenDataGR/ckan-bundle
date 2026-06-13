@@ -9,6 +9,14 @@ from ckanext.enrich_search_capabilities import actions, auth, helpers, views
 _TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "templates")
 
 
+def _blank_or_positive_integer(value, context):
+    # The admin form submits an empty string to reset the option to its
+    # default; the config helper treats it as unset.
+    if value is None or value == "":
+        return ""
+    return toolkit.get_validator("is_positive_integer")(value, context)
+
+
 class EnrichSearchCapabilitiesPlugin(
     plugins.SingletonPlugin,
     DefaultTranslation,
@@ -42,6 +50,18 @@ class EnrichSearchCapabilitiesPlugin(
             ignore_missing,
             boolean_validator,
         ]
+        schema[
+            "ckanext.enrich_search_capabilities.dataset_live_search_enabled"
+        ] = [
+            ignore_missing,
+            boolean_validator,
+        ]
+        schema[
+            "ckanext.enrich_search_capabilities.dataset_live_search_limit"
+        ] = [
+            ignore_missing,
+            _blank_or_positive_integer,
+        ]
         return schema
 
     # IConfigurable
@@ -74,12 +94,30 @@ class EnrichSearchCapabilitiesPlugin(
                 "Enable the search destination dropdown in the site header."
             )
         )
+        declaration.declare_bool(
+            key.ckanext.enrich_search_capabilities.dataset_live_search_enabled,
+            False,
+        ).set_description(
+            toolkit._(
+                "Enable live search suggestions on the dataset search page."
+            )
+        )
+        declaration.declare_int(
+            key.ckanext.enrich_search_capabilities.dataset_live_search_limit,
+            10,
+        ).set_description(
+            toolkit._(
+                "Maximum number of suggestions returned by the dataset live "
+                "search, between 1 and 10."
+            )
+        )
 
     # IActions
 
     def get_actions(self):
         return {
             "enrich_pages_search": actions.enrich_pages_search,
+            "enrich_dataset_live_search": actions.enrich_dataset_live_search,
         }
 
     # IAuthFunctions
@@ -87,6 +125,7 @@ class EnrichSearchCapabilitiesPlugin(
     def get_auth_functions(self):
         return {
             "enrich_pages_search": auth.enrich_pages_search,
+            "enrich_dataset_live_search": auth.enrich_dataset_live_search,
         }
 
     # ITemplateHelpers

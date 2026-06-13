@@ -40,3 +40,6 @@ coverage.xml
 
 # Sphinx documentation
 docs/_build/
+
+# Local test configuration with machine-specific credentials
+test-local.ini

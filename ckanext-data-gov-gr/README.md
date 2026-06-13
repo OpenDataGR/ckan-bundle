@@ -477,6 +477,105 @@ datasets (ή η παλιά harvest source) και να ξανατρέξει το
 }
 ```
 
+## Attica Open Data harvester source config
+
+Ο `attica_opendata` harvester συλλέγει datasets από το portal ανοικτών
+δεδομένων της Περιφέρειας Αττικής.
+
+Στο URL του harvest source δηλώνεται η σελίδα περιεχομένου:
+
+```text
+https://opendata.attica.gov.gr/content
+```
+
+Οι παρακάτω επιλογές δηλώνονται στο JSON config του harvest source, όχι στο
+`ckan.ini`.
+
+### Παράδειγμα config
+
+```json
+{
+  "start_page": 1,
+  "end_page": 30,
+  "include_categories": true,
+  "include_creator_names_as_tags": true
+}
+```
+
+### `start_page`
+
+Προαιρετικός ακέραιος. Default: `1`.
+
+Ορίζει την πρώτη σελίδα αποτελεσμάτων που θα σαρώσει ο harvester στο
+`gather_stage`.
+
+```json
+{
+  "start_page": 1
+}
+```
+
+### `end_page`
+
+Προαιρετικός ακέραιος. Default: `30`.
+
+Ορίζει την τελευταία σελίδα αποτελεσμάτων που θα σαρώσει ο harvester στο
+`gather_stage`. Το εύρος περιλαμβάνει και τις δύο ακραίες σελίδες.
+
+Ο harvester σταματά νωρίτερα όταν συναντήσει τρεις συνεχόμενες σελίδες χωρίς
+datasets.
+
+```json
+{
+  "start_page": 1,
+  "end_page": 50
+}
+```
+
+### `include_categories`
+
+Προαιρετικό boolean. Default: `true`.
+
+Όταν είναι `true`, ο harvester σαρώνει επιπλέον τις κατηγορίες του portal και
+συσχετίζει κάθε dataset με τις κατηγορίες στις οποίες εμφανίζεται. Οι
+κατηγορίες:
+
+- προστίθενται ως tags,
+- αντιστοιχίζονται, όπου υπάρχει διαθέσιμο mapping, σε EU data themes.
+
+Όταν είναι `false`, παραλείπεται το πρόσθετο category scan. Τα υπόλοιπα tags και
+metadata του dataset εξακολουθούν να εισάγονται κανονικά.
+
+```json
+{
+  "include_categories": false
+}
+```
+
+### `include_creator_names_as_tags`
+
+Προαιρετικό boolean. Default: `true`.
+
+Όταν είναι `true` ή λείπει από το config, τα ονόματα των δημιουργών που
+εξάγονται από το breadcrumb της σελίδας του dataset προστίθενται και ως tags.
+Έτσι οι αντίστοιχες οργανωτικές διευθύνσεις είναι διαθέσιμες και μέσω των tags
+και της αναζήτησης.
+
+Τα creator tags καθαρίζονται με τους ίδιους κανόνες που εφαρμόζονται στα
+υπόλοιπα tags και δεν διπλοκαταχωρούνται όταν διαφέρουν μόνο σε πεζά/κεφαλαία ή
+κενά.
+
+Για απενεργοποίηση:
+
+```json
+{
+  "include_creator_names_as_tags": false
+}
+```
+
+Η επιλογή επηρεάζει μόνο τα tags. Το κανονικό πεδίο `creator` εξακολουθεί να
+συμπληρώνεται.
+
 ## CSW harvester source config
 
 Οι παρακάτω επιλογές δηλώνονται στο JSON config του CSW harvest source

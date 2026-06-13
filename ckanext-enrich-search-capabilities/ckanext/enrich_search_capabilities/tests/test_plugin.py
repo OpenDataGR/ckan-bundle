@@ -72,19 +72,7 @@ def test_header_search_renders_destination_menu(app):
     assert 'data-search-target="pages.blog_index"' in body
 
 
-@pytest.mark.ckan_config(HEADER_SEARCH_ENABLED_CONFIG, False)
-def test_header_search_can_be_disabled(app):
-    response = app.get(
-        toolkit.url_for("pages.pages_index"),
-        status=200,
-    )
-    body = response.get_data(as_text=True)
-
-    assert 'data-module="enrich-header-search"' not in body
-    assert 'id="field-sitewide-search"' in body
-
-
-def test_searches_title_name_and_content(add_page):
+def test_searches_title_name_and_content_ordered_by_relevance(add_page):
     add_page(title="Open data guide", name="first", content="Other content")
     add_page(title="Second", name="open-data-policy", content="Other content")
     add_page(title="Third", name="third", content="<p>Open data content</p>")
@@ -93,13 +81,53 @@ def test_searches_title_name_and_content(add_page):
     text_result = _search(q="open data")
     name_result = _search(q="open-data")
 
-    assert text_result["count"] == 2
-    assert {item["name"] for item in text_result["items"]} == {
-        "first",
-        "third",
-    }
-    assert [item["name"] for item in name_result["items"]] == [
-        "open-data-policy"
+    # Hyphens and spaces are equivalent word separators, so both queries
+    # match all three pages; title matches rank above name above content.
+    expected = ["first", "open-data-policy", "third"]
+    assert text_result["count"] == 3
+    assert [item["name"] for item in text_result["items"]] == expected
+    assert [item["name"] for item in name_result["items"]] == expected
+
+
+def test_search_ignores_case_accents_and_final_sigma(add_page):
+    add_page(name="city-page", title="Η πόλη μας")
+    add_page(name="reports-page", title="Νέες εκθέσεις")
+
+    uppercase = _search(q="ΠΟΛΗ")
+    unaccented = _search(q="πολη")
+    final_sigma = _search(q="ΕΚΘΕΣΕΙΣ")
+
+    assert [item["name"] for item in uppercase["items"]] == ["city-page"]
+    assert [item["name"] for item in unaccented["items"]] == ["city-page"]
+    assert [item["name"] for item in final_sigma["items"]] == [
+        "reports-page"
+    ]
+
+
+def test_search_tolerates_small_typos(add_page):
+    add_page(name="environment-page", title="Περιβαλλοντικά δεδομένα")
+    add_page(name="finance-page", title="Οικονομικός απολογισμός")
+
+    result = _search(q="περιβαλοντικα")
+
+    assert [item["name"] for item in result["items"]] == ["environment-page"]
+
+
+def test_search_ranks_title_matches_above_content_matches(add_page):
+    add_page(name="title-match", title="Η πόλη μας")
+    add_page(
+        name="content-match",
+        title="Άσχετος τίτλος",
+        content="Η πόλη αναφέρεται μόνο στο περιεχόμενο",
+    )
+
+    result = _search(q="πόλη")
+
+    # Without relevance ordering the newest page (content-match) would be
+    # first.
+    assert [item["name"] for item in result["items"]] == [
+        "title-match",
+        "content-match",
     ]
 
 

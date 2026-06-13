@@ -9,7 +9,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ckanext-enrich-search-capabilities 0.0.1\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-06-09 21:41+0300\n"
+"POT-Creation-Date: 2026-06-11 09:03+0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -18,39 +18,47 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.15.0\n"
 
-#: ckanext/enrich_search_capabilities/actions.py:50
+#: ckanext/enrich_search_capabilities/actions.py:57
 msgid "Search query must be text"
 msgstr ""
 
-#: ckanext/enrich_search_capabilities/actions.py:58
+#: ckanext/enrich_search_capabilities/actions.py:65
 msgid "Search query must not exceed {limit} characters"
 msgstr ""
 
-#: ckanext/enrich_search_capabilities/actions.py:97
+#: ckanext/enrich_search_capabilities/actions.py:104
 msgid "Page and blog search is disabled"
 msgstr ""
 
-#: ckanext/enrich_search_capabilities/actions.py:107
+#: ckanext/enrich_search_capabilities/actions.py:114
 msgid "Page type must be either page or blog"
 msgstr ""
 
-#: ckanext/enrich_search_capabilities/helpers.py:25
+#: ckanext/enrich_search_capabilities/actions.py:195
+msgid "Dataset live search is disabled"
+msgstr ""
+
+#: ckanext/enrich_search_capabilities/actions.py:205
+msgid "Search query must be at least {limit} characters"
+msgstr ""
+
+#: ckanext/enrich_search_capabilities/helpers.py:27
 msgid "Datasets"
 msgstr ""
 
-#: ckanext/enrich_search_capabilities/helpers.py:26
+#: ckanext/enrich_search_capabilities/helpers.py:28
 msgid "Data Services"
 msgstr ""
 
-#: ckanext/enrich_search_capabilities/helpers.py:29
+#: ckanext/enrich_search_capabilities/helpers.py:31
 msgid "Showcases"
 msgstr ""
 
-#: ckanext/enrich_search_capabilities/helpers.py:33
+#: ckanext/enrich_search_capabilities/helpers.py:35
 msgid "Organizations"
 msgstr ""
 
-#: ckanext/enrich_search_capabilities/helpers.py:40
+#: ckanext/enrich_search_capabilities/helpers.py:42
 #: ckanext/enrich_search_capabilities/templates/enrich_search_capabilities/pages_list.html:20
 #: ckanext/enrich_search_capabilities/templates/enrich_search_capabilities/pages_list.html:24
 #: ckanext/enrich_search_capabilities/templates/enrich_search_capabilities/pages_list.html:29
@@ -58,7 +66,7 @@ msgstr ""
 msgid "Pages"
 msgstr ""
 
-#: ckanext/enrich_search_capabilities/helpers.py:41
+#: ckanext/enrich_search_capabilities/helpers.py:43
 #: ckanext/enrich_search_capabilities/templates/enrich_search_capabilities/blog_list.html:21
 #: ckanext/enrich_search_capabilities/templates/enrich_search_capabilities/blog_list.html:25
 #: ckanext/enrich_search_capabilities/templates/enrich_search_capabilities/blog_list.html:31
@@ -66,12 +74,22 @@ msgstr ""
 msgid "Blog"
 msgstr ""
 
-#: ckanext/enrich_search_capabilities/plugin.py:64
+#: ckanext/enrich_search_capabilities/plugin.py:77
 msgid "Enable keyword search on the ckanext-pages /pages and /blog indexes."
 msgstr ""
 
-#: ckanext/enrich_search_capabilities/plugin.py:73
+#: ckanext/enrich_search_capabilities/plugin.py:86
 msgid "Enable the search destination dropdown in the site header."
+msgstr ""
+
+#: ckanext/enrich_search_capabilities/plugin.py:94
+msgid "Enable live search suggestions on the dataset search page."
+msgstr ""
+
+#: ckanext/enrich_search_capabilities/plugin.py:102
+msgid ""
+"Maximum number of suggestions returned by the dataset live search, between 1 "
+"and 10."
 msgstr ""
 
 #: ckanext/enrich_search_capabilities/templates/enrich_search_capabilities/snippets/search_form.html:16
@@ -119,6 +137,28 @@ msgstr ""
 msgid ""
 "Displays search destinations for datasets, data services, showcases, "
 "organizations, pages and blog."
+msgstr ""
+
+#: ckanext/enrich_search_capabilities/templates/admin/config.html:62
+msgid "Dataset Live Search"
+msgstr ""
+
+#: ckanext/enrich_search_capabilities/templates/admin/config.html:76
+msgid "Enable live search on the dataset search page"
+msgstr ""
+
+#: ckanext/enrich_search_capabilities/templates/admin/config.html:81
+msgid ""
+"Shows the first matching datasets in a dropdown while typing in the /dataset "
+"search field. The regular search remains unchanged."
+msgstr ""
+
+#: ckanext/enrich_search_capabilities/templates/admin/config.html:88
+msgid "Number of live search results"
+msgstr ""
+
+#: ckanext/enrich_search_capabilities/templates/admin/config.html:94
+msgid "How many datasets are suggested while typing, between 1 and 10."
 msgstr ""
 
 #: ckanext/enrich_search_capabilities/templates/enrich_search_capabilities/blog_list.html:5
@@ -170,5 +210,17 @@ msgstr[1] ""
 
 #: ckanext/enrich_search_capabilities/templates/enrich_search_capabilities/snippets/search_form.html:32
 msgid "Clear search"
+msgstr ""
+
+#: ckanext/enrich_search_capabilities/templates/package/search.html:15
+msgid "Show all {count} results"
+msgstr ""
+
+#: ckanext/enrich_search_capabilities/templates/package/search.html:16
+msgid "No datasets match your search."
+msgstr ""
+
+#: ckanext/enrich_search_capabilities/templates/package/search.html:17
+msgid "Dataset suggestions"
 msgstr ""
 

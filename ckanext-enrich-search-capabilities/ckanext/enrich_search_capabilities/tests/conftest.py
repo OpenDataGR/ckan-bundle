@@ -1,4 +1,5 @@
 import pytest
+import sqlalchemy as sa
 
 from ckan import model
 from ckanext.pages.db import Page
@@ -8,6 +9,11 @@ from ckanext.pages.db import Page
 def clean_db(reset_db, migrate_db_for):
     reset_db()
     migrate_db_for("pages")
+    # Required by enrich_pages_search; both are trusted extensions, so the
+    # database owner can create them without superuser rights.
+    model.Session.execute(sa.text("CREATE EXTENSION IF NOT EXISTS unaccent"))
+    model.Session.execute(sa.text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
+    model.Session.commit()
 
 
 @pytest.fixture

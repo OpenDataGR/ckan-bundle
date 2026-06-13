@@ -10,3 +10,16 @@ header-search-css:
   output: enrich_search_capabilities/%(version)s-header-search.css
   contents:
     - style.css
+
+dataset-live-search-js:
+  output: enrich_search_capabilities/%(version)s-dataset-live-search.js
+  contents:
+    - live-search.js
+  extra:
+    preload:
+      - base/main
+
+dataset-live-search-css:
+  output: enrich_search_capabilities/%(version)s-dataset-live-search.css
+  contents:
+    - live-search.css

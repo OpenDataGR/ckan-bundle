@@ -1,0 +1,21 @@
+{% ckan_extends %}
+
+{% block form %}
+  {{ super() }}
+
+  {% if dataset_type == 'dataset' and h.enrich_dataset_live_search_enabled() %}
+    {% asset 'enrich_search_capabilities/dataset-live-search-css' %}
+    {% asset 'enrich_search_capabilities/dataset-live-search-js' %}
+
+    <div
+      data-module="enrich-dataset-live-search"
+      data-module-form-id="dataset-search-form"
+      data-module-action-url="{{ h.url_for('api.action', logic_function='enrich_dataset_live_search', ver=3) }}"
+      data-module-dataset-url-pattern="{{ h.url_for('dataset.read', id='__name__') }}"
+      data-module-view-all-label="{{ _('Show all {count} results') }}"
+      data-module-no-results-label="{{ _('No datasets match your search.') }}"
+      data-module-menu-label="{{ _('Dataset suggestions') }}"
+      data-module-limit="{{ h.enrich_dataset_live_search_limit() }}"
+      hidden></div>
+  {% endif %}
+{% endblock %}

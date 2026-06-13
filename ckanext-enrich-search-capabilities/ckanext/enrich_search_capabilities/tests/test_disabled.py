@@ -6,6 +6,7 @@ from ckan.tests import factories, helpers
 from ckanext.enrich_search_capabilities.config import (
     ENABLED_CONFIG,
     HEADER_SEARCH_ENABLED_CONFIG,
+    dataset_live_search_enabled,
     header_search_enabled,
     search_enabled,
 )
@@ -39,9 +40,45 @@ def test_header_search_is_disabled_by_default():
     assert header_search_enabled() is False
 
 
+def test_dataset_live_search_is_disabled_by_default():
+    assert dataset_live_search_enabled() is False
+
+
+def test_disabled_live_search_action_is_unavailable():
+    with pytest.raises(toolkit.ValidationError) as error:
+        helpers.call_action(
+            "enrich_dataset_live_search",
+            {"ignore_auth": False},
+            q="anything",
+        )
+
+    assert error.value.error_summary["Enabled"] == (
+        "Dataset live search is disabled"
+    )
+
+
+def test_disabled_live_search_page_has_no_module(app):
+    response = app.get(toolkit.url_for("dataset.search"), status=200)
+    body = response.get_data(as_text=True)
+
+    assert 'data-module="enrich-dataset-live-search"' not in body
+
+
 @pytest.mark.ckan_config(HEADER_SEARCH_ENABLED_CONFIG, True)
 def test_header_search_config_can_enable_feature():
     assert header_search_enabled() is True
+
+
+@pytest.mark.ckan_config(HEADER_SEARCH_ENABLED_CONFIG, False)
+def test_header_search_can_be_disabled(app):
+    response = app.get(
+        toolkit.url_for("pages.pages_index"),
+        status=200,
+    )
+    body = response.get_data(as_text=True)
+
+    assert 'data-module="enrich-header-search"' not in body
+    assert 'id="field-sitewide-search"' in body
 
 
 def test_disabled_page_search_hides_page_and_blog_targets(monkeypatch):

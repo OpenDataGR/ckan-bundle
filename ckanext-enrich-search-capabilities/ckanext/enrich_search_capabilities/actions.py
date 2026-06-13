@@ -8,12 +8,22 @@ from ckan import model
 from ckan.plugins import toolkit
 from ckanext.pages.db import Page
 
-from ckanext.enrich_search_capabilities.config import search_enabled
+from ckanext.enrich_search_capabilities.config import (
+    dataset_live_search_enabled,
+    dataset_live_search_limit,
+    search_enabled,
+)
 
 
 DEFAULT_ITEMS_PER_PAGE = 21
 MAX_ITEMS_PER_PAGE = 100
 MAX_QUERY_LENGTH = 200
+
+LIVE_SEARCH_MIN_QUERY_LENGTH = 2
+LIVE_SEARCH_NOTES_LENGTH = 160
+
+FUZZY_MIN_QUERY_LENGTH = 3
+FUZZY_SIMILARITY_THRESHOLD = 0.5
 
 
 class _FirstImageParser(HTMLParser):
@@ -66,6 +76,14 @@ def _normalize_query(value):
 
 def _escape_like(value):
     return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def _norm(expression):
+    # Case-, accent- and final-sigma-insensitive comparison key; unaccent
+    # does not fold ς to σ, hence the extra translate.
+    return sa.func.translate(
+        sa.func.unaccent(sa.func.lower(expression)), "ς", "σ"
+    )
 
 
 def _serialize_page(page):
@@ -130,22 +148,55 @@ def enrich_pages_search(context, data_dict):
             Page.page_type == "blog",
             Page.publish_date.isnot(None),
         )
-        query = query.order_by(Page.publish_date.desc(), Page.created.desc())
+        ordering = (Page.publish_date.desc(), Page.created.desc())
     else:
         query = query.filter(
             sa.or_(Page.page_type == "page", Page.page_type.is_(None))
         )
-        query = query.order_by(Page.created.desc())
+        ordering = (Page.created.desc(),)
 
     if search_term:
-        pattern = f"%{_escape_like(search_term)}%"
-        query = query.filter(
-            sa.or_(
-                Page.title.ilike(pattern, escape="\\"),
-                Page.name.ilike(pattern, escape="\\"),
-                Page.content.ilike(pattern, escape="\\"),
-            )
+        pattern = _norm(f"%{_escape_like(search_term)}%")
+        base_like = sa.or_(
+            _norm(Page.title).like(pattern, escape="\\"),
+            _norm(Page.name).like(pattern, escape="\\"),
+            _norm(Page.content).like(pattern, escape="\\"),
         )
+
+        if len(search_term) >= FUZZY_MIN_QUERY_LENGTH:
+            # word_similarity(needle, haystack): the query term must be the
+            # first argument, the column the second.
+            normalized_term = _norm(search_term)
+            score_title = sa.func.word_similarity(
+                normalized_term, _norm(Page.title)
+            )
+            score_name = sa.func.word_similarity(
+                normalized_term, _norm(Page.name)
+            )
+            score_content = sa.func.word_similarity(
+                normalized_term, _norm(Page.content)
+            )
+            query = query.filter(
+                sa.or_(
+                    base_like,
+                    score_title > FUZZY_SIMILARITY_THRESHOLD,
+                    score_name > FUZZY_SIMILARITY_THRESHOLD,
+                    score_content > FUZZY_SIMILARITY_THRESHOLD,
+                )
+            )
+            ordering = (
+                sa.desc(
+                    sa.func.greatest(
+                        score_title * 1.2,
+                        score_name * 1.0,
+                        score_content * 0.8,
+                    )
+                ),
+            ) + ordering
+        else:
+            query = query.filter(base_like)
+
+    query = query.order_by(*ordering)
 
     total = query.order_by(None).count()
     if total:
@@ -161,4 +212,72 @@ def enrich_pages_search(context, data_dict):
         "items_per_page": items_per_page,
         "q": search_term,
         "page_type": page_type,
+    }
+
+
+def _excerpt(text, maximum):
+    text = " ".join((text or "").split())
+    if len(text) <= maximum:
+        return text
+    return text[:maximum].rsplit(" ", 1)[0] + "…"
+
+
+def _serialize_dataset(package):
+    organization = package.get("organization") or {}
+    return {
+        "name": package.get("name"),
+        "title": package.get("title") or package.get("name"),
+        "notes": _excerpt(package.get("notes"), LIVE_SEARCH_NOTES_LENGTH),
+        "organization": organization.get("title") or "",
+    }
+
+
+@toolkit.side_effect_free
+def enrich_dataset_live_search(context, data_dict):
+    if not dataset_live_search_enabled():
+        raise toolkit.ValidationError(
+            {"enabled": [toolkit._("Dataset live search is disabled")]}
+        )
+
+    toolkit.check_access("enrich_dataset_live_search", context, data_dict)
+
+    search_term = _normalize_query(data_dict.get("q"))
+    if len(search_term) < LIVE_SEARCH_MIN_QUERY_LENGTH:
+        raise toolkit.ValidationError(
+            {
+                "q": [
+                    toolkit._(
+                        "Search query must be at least {limit} characters"
+                    ).format(limit=LIVE_SEARCH_MIN_QUERY_LENGTH)
+                ]
+            }
+        )
+
+    configured_limit = dataset_live_search_limit()
+    limit = _positive_integer(
+        data_dict.get("limit"),
+        configured_limit,
+        configured_limit,
+    )
+
+    # The same query the dataset search page runs on submit: plain q,
+    # default relevance sort, datasets only, no facets or extra filters.
+    result = toolkit.get_action("package_search")(
+        context,
+        {
+            "q": search_term,
+            "fq": "+dataset_type:dataset",
+            "rows": limit,
+            "start": 0,
+            "include_private": True,
+        },
+    )
+
+    return {
+        "items": [
+            _serialize_dataset(package) for package in result["results"]
+        ],
+        "count": result["count"],
+        "q": search_term,
+        "limit": limit,
     }

@@ -38,7 +38,11 @@ div.row.wrapper {
 
 aside.secondary {
     overflow-x: auto;
-    padding: 5px;
+}
+
+.main .secondary .module-narrow .nav-item > a .item-label {
+    white-space: normal;
+    overflow-wrap: anywhere;
 }
 
 .btn-primary {

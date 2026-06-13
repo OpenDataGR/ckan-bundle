@@ -3,6 +3,8 @@ from werkzeug.routing import BuildError
 from ckan.plugins import toolkit
 
 from ckanext.enrich_search_capabilities.config import (
+    dataset_live_search_enabled,
+    dataset_live_search_limit,
     header_search_enabled,
     search_enabled,
 )
@@ -49,4 +51,6 @@ def get_helpers():
     return {
         "enrich_header_search_enabled": header_search_enabled,
         "enrich_header_search_targets": header_search_targets,
+        "enrich_dataset_live_search_enabled": dataset_live_search_enabled,
+        "enrich_dataset_live_search_limit": dataset_live_search_limit,
     }

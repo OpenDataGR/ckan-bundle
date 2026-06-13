@@ -18,6 +18,9 @@ from ckanext.data_gov_gr import helpers as data_gov_helpers
 
 log = logging.getLogger(__name__)
 
+INCLUDE_CREATOR_NAMES_AS_TAGS_CONFIG_KEY = 'include_creator_names_as_tags'
+
+
 class AtticaOpenDataHarvester(CKANHarvester):
     """
     Custom harvester for Attica Region Open Data portal
@@ -416,9 +419,15 @@ class AtticaOpenDataHarvester(CKANHarvester):
 
         try:
             dataset_data = json.loads(harvest_object.content)
+            source_config = self._get_source_config(
+                harvest_object.job.source.config
+            )
 
             # Convert to CKAN package dict format
-            package_dict = self._convert_to_ckan_package(dataset_data)
+            package_dict = self._convert_to_ckan_package(
+                dataset_data,
+                source_config=source_config,
+            )
             # Ορίζουμε τον οργανισμό από το harvest source
             # Ορίζουμε τον οργανισμό από το harvest source package
             try:
@@ -889,7 +898,7 @@ class AtticaOpenDataHarvester(CKANHarvester):
 
     # ######################################################################################
 
-    def _convert_to_ckan_package(self, dataset_data):
+    def _convert_to_ckan_package(self, dataset_data, source_config=None):
         """
         Convert extracted data (dataset_data) to CKAN package dict format.
         Περιμένει dataset_data με δομή όπως:
@@ -945,7 +954,18 @@ class AtticaOpenDataHarvester(CKANHarvester):
             package_dict['theme'] = list(existing.union(theme_uris))
 
         # Tags – συνδυασμός tags, high_value_category, generic
-        self._attach_tags(package_dict, dataset_data, extra_tags=portal_category_tags)
+        include_creator_names_as_tags = self._bool_value(
+            (source_config or {}).get(
+                INCLUDE_CREATOR_NAMES_AS_TAGS_CONFIG_KEY
+            ),
+            True,
+        )
+        self._attach_tags(
+            package_dict,
+            dataset_data,
+            extra_tags=portal_category_tags,
+            include_creator_names=include_creator_names_as_tags,
+        )
 
         return package_dict
 
@@ -1267,7 +1287,12 @@ class AtticaOpenDataHarvester(CKANHarvester):
 
         return theme_uris, extra_tags
 
-    def _attach_tags(self, package_dict, dataset_data, extra_tags=None):
+    def _attach_tags(
+            self,
+            package_dict,
+            dataset_data,
+            extra_tags=None,
+            include_creator_names=True):
         """
         Χτίζει τα tags και τα βάζει στο package_dict['tags'].
         """
@@ -1335,14 +1360,20 @@ class AtticaOpenDataHarvester(CKANHarvester):
             if cleaned_name != original_name:
                 log.debug(f"Cleaned tag: '{original_name}' -> '{cleaned_name}'")
 
-            seen.add(cleaned_name)
+            seen.add(normalized_key)
             tags.append({'name': cleaned_name})
 
         # 1. Tags που έρχονται έτοιμα από το τρίτο σύστημα
         for t in dataset_data.get('tags', []):
             _add_tag(t)
 
-        # 2. Οργάνωση / κατηγορία / high value category ως tags (πιο "ανθρώπινα")
+        # 2. Ονόματα δημιουργών ως tags, εκτός αν απενεργοποιηθούν από το config
+        if include_creator_names:
+            for creator in dataset_data.get('creator', []) or []:
+                if isinstance(creator, dict):
+                    _add_tag(creator.get('name'))
+
+        # 3. Οργάνωση / κατηγορία / high value category ως tags (πιο "ανθρώπινα")
         if dataset_data.get('organization'):
             org_tag = dataset_data['organization'].replace('-', ' ')
             # _add_tag(org_tag)
@@ -1354,7 +1385,7 @@ class AtticaOpenDataHarvester(CKANHarvester):
         if dataset_data.get('high_value_category'):
             _add_tag(dataset_data['high_value_category'])
 
-        # 3. Generic tags
+        # 4. Generic tags
         _add_tag('Περιφέρεια Αττικής')
         _add_tag('Ανοικτά Δεδομένα')
 
@@ -1550,8 +1581,25 @@ class AtticaOpenDataHarvester(CKANHarvester):
 
         if source_config:
             try:
-                return json.loads(source_config)
+                parsed_config = json.loads(source_config)
+                return parsed_config if isinstance(parsed_config, dict) else {}
             except (ValueError, TypeError):
                 log.error(f"Invalid source config: {source_config}")
                 return {}
         return {}
+
+    def _bool_value(self, value, default):
+        """
+        Parse boolean config values, including common string representations.
+        """
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {'1', 'true', 'yes', 'y', 'on'}:
+                return True
+            if normalized in {'0', 'false', 'no', 'n', 'off'}:
+                return False
+        if value is None:
+            return default
+        return bool(value)

@@ -57,6 +57,44 @@
     {% endcall %}
   </section>
 
+  <hr>
+  <section>
+    <h3>{{ _('Dataset Live Search') }}</h3>
+
+    {% set dataset_live_search_enabled = h.get_config_as_bool('ckanext.enrich_search_capabilities.dataset_live_search_enabled', False) %}
+    <input
+      type="hidden"
+      id="field-ckanext.enrich_search_capabilities.dataset_live_search_enabled-hidden"
+      name="ckanext.enrich_search_capabilities.dataset_live_search_enabled"
+      value="false"
+      data-enrich-checkbox="field-ckanext.enrich_search_capabilities.dataset_live_search_enabled"
+      {% if dataset_live_search_enabled %}disabled="disabled"{% endif %}
+    />
+    {% call form.checkbox(
+      'ckanext.enrich_search_capabilities.dataset_live_search_enabled',
+      id='field-ckanext.enrich_search_capabilities.dataset_live_search_enabled',
+      label=_('Enable live search on the dataset search page'),
+      value='true',
+      checked=dataset_live_search_enabled
+    ) %}
+      <p class="help-block">
+        {{ _('Shows the first matching datasets in a dropdown while typing in the /dataset search field. The regular search remains unchanged.') }}
+      </p>
+    {% endcall %}
+
+    {{ form.input(
+      'ckanext.enrich_search_capabilities.dataset_live_search_limit',
+      id='field-ckanext.enrich_search_capabilities.dataset_live_search_limit',
+      label=_('Number of live search results'),
+      value=h.enrich_dataset_live_search_limit(),
+      type='number',
+      attrs={'min': 1, 'max': 10, 'class': 'form-control'}
+    ) }}
+    <p class="help-block">
+      {{ _('How many datasets are suggested while typing, between 1 and 10.') }}
+    </p>
+  </section>
+
   <script>
     document.addEventListener('DOMContentLoaded', function () {
       var hiddenInputs = document.querySelectorAll('[data-enrich-checkbox]');
