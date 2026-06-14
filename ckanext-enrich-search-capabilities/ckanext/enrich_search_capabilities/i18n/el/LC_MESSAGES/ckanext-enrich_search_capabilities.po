@@ -75,6 +75,10 @@ msgstr "Σελίδες"
 msgid "Blog"
 msgstr "Ιστολόγιο"
 
+#: ckanext/enrich_search_capabilities/helpers.py:52
+msgid "Guides"
+msgstr "Οδηγοί"
+
 #: ckanext/enrich_search_capabilities/plugin.py:77
 msgid "Enable keyword search on the ckanext-pages /pages and /blog indexes."
 msgstr ""
@@ -153,6 +157,22 @@ msgstr ""
 "εφαρμογές, οργανισμούς, σελίδες και ιστολόγιο."
 
 #: ckanext/enrich_search_capabilities/templates/admin/config.html:62
+msgid "Guides Search"
+msgstr "Αναζήτηση Οδηγών"
+
+#: ckanext/enrich_search_capabilities/templates/admin/config.html:76
+msgid "Enable guides search in the header"
+msgstr "Ενεργοποίηση αναζήτησης οδηγών στην κεφαλίδα"
+
+#: ckanext/enrich_search_capabilities/templates/admin/config.html:81
+msgid ""
+"Adds the external guides search option to the header search dropdown. "
+"Opens results in a new tab."
+msgstr ""
+"Προσθέτει την επιλογή αναζήτησης εξωτερικών οδηγών στο αναπτυσσόμενο μενού "
+"αναζήτησης της κεφαλίδας. Τα αποτελέσματα ανοίγουν σε νέα καρτέλα."
+
+#: ckanext/enrich_search_capabilities/templates/admin/config.html:88
 msgid "Dataset Live Search"
 msgstr "Ζωντανή Αναζήτηση Συνόλων Δεδομένων"
 

@@ -96,7 +96,8 @@ def test_disabled_page_search_hides_page_and_blog_targets(monkeypatch):
 
     targets = header_search_targets()
 
-    assert [target["endpoint"] for target in targets] == list(routes)
+    internal = [t for t in targets if not t.get("external")]
+    assert [t["endpoint"] for t in internal] == list(routes)
 
 
 @pytest.mark.ckan_config(ENABLED_CONFIG, False)

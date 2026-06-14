@@ -74,6 +74,10 @@ msgstr ""
 msgid "Blog"
 msgstr ""
 
+#: ckanext/enrich_search_capabilities/helpers.py:52
+msgid "Guides"
+msgstr ""
+
 #: ckanext/enrich_search_capabilities/plugin.py:77
 msgid "Enable keyword search on the ckanext-pages /pages and /blog indexes."
 msgstr ""
@@ -140,6 +144,20 @@ msgid ""
 msgstr ""
 
 #: ckanext/enrich_search_capabilities/templates/admin/config.html:62
+msgid "Guides Search"
+msgstr ""
+
+#: ckanext/enrich_search_capabilities/templates/admin/config.html:76
+msgid "Enable guides search in the header"
+msgstr ""
+
+#: ckanext/enrich_search_capabilities/templates/admin/config.html:81
+msgid ""
+"Adds the external guides search option to the header search dropdown. "
+"Opens results in a new tab."
+msgstr ""
+
+#: ckanext/enrich_search_capabilities/templates/admin/config.html:88
 msgid "Dataset Live Search"
 msgstr ""
 

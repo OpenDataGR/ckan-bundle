@@ -80,6 +80,14 @@ When enabled, the header search offers the available dataset, data service,
 showcase, organization, page, and blog search destinations. Page and blog
 destinations are shown only when page search is enabled.
 
+The external guides search option is disabled by default. When enabled, a
+"Guides" entry appears in the header search dropdown and opens results in a
+new tab on the GitBook guides site:
+
+```ini
+ckanext.enrich_search_capabilities.guides_search_enabled = true
+```
+
 The dataset live search is disabled by default and can also be enabled
 independently:
 

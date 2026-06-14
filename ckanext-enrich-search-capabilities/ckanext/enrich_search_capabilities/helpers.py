@@ -5,6 +5,7 @@ from ckan.plugins import toolkit
 from ckanext.enrich_search_capabilities.config import (
     dataset_live_search_enabled,
     dataset_live_search_limit,
+    guides_search_enabled,
     header_search_enabled,
     search_enabled,
 )
@@ -42,6 +43,16 @@ def header_search_targets():
                 _search_target("pages.pages_index", toolkit._("Pages")),
                 _search_target("pages.blog_index", toolkit._("Blog")),
             ]
+        )
+
+    if guides_search_enabled():
+        targets.append(
+            {
+                "endpoint": None,
+                "label": toolkit._("Guides"),
+                "url": "https://data-gov-gr.gitbook.io/guides",
+                "external": True,
+            }
         )
 
     return [target for target in targets if target]

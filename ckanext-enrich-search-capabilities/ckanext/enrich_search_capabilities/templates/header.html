@@ -41,22 +41,40 @@
           role="menu"
           hidden>
           {% for target in search_targets %}
-            <button
-              class="enrich-header-search-option"
-              type="submit"
-              role="menuitem"
-              data-search-target="{{ target.endpoint }}"
-              formaction="{{ target.url }}">
-              <i class="fa fa-search" aria-hidden="true"></i>
-              <span>
-                {{ _('Search in') }}
-                <strong>{{ target.label }}</strong>
-                <span class="enrich-header-search-query-wrapper" hidden>
-                  {{ _('for') }}
-                  &ldquo;<span class="enrich-header-search-query"></span>&rdquo;
+            {% if target.external %}
+              <button
+                class="enrich-header-search-option"
+                type="button"
+                role="menuitem"
+                data-external-url="{{ target.url }}">
+                <i class="fa fa-external-link" aria-hidden="true"></i>
+                <span>
+                  {{ _('Search in') }}
+                  <strong>{{ target.label }}</strong>
+                  <span class="enrich-header-search-query-wrapper" hidden>
+                    {{ _('for') }}
+                    &ldquo;<span class="enrich-header-search-query"></span>&rdquo;
+                  </span>
                 </span>
-              </span>
-            </button>
+              </button>
+            {% else %}
+              <button
+                class="enrich-header-search-option"
+                type="submit"
+                role="menuitem"
+                data-search-target="{{ target.endpoint }}"
+                formaction="{{ target.url }}">
+                <i class="fa fa-search" aria-hidden="true"></i>
+                <span>
+                  {{ _('Search in') }}
+                  <strong>{{ target.label }}</strong>
+                  <span class="enrich-header-search-query-wrapper" hidden>
+                    {{ _('for') }}
+                    &ldquo;<span class="enrich-header-search-query"></span>&rdquo;
+                  </span>
+                </span>
+              </button>
+            {% endif %}
           {% endfor %}
         </div>
       </form>

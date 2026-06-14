@@ -7,6 +7,7 @@ from ckan.tests import factories, helpers
 
 from ckanext.enrich_search_capabilities.config import (
     ENABLED_CONFIG,
+    GUIDES_SEARCH_ENABLED_CONFIG,
     HEADER_SEARCH_ENABLED_CONFIG,
 )
 from ckanext.enrich_search_capabilities.helpers import header_search_targets
@@ -18,6 +19,7 @@ pytestmark = [
     ),
     pytest.mark.ckan_config(ENABLED_CONFIG, True),
     pytest.mark.ckan_config(HEADER_SEARCH_ENABLED_CONFIG, True),
+    pytest.mark.ckan_config(GUIDES_SEARCH_ENABLED_CONFIG, True),
     pytest.mark.usefixtures("with_plugins", "clean_db"),
 ]
 
@@ -54,7 +56,13 @@ def test_header_search_targets_include_available_routes(monkeypatch):
 
     targets = header_search_targets()
 
-    assert [target["url"] for target in targets] == list(routes.values())
+    internal = [t for t in targets if not t.get("external")]
+    external = [t for t in targets if t.get("external")]
+
+    assert [t["url"] for t in internal] == list(routes.values())
+    assert len(external) == 1
+    assert external[0]["label"] == "Guides"
+    assert "data-gov-gr.gitbook.io/guides" in external[0]["url"]
 
 
 def test_header_search_renders_destination_menu(app):
@@ -70,6 +78,7 @@ def test_header_search_renders_destination_menu(app):
     assert 'data-search-target="organization.index"' in body
     assert 'data-search-target="pages.pages_index"' in body
     assert 'data-search-target="pages.blog_index"' in body
+    assert 'data-external-url="https://data-gov-gr.gitbook.io/guides"' in body
 
 
 def test_searches_title_name_and_content_ordered_by_relevance(add_page):

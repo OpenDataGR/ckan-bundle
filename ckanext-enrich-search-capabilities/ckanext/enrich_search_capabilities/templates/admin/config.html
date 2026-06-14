@@ -57,6 +57,31 @@
     {% endcall %}
   </section>
 
+  <section>
+    <h4>{{ _('Guides Search') }}</h4>
+
+    {% set guides_search_enabled = h.get_config_as_bool('ckanext.enrich_search_capabilities.guides_search_enabled', False) %}
+    <input
+      type="hidden"
+      id="field-ckanext.enrich_search_capabilities.guides_search_enabled-hidden"
+      name="ckanext.enrich_search_capabilities.guides_search_enabled"
+      value="false"
+      data-enrich-checkbox="field-ckanext.enrich_search_capabilities.guides_search_enabled"
+      {% if guides_search_enabled %}disabled="disabled"{% endif %}
+    />
+    {% call form.checkbox(
+      'ckanext.enrich_search_capabilities.guides_search_enabled',
+      id='field-ckanext.enrich_search_capabilities.guides_search_enabled',
+      label=_('Enable guides search in the header'),
+      value='true',
+      checked=guides_search_enabled
+    ) %}
+      <p class="help-block">
+        {{ _('Adds the external guides search option to the header search dropdown. Opens results in a new tab.') }}
+      </p>
+    {% endcall %}
+  </section>
+
   <hr>
   <section>
     <h3>{{ _('Dataset Live Search') }}</h3>

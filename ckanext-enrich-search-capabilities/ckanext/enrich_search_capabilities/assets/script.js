@@ -13,6 +13,11 @@ ckan.module("enrich-header-search", function ($) {
       this.input.on("input", $.proxy(this.onInput, this));
       this.input.on("keydown", $.proxy(this.onInputKeydown, this));
       this.menu.on("keydown", $.proxy(this.onMenuKeydown, this));
+      this.menu.on(
+        "click",
+        "[data-external-url]",
+        $.proxy(this.onExternalClick, this)
+      );
       $(document).on("click", this.documentClickHandler);
 
       this.updateQueryLabels();
@@ -83,6 +88,17 @@ ckan.module("enrich-header-search", function ($) {
 
       event.preventDefault();
       this.options.eq(nextIndex).trigger("focus");
+    },
+
+    onExternalClick: function (event) {
+      event.preventDefault();
+      var externalUrl = $(event.currentTarget).data("external-url");
+      var query = this.input.val().trim();
+      var url = query
+        ? externalUrl + "?q=" + encodeURIComponent(query)
+        : externalUrl;
+      window.open(url, "_blank");
+      this.closeMenu();
     },
 
     onDocumentClick: function (event) {
