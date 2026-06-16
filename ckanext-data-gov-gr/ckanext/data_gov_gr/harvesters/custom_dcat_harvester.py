@@ -13,7 +13,10 @@ from ckanext.harvest.interfaces import IHarvester
 import ckan.plugins as plugins
 import ckan.plugins.toolkit as toolkit
 from ckanext.data_gov_gr import helpers as data_gov_helpers
-from ckanext.data_gov_gr.logic.harvest_mapping import get_harvest_source_config
+from ckanext.data_gov_gr.logic.harvest_mapping import (
+    apply_default_dataset_fields_from_config,
+    get_harvest_source_config,
+)
 
 log = logging.getLogger(__name__)
 
@@ -371,6 +374,9 @@ class CustomDcatHarvester(DCATRDFHarvester, IHarvester):
 
             # Ensure access_rights and applicable_legislation for PUBLIC datasets
             self._ensure_access_rights_and_legislation(package_dict, source_data)
+
+            # Apply default dataset fields from harvest source config
+            apply_default_dataset_fields_from_config(package_dict, harvest_object)
 
             # Data-service creation from DCAT accessService
             self._process_data_services(package_dict, harvest_config, harvest_object)
@@ -1564,7 +1570,7 @@ class CustomDcatHarvester(DCATRDFHarvester, IHarvester):
                     if not isinstance(service_dict, dict):
                         continue
 
-                    result = self._create_or_find_data_service(service_dict, prefix, owner_org)
+                    result = self._create_or_find_data_service(service_dict, prefix, owner_org, harvest_config)
                     if result:
                         site_url = toolkit.config.get('ckan.site_url', '').rstrip('/')
                         ds_name = result.get('name', '')
@@ -1580,7 +1586,7 @@ class CustomDcatHarvester(DCATRDFHarvester, IHarvester):
         except Exception as e:
             log.error("[DATA.GOV.GR HARVESTER] Error processing data-services: %s", e, exc_info=True)
 
-    def _create_or_find_data_service(self, access_service_dict, prefix, owner_org):
+    def _create_or_find_data_service(self, access_service_dict, prefix, owner_org, harvest_config=None):
         try:
             endpoint_urls = access_service_dict.get('endpoint_url', [])
             if isinstance(endpoint_urls, str):
@@ -1611,6 +1617,7 @@ class CustomDcatHarvester(DCATRDFHarvester, IHarvester):
                         log.info("[DATA.GOV.GR HARVESTER] Re-activated deleted data-service: %s", ds_name)
                     else:
                         log.debug("[DATA.GOV.GR HARVESTER] Data-service already exists (by name): %s", ds_name)
+                    self._ensure_data_service_defaults(existing, harvest_config, base_context)
                     self._data_service_cache[ds_name] = existing
                     return existing
             except toolkit.ObjectNotFound:
@@ -1632,6 +1639,7 @@ class CustomDcatHarvester(DCATRDFHarvester, IHarvester):
                     existing = toolkit.get_action('package_show')(
                         toolkit.fresh_context(base_context), {'id': match.id})
                     log.debug("[DATA.GOV.GR HARVESTER] Data-service already exists (by endpoint): %s", match.name)
+                    self._ensure_data_service_defaults(existing, harvest_config, base_context)
                     self._data_service_cache[ds_name] = existing
                     return existing
             except Exception as e:
@@ -1639,6 +1647,9 @@ class CustomDcatHarvester(DCATRDFHarvester, IHarvester):
 
             # Create new data-service
             ds_dict = self._build_data_service_dict(access_service_dict, ds_name, owner_org)
+            if harvest_config:
+                self._apply_data_service_default_tags(ds_dict, harvest_config)
+                self._apply_data_service_default_fields(ds_dict, harvest_config)
             created = toolkit.get_action('package_create')(
                 toolkit.fresh_context(base_context), ds_dict)
             log.info("[DATA.GOV.GR HARVESTER] Created data-service: %s (title: %s)", ds_name, ds_dict.get('title', ''))
@@ -1652,6 +1663,103 @@ class CustomDcatHarvester(DCATRDFHarvester, IHarvester):
         except Exception as e:
             log.error("[DATA.GOV.GR HARVESTER] Error creating/finding data-service: %s", e, exc_info=True)
             return None
+
+    def _get_default_data_service_tags(self, harvest_config):
+        if not harvest_config:
+            return []
+        raw_tags = harvest_config.get('default_data_service_tags')
+        if isinstance(raw_tags, str):
+            raw_tags = [raw_tags]
+        if not isinstance(raw_tags, list):
+            return []
+        seen = set()
+        tags = []
+        for value in raw_tags:
+            if not isinstance(value, str):
+                continue
+            tag = value.strip()
+            if not tag or tag.lower() in seen:
+                continue
+            tags.append(tag)
+            seen.add(tag.lower())
+        return tags
+
+    def _apply_data_service_default_tags(self, ds_dict, harvest_config):
+        default_tags = self._get_default_data_service_tags(harvest_config)
+        if not default_tags:
+            return
+
+        existing = set()
+        for part in (ds_dict.get('tag_string') or '').split(','):
+            name = part.strip().lower()
+            if name:
+                existing.add(name)
+
+        new_parts = [t for t in default_tags if t.lower() not in existing]
+        if not new_parts:
+            return
+
+        current = (ds_dict.get('tag_string') or '').strip()
+        if current:
+            ds_dict['tag_string'] = current + ', ' + ', '.join(new_parts)
+        else:
+            ds_dict['tag_string'] = ', '.join(new_parts)
+
+    def _apply_data_service_default_fields(self, ds_dict, harvest_config):
+        if not harvest_config:
+            return
+        defaults = harvest_config.get('default_data_service_fields')
+        if not isinstance(defaults, dict) or not defaults:
+            return
+
+        for field_name, value in defaults.items():
+            if not isinstance(field_name, str) or not field_name.strip():
+                continue
+            if ds_dict.get(field_name):
+                continue
+            ds_dict[field_name] = value
+
+    def _ensure_data_service_defaults(self, existing, harvest_config, base_context):
+        if not harvest_config:
+            return
+
+        updated = False
+
+        # Tags
+        default_tags = self._get_default_data_service_tags(harvest_config)
+        if default_tags:
+            current_tags = set()
+            for tag in existing.get('tags') or []:
+                if isinstance(tag, dict) and tag.get('name'):
+                    current_tags.add(tag['name'].strip().lower())
+            missing_tags = [t for t in default_tags if t.lower() not in current_tags]
+            if missing_tags:
+                tags_list = list(existing.get('tags') or [])
+                for tag in missing_tags:
+                    tags_list.append({'name': tag})
+                existing['tags'] = tags_list
+                updated = True
+                log.info("[DATA.GOV.GR HARVESTER] Adding default tags to data-service %s: %s",
+                         existing.get('name', ''), missing_tags)
+
+        # Fields
+        defaults = harvest_config.get('default_data_service_fields')
+        if isinstance(defaults, dict) and defaults:
+            for field_name, value in defaults.items():
+                if not isinstance(field_name, str) or not field_name.strip():
+                    continue
+                if existing.get(field_name):
+                    continue
+                existing[field_name] = value
+                updated = True
+
+        if not updated:
+            return
+
+        toolkit.get_action('package_update')(
+            toolkit.fresh_context(base_context), existing)
+        log.info("[DATA.GOV.GR HARVESTER] Updated defaults on existing data-service %s",
+                 existing.get('name', ''))
 
     def _build_data_service_dict(self, access_service_dict, name, owner_org):
         endpoint_urls = access_service_dict.get('endpoint_url', [])

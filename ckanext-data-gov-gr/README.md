@@ -3302,14 +3302,106 @@ asn-ds-7a3f1bc9e204
 | `access_rights` | `access_rights` |
 | — | `owner_org` (κληρονομείται από parent dataset) |
 
+### `default_data_service_tags`
+
+Προαιρετική λίστα strings (ή μεμονωμένο string). Default: `[]`.
+
+Καθορίζει tags που προστίθενται αυτόματα σε κάθε data-service package που
+δημιουργεί ο harvester. Τα tags είναι **additive**: συγχωνεύονται με τυχόν
+υπάρχοντα tags χωρίς duplicates (case-insensitive dedup).
+
+Κατά το re-harvest, τα default tags προστίθενται και σε existing
+data-services αν λείπουν.
+
+```json
+{
+  "include_data_services": true,
+  "data_service_name_prefix": "cityofathens-ds",
+  "default_data_service_tags": ["open-data", "api"]
+}
+```
+
+### `default_data_service_fields`
+
+Προαιρετικό dict. Default: `{}`.
+
+Καθορίζει default τιμές πεδίων για τα data-service packages. Εφαρμόζεται
+τόσο σε νέα data-services (κατά τη δημιουργία) όσο και σε existing κατά
+το re-harvest — μόνο τα κενά/missing πεδία συμπληρώνονται, τα υπάρχοντα
+δεν αντικαθίστανται.
+
+Υποστηριζόμενα πεδία (ενδεικτικά):
+
+| Πεδίο | Τύπος | Παράδειγμα |
+|---|---|---|
+| `access_rights` | string (authority URI) | `"http://...access-right/PUBLIC"` |
+| `applicable_legislation` | list of strings | `["https://eur-lex.europa.eu/..."]` |
+| `contact` | list of dicts | `[{"name": "...", "email": "..."}]` |
+| `license` | string (authority URI) | `"http://...licence/CC_BY_4_0"` |
+| `rights` | string (free text) | `"Ελεύθερη χρήση"` |
+| `format` | string (authority URI) | `"http://...file-type/JSON"` |
+
+```json
+{
+  "include_data_services": true,
+  "data_service_name_prefix": "cityofathens-ds",
+  "default_data_service_fields": {
+    "access_rights": "http://publications.europa.eu/resource/authority/access-right/PUBLIC",
+    "applicable_legislation": ["https://eur-lex.europa.eu/eli/dir/2019/1024/oj/eng"],
+    "license": "http://publications.europa.eu/resource/authority/licence/CC_BY_4_0"
+  }
+}
+```
+
+### `default_dataset_fields`
+
+Προαιρετικό dict. Default: `{}`.
+
+Καθορίζει default τιμές πεδίων για τα dataset packages. Εφαρμόζεται κατά το
+`modify_package_dict` — μόνο τα κενά/missing πεδία συμπληρώνονται, τα
+υπάρχοντα δεν αντικαθίστανται.
+
+Αυτή η λειτουργία χρησιμοποιεί την ίδια κοινή function
+(`apply_default_dataset_fields_from_config`) που χρησιμοποιεί και ο WMS
+harvester. Μπορεί να χρησιμοποιηθεί σε συνδυασμό με
+`override_default_dataset_fields` (boolean, default `false`) — αν ενεργοποιηθεί,
+τα defaults αντικαθιστούν ακόμα και υπάρχουσες τιμές.
+
+Ιδιαίτερα χρήσιμο για πεδία που δεν υπάρχουν στο source DCAT feed, όπως
+`contact` (repeating subfield).
+
+| Πεδίο | Τύπος | Παράδειγμα |
+|---|---|---|
+| `contact` | list of dicts | `[{"name": "...", "email": "..."}]` |
+| `access_rights` | string (authority URI) | `"http://...access-right/PUBLIC"` |
+| `applicable_legislation` | list of strings | `["https://eur-lex.europa.eu/..."]` |
+
+```json
+{
+  "dataset_name_prefix": "cityofathens",
+  "default_dataset_fields": {
+    "contact": [{"name": "Τμήμα GIS", "email": "gis@cityofathens.gr"}]
+  }
+}
+```
+
 #### Παράδειγμα πλήρους config
 
 ```json
 {
   "dataset_name_prefix": "cityofathens",
   "default_tags": ["Δήμος Αθηναίων"],
+  "default_dataset_fields": {
+    "contact": [{"name": "Τμήμα GIS", "email": "gis@cityofathens.gr"}]
+  },
   "include_data_services": true,
-  "data_service_name_prefix": "cityofathens-ds"
+  "data_service_name_prefix": "cityofathens-ds",
+  "default_data_service_tags": ["open-data", "api"],
+  "default_data_service_fields": {
+    "access_rights": "http://publications.europa.eu/resource/authority/access-right/PUBLIC",
+    "applicable_legislation": ["https://eur-lex.europa.eu/eli/dir/2019/1024/oj/eng"],
+    "license": "http://publications.europa.eu/resource/authority/licence/CC_BY_4_0"
+  }
 }
 ```
 
