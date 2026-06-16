@@ -3137,6 +3137,182 @@ capabilities.
 > επιλογή, αλλά με σημαντική απώλεια δεδομένων analytics.
 
 
+## Custom DCAT harvester source config
+
+Ο `custom_dcat_harvester` harvestάρει DCAT RDF/XML πηγές (π.χ. catalog.rdf) και
+εφαρμόζει αυτόματα data.gov.gr normalization rules (multilingual fields, authority
+URI mapping, tag cleanup, resource validation κλπ.).
+
+Ο harvester πρέπει να είναι ενεργός στο `ckan.plugins`:
+
+```ini
+ckan.plugins = ... harvest custom_dcat_harvester ...
+```
+
+### Harvest source URL
+
+Στο URL του harvest source δηλώνεται το DCAT catalog endpoint:
+
+```text
+https://opendata.cityofathens.gr/catalog.rdf?fq=is_nsip:No
+```
+
+### Παράδειγμα config
+
+Οι παρακάτω επιλογές δηλώνονται στο JSON config του harvest source, όχι στο
+`ckan.ini`.
+
+```json
+{
+  "dataset_name_prefix": "cityofathens",
+  "default_tags": ["Δήμος Αθηναίων", "open-data"],
+  "user_agent": "data.gov.gr Custom DCAT Harvester",
+  "include_data_services": true,
+  "data_service_name_prefix": "cityofathens-ds"
+}
+```
+
+### `dataset_name_prefix`
+
+Προαιρετικό string.
+
+Όταν οριστεί, ο harvester σχηματίζει το CKAN dataset `name` ως:
+
+```text
+munge({dataset_name_prefix}-{identifier_slug})
+```
+
+Ο `identifier_slug` εξάγεται από το DCAT `identifier` ή `uri` του dataset. Αν
+ο identifier είναι URI, χρησιμοποιείται το τελευταίο path segment.
+
+Παράδειγμα:
+
+```json
+{
+  "dataset_name_prefix": "cityofathens"
+}
+```
+
+με DCAT identifier:
+
+```text
+https://opendata.cityofathens.gr/dataset/12345
+```
+
+παράγει:
+
+```text
+cityofathens-12345
+```
+
+Το prefix εφαρμόζεται μόνο κατά τη **δημιουργία** νέων datasets. Σε re-harvest,
+ο parent DCAT harvester διατηρεί το υπάρχον name.
+
+Αν λείπει ο identifier, το name δεν αλλάζει.
+
+### `default_tags`
+
+Προαιρετικό string ή λίστα από strings.
+
+Προσθέτει σταθερά tags σε κάθε harvested dataset. Τα tags δεν
+διπλοκαταχωρούνται (case-insensitive) και περνάνε από τον tag validation
+καθαρισμό του harvester.
+
+```json
+{
+  "default_tags": ["Δήμος Αθηναίων", "open-data"]
+}
+```
+
+Δέχεται και single string:
+
+```json
+{
+  "default_tags": "open-data"
+}
+```
+
+### `user_agent`
+
+Προαιρετικό string.
+
+Αν οριστεί, αποστέλλεται ως HTTP `User-Agent` στα DCAT catalog requests.
+
+```json
+{
+  "user_agent": "data.gov.gr Custom DCAT Harvester"
+}
+```
+
+### `include_data_services`
+
+Προαιρετικό boolean. Default: `false`.
+
+Ενεργοποιεί τη δημιουργία `data-service` packages από `dcat:accessService`
+στοιχεία που βρίσκονται μέσα στα distributions των harvested datasets.
+
+Όταν είναι `true`, ο harvester εξετάζει κάθε resource για `access_services`
+(parsed αυτόματα από το DCAT RDF) και για κάθε DataService:
+
+1. Υπολογίζει ένα deterministic name: `{data_service_name_prefix}-{md5(endpoint_url)[:12]}`
+2. Ελέγχει αν υπάρχει ήδη (by name, fallback by endpoint URL στη βάση)
+3. Αν δεν υπάρχει, δημιουργεί νέο `data-service` package
+4. Ενημερώνει το `access_services` JSON στο resource με `uri` που δείχνει
+   στο δημιουργημένο data-service
+
+Απαιτεί παράλληλα τη ρύθμιση `data_service_name_prefix`.
+
+```json
+{
+  "include_data_services": true,
+  "data_service_name_prefix": "cityofathens-ds"
+}
+```
+
+Ο μηχανισμός είναι non-fatal: αν η δημιουργία data-service αποτύχει, το
+parent dataset καταχωρείται κανονικά.
+
+### `data_service_name_prefix`
+
+Υποχρεωτικό string όταν `include_data_services` είναι `true`.
+
+Καθορίζει το prefix για το CKAN `name` των data-service packages. Ο
+harvester σχηματίζει:
+
+```text
+{data_service_name_prefix}-{md5(first_endpoint_url)[:12]}
+```
+
+Παράδειγμα με `"data_service_name_prefix": "asn-ds"` και endpoint URL
+`https://opendata.cityofathens.gr/api/3/action/datastore_search`:
+
+```text
+asn-ds-7a3f1bc9e204
+```
+
+Τα πεδία που αντιστοιχίζονται στο data-service:
+
+| DCAT accessService | data-service package |
+|--------------------|---------------------|
+| `title` | `title` |
+| `description` | `notes` |
+| `endpoint_url` (list) | `endpoint_url` |
+| `endpoint_description` | `endpoint_description` |
+| `license` | `license` |
+| `access_rights` | `access_rights` |
+| — | `owner_org` (κληρονομείται από parent dataset) |
+
+#### Παράδειγμα πλήρους config
+
+```json
+{
+  "dataset_name_prefix": "cityofathens",
+  "default_tags": ["Δήμος Αθηναίων"],
+  "include_data_services": true,
+  "data_service_name_prefix": "cityofathens-ds"
+}
+```
+
 ## Developer installation
 
 To install ckanext-data-gov-gr for development, activate your CKAN virtualenv and

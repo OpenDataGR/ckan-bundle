@@ -1,16 +1,19 @@
 # -*- coding: utf-8 -*-
 
+import hashlib
 import logging
 import json
 import threading
 from urllib.parse import urlparse
 from typing import Optional
 from ckan import model
+from ckan.lib.munge import munge_title_to_name
 from ckanext.dcat.harvesters.rdf import DCATRDFHarvester
 from ckanext.harvest.interfaces import IHarvester
 import ckan.plugins as plugins
 import ckan.plugins.toolkit as toolkit
 from ckanext.data_gov_gr import helpers as data_gov_helpers
+from ckanext.data_gov_gr.logic.harvest_mapping import get_harvest_source_config
 
 log = logging.getLogger(__name__)
 
@@ -294,6 +297,12 @@ class CustomDcatHarvester(DCATRDFHarvester, IHarvester):
 
             # Owner org is provided by each specific harvester (eg EKAN); no changes here
 
+            # Read harvester config once — reused for custom name, default tags, etc.
+            harvest_config = get_harvest_source_config(harvest_object)
+
+            # Apply configurable dataset name prefix
+            self._apply_custom_dataset_name(package_dict, harvest_config, harvest_object)
+
             # Extract source data from harvest object for metadata preservation
             source_data = self._extract_source_data_from_harvest_object(harvest_object)
 
@@ -337,6 +346,9 @@ class CustomDcatHarvester(DCATRDFHarvester, IHarvester):
             # bbox / centroid so that scheming + DCAT profiles can use them.
             self._fix_spatial_coverage(package_dict)
 
+            # Fix 6.2: Apply default tags from harvester config
+            self._apply_default_tags(package_dict, harvest_config)
+
             # Fix 7: Clean tag validation issues
             self._fix_tag_validation(package_dict)
 
@@ -359,6 +371,9 @@ class CustomDcatHarvester(DCATRDFHarvester, IHarvester):
 
             # Ensure access_rights and applicable_legislation for PUBLIC datasets
             self._ensure_access_rights_and_legislation(package_dict, source_data)
+
+            # Data-service creation from DCAT accessService
+            self._process_data_services(package_dict, harvest_config, harvest_object)
 
             log.info(f"Custom mapping applied to dataset: {package_dict.get('name', 'unknown')}")
 
@@ -1415,6 +1430,262 @@ class CustomDcatHarvester(DCATRDFHarvester, IHarvester):
                 dataset_dict['notes_translated-el'] = 'Dataset description'
 
         log.debug(f"Set required translated fields: title={dataset_dict.get('title_translated-el', 'N/A')[:50]}..., notes={dataset_dict.get('notes_translated-el', 'N/A')[:50]}...")
+
+    def _apply_custom_dataset_name(self, package_dict, config, harvest_object=None):
+        prefix = config.get('dataset_name_prefix')
+        if not isinstance(prefix, str) or not prefix.strip():
+            return
+
+        prefix = prefix.strip()
+
+        identifier = (
+            package_dict.get('identifier')
+            or package_dict.get('uri')
+        )
+
+        if not identifier:
+            for extra in package_dict.get('extras') or []:
+                if isinstance(extra, dict) and extra.get('key') in ('identifier', 'uri'):
+                    val = extra.get('value')
+                    if isinstance(val, str) and val.strip():
+                        identifier = val.strip()
+                        break
+
+        if not identifier and harvest_object:
+            guid = getattr(harvest_object, 'guid', None)
+            if isinstance(guid, str) and guid.strip():
+                identifier = guid.strip()
+
+        if not identifier or not isinstance(identifier, str):
+            return
+
+        slug = identifier.strip().rstrip('/').rsplit('/', 1)[-1]
+        if not slug:
+            return
+
+        raw_name = '{}-{}'.format(prefix, slug)
+        new_name = munge_title_to_name(raw_name)
+        if new_name:
+            log.info(
+                "[DATA.GOV.GR HARVESTER] Custom dataset name: '%s' -> '%s'",
+                package_dict.get('name', ''),
+                new_name,
+            )
+            package_dict['name'] = new_name
+
+    def _apply_default_tags(self, dataset_dict, config):
+        raw_tags = config.get('default_tags')
+        if isinstance(raw_tags, str):
+            raw_tags = [raw_tags]
+        if not isinstance(raw_tags, list) or not raw_tags:
+            return
+
+        existing = set()
+        for tag in dataset_dict.get('tags') or []:
+            if isinstance(tag, dict) and tag.get('name'):
+                existing.add(tag['name'].strip().lower())
+
+        tags_list = dataset_dict.setdefault('tags', [])
+        added = 0
+        for value in raw_tags:
+            if not isinstance(value, str):
+                continue
+            name = value.strip()
+            if not name:
+                continue
+            if name.lower() in existing:
+                continue
+            tags_list.append({'name': name})
+            existing.add(name.lower())
+            added += 1
+
+        if added:
+            log.info("[DATA.GOV.GR HARVESTER] Added %d default tags from config", added)
+
+    # -----------------------------------------------------------------
+    # Data-service creation from DCAT accessService
+    # -----------------------------------------------------------------
+
+    def _process_data_services(self, package_dict, harvest_config, harvest_object):
+        try:
+            log.debug("[DATA.GOV.GR HARVESTER] _process_data_services called for dataset '%s'",
+                      package_dict.get('name', 'unknown'))
+
+            if not harvest_config.get('include_data_services'):
+                return
+
+            # Reset cache per harvest job — gather and fetch/import run in
+            # separate processes, so the gather_stage reset doesn't reach here.
+            job_id = getattr(harvest_object, 'harvest_job_id', None)
+            if not hasattr(self, '_data_service_cache') or getattr(self, '_ds_cache_job_id', None) != job_id:
+                self._data_service_cache = {}
+                self._ds_cache_job_id = job_id
+
+            prefix = harvest_config.get('data_service_name_prefix')
+            if not isinstance(prefix, str) or not prefix.strip():
+                log.warning("[DATA.GOV.GR HARVESTER] include_data_services is true but data_service_name_prefix is missing")
+                return
+            prefix = prefix.strip()
+
+            owner_org = package_dict.get('owner_org')
+            if not owner_org:
+                log.warning("[DATA.GOV.GR HARVESTER] Cannot create data-services: dataset has no owner_org")
+                return
+
+            resources = package_dict.get('resources')
+            if not isinstance(resources, list):
+                return
+
+            for resource in resources:
+                if not isinstance(resource, dict):
+                    continue
+
+                raw = resource.get('access_services')
+                if not raw:
+                    continue
+
+                if isinstance(raw, list):
+                    access_service_list = raw
+                elif isinstance(raw, str):
+                    try:
+                        access_service_list = json.loads(raw)
+                    except (json.JSONDecodeError, TypeError):
+                        log.warning("[DATA.GOV.GR HARVESTER] Failed to parse access_services JSON for resource '%s'",
+                                    resource.get('name', 'unnamed'))
+                        continue
+                else:
+                    continue
+
+                if not isinstance(access_service_list, list):
+                    continue
+
+                updated = False
+                for service_dict in access_service_list:
+                    if not isinstance(service_dict, dict):
+                        continue
+
+                    result = self._create_or_find_data_service(service_dict, prefix, owner_org)
+                    if result:
+                        site_url = toolkit.config.get('ckan.site_url', '').rstrip('/')
+                        ds_name = result.get('name', '')
+                        service_dict['uri'] = f"{site_url}/data-service/{ds_name}"
+                        updated = True
+
+                if updated:
+                    if isinstance(raw, list):
+                        resource['access_services'] = access_service_list
+                    else:
+                        resource['access_services'] = json.dumps(access_service_list)
+
+        except Exception as e:
+            log.error("[DATA.GOV.GR HARVESTER] Error processing data-services: %s", e, exc_info=True)
+
+    def _create_or_find_data_service(self, access_service_dict, prefix, owner_org):
+        try:
+            endpoint_urls = access_service_dict.get('endpoint_url', [])
+            if isinstance(endpoint_urls, str):
+                endpoint_urls = [endpoint_urls]
+            if not endpoint_urls:
+                return None
+
+            first_endpoint = endpoint_urls[0]
+            url_hash = hashlib.md5(first_endpoint.encode('utf-8')).hexdigest()[:12]
+            ds_name = '{}-{}'.format(prefix, url_hash)
+
+            cached = self._data_service_cache.get(ds_name)
+            if cached:
+                log.debug("[DATA.GOV.GR HARVESTER] Data-service cache hit: %s", ds_name)
+                return cached
+
+            base_context = {'model': model, 'session': model.Session, 'ignore_auth': True}
+
+            # Dedup level 1: by name
+            try:
+                existing = toolkit.get_action('package_show')(
+                    toolkit.fresh_context(base_context), {'id': ds_name})
+                if existing:
+                    if existing.get('state') == 'deleted':
+                        existing['state'] = 'active'
+                        toolkit.get_action('package_update')(
+                            toolkit.fresh_context(base_context), existing)
+                        log.info("[DATA.GOV.GR HARVESTER] Re-activated deleted data-service: %s", ds_name)
+                    else:
+                        log.debug("[DATA.GOV.GR HARVESTER] Data-service already exists (by name): %s", ds_name)
+                    self._data_service_cache[ds_name] = existing
+                    return existing
+            except toolkit.ObjectNotFound:
+                pass
+
+            # Dedup level 2: by endpoint_url in package_extra
+            try:
+                from ckan.model import PackageExtra
+                match = (
+                    model.Session.query(model.Package)
+                    .join(PackageExtra, PackageExtra.package_id == model.Package.id)
+                    .filter(model.Package.type == 'data-service')
+                    .filter(model.Package.state == 'active')
+                    .filter(PackageExtra.key == 'endpoint_url')
+                    .filter(PackageExtra.value.contains(first_endpoint))
+                    .first()
+                )
+                if match:
+                    existing = toolkit.get_action('package_show')(
+                        toolkit.fresh_context(base_context), {'id': match.id})
+                    log.debug("[DATA.GOV.GR HARVESTER] Data-service already exists (by endpoint): %s", match.name)
+                    self._data_service_cache[ds_name] = existing
+                    return existing
+            except Exception as e:
+                log.debug("[DATA.GOV.GR HARVESTER] Endpoint dedup query failed: %s", e)
+
+            # Create new data-service
+            ds_dict = self._build_data_service_dict(access_service_dict, ds_name, owner_org)
+            created = toolkit.get_action('package_create')(
+                toolkit.fresh_context(base_context), ds_dict)
+            log.info("[DATA.GOV.GR HARVESTER] Created data-service: %s (title: %s)", ds_name, ds_dict.get('title', ''))
+            self._data_service_cache[ds_name] = created
+            return created
+
+        except toolkit.ValidationError as e:
+            log.error("[DATA.GOV.GR HARVESTER] Validation error creating data-service '%s': %s",
+                      access_service_dict.get('title', 'unknown'), e.error_dict)
+            return None
+        except Exception as e:
+            log.error("[DATA.GOV.GR HARVESTER] Error creating/finding data-service: %s", e, exc_info=True)
+            return None
+
+    def _build_data_service_dict(self, access_service_dict, name, owner_org):
+        endpoint_urls = access_service_dict.get('endpoint_url', [])
+        if isinstance(endpoint_urls, str):
+            endpoint_urls = [endpoint_urls]
+
+        title = access_service_dict.get('title')
+        if not title and endpoint_urls:
+            title = endpoint_urls[0]
+        if not title:
+            title = name
+
+        ds_dict = {
+            'type': 'data-service',
+            'name': name,
+            'title': title,
+            'endpoint_url': endpoint_urls,
+            'owner_org': owner_org,
+        }
+
+        if access_service_dict.get('description'):
+            ds_dict['notes'] = access_service_dict['description']
+
+        if access_service_dict.get('endpoint_description'):
+            val = access_service_dict['endpoint_description']
+            ds_dict['endpoint_description'] = [val] if isinstance(val, str) else val
+
+        if access_service_dict.get('license'):
+            ds_dict['license'] = access_service_dict['license']
+
+        if access_service_dict.get('access_rights'):
+            ds_dict['access_rights'] = access_service_dict['access_rights']
+
+        return ds_dict
 
     def _fix_tag_validation(self, dataset_dict):
         """
