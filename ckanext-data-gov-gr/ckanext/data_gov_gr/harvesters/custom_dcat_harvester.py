@@ -1603,7 +1603,7 @@ class CustomDcatHarvester(DCATRDFHarvester, IHarvester):
                 log.debug("[DATA.GOV.GR HARVESTER] Data-service cache hit: %s", ds_name)
                 return cached
 
-            base_context = {'model': model, 'session': model.Session, 'ignore_auth': True}
+            base_context = {'model': model, 'session': model.Session, 'user': self._get_user_name(), 'ignore_auth': True}
 
             # Dedup level 1: by name
             try:

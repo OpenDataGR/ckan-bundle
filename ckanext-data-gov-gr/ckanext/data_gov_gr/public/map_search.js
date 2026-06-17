@@ -26,6 +26,19 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
+  function refreshMapSize() {
+    if (!map) {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        map.invalidateSize();
+        markMapTilesAsDecorative();
+      });
+    });
+  }
+
   try {
     if (savedCenter && savedZoom) {
       const centerCoords = savedCenter.split(',').map(parseFloat);
@@ -70,6 +83,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     addBasemapByKey(basemapKey);
     markMapTilesAsDecorative();
+    refreshMapSize();
 
     console.log('Map initialized successfully');
 
@@ -122,6 +136,15 @@ document.addEventListener('DOMContentLoaded', function () {
         }
       });
     }
+
+    const filtersModalObserver = new MutationObserver(() => {
+      if (document.body.classList.contains('filters-modal')) {
+        refreshMapSize();
+      }
+    });
+    filtersModalObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+
+    window.addEventListener('resize', refreshMapSize);
 
   } catch (error) {
     console.error('Error initializing map:', error);
