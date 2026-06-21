@@ -142,23 +142,6 @@
 /* ----------------------------------------------------------------------- */
 
 @media (max-width: 767.98px) {
-    .js body.filters-modal .main .secondary .filters {
-        z-index: 2147483646;
-    }
-
-    .js body.filters-modal .main .primary {
-        z-index: 0;
-    }
-
-    .js body.filters-modal .masthead,
-    .js body.filters-modal .masthead .logo {
-        z-index: 0 !important;
-    }
-
-    .js body.filters-modal .uwy {
-        display: none !important;
-    }
-
     .js body.filters-modal .secondary .filters > section.module.module-narrow.module-shallow {
         background-color: #fff;
         border-radius: 4px;
