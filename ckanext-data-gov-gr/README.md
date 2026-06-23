@@ -3405,6 +3405,80 @@ harvester. Μπορεί να χρησιμοποιηθεί σε συνδυασμ�
 }
 ```
 
+## APD Kritis harvester source config
+
+Ο `apd_kritis_harvester` harvestάρει POD data.json πηγές (JSON-LD) από την
+Αποκεντρωμένη Διοίκηση Κρήτης. Κληρονομεί από τον `custom_dcat_harvester` και
+προσθέτει αυτόματες διορθώσεις ειδικά για το POD JSON-LD format.
+
+Ο harvester πρέπει να είναι ενεργός στο `ckan.plugins`:
+
+```ini
+ckan.plugins = ... harvest apd_kritis_harvester ...
+```
+
+### Harvest source URL
+
+```text
+https://data.apdkritis.gov.gr/data.json
+```
+
+### Παράδειγμα config
+
+```json
+{
+  "rdf_format": "json-ld",
+  "dataset_name_prefix": "apdkritis",
+  "default_tags": ["Αποκεντρωμένη Διοίκηση Κρήτης"]
+}
+```
+
+### Αυτόματες διορθώσεις
+
+Ο harvester εφαρμόζει αυτόματα τις παρακάτω διορθώσεις χωρίς config:
+
+- **Contact email** — Το POD JSON-LD context δηλώνει `hasEmail` ως `@type: @id`
+  χωρίς `mailto:` prefix, με αποτέλεσμα ο rdflib parser να το μετατρέπει σε
+  σπασμένο `file://` URI. Ο harvester διαβάζει το email απευθείας από το POD
+  source JSON και το inject-αρει σωστά στο scheming `contact` field.
+
+- **Publisher name** — Το POD JSON-LD context μαπάρει `name` σε
+  `skos:prefLabel` αντί για `foaf:name` που ψάχνει ο DCAT parser. Ο harvester
+  διαβάζει το publisher name απευθείας από το POD source JSON.
+
+- **CC-BY licence** — Inject licence `cc-by` από το POD `license` field στο
+  dataset, ώστε ο parent harvester να το κανονικοποιήσει σε EU authority URI και
+  να το μεταδώσει στα resources.
+
+- **HVD category** — Datasets με keyword `"High Value Dataset"` λαμβάνουν
+  αυτόματα `hvd_category` βάσει mapping από τα POD `theme` labels.
+
+- **Data Theme** — Τα POD `theme` labels μαπάρονται σε EU Data Theme authority
+  URIs (ENVI, ENER, REGI, SOCI).
+
+- **Embedded image URLs** — Root-relative URLs σε `<img src="/...">` μέσα στο
+  description μετατρέπονται σε absolute URLs με prefix
+  `https://data.apdkritis.gov.gr`.
+
+### `skip_publisher`
+
+Προαιρετικό boolean. Default: `false`.
+
+Όταν `true`, ο publisher αφαιρείται εντελώς από τα harvested datasets. Χρήσιμο
+όταν ο publisher πρέπει να οριστεί μέσω `default_dataset_fields` ή δεν πρέπει να
+καταχωρηθεί καθόλου.
+
+```json
+{
+  "rdf_format": "json-ld",
+  "skip_publisher": true
+}
+```
+
+Κληρονομεί επίσης όλα τα config options του
+[Custom DCAT harvester](#custom-dcat-harvester-source-config) (`dataset_name_prefix`,
+`default_tags`, `default_dataset_fields`, `include_data_services` κλπ.).
+
 ## Developer installation
 
 To install ckanext-data-gov-gr for development, activate your CKAN virtualenv and

@@ -272,6 +272,11 @@
       <p>{{ _('Access URL is accessible') }}: {% if dist.criteria.access_url_accessible %}{{ _('yes') }}{% else %}{{ _('no') }}{% endif %}</p>
       {% if dist.access_url_status %}
         <p>{{ _('Access URL status') }}: {{ dist.access_url_status }}</p>
+        {% if 'queued for async verification' in (dist.access_url_status|string) %}
+          <p class="mqa-async-refresh-note">
+            {{ _('This access URL is being checked in the background. Refresh this page after 15 seconds to see whether the result has changed.') }}
+          </p>
+        {% endif %}
       {% endif %}
       <p>{{ _('Download URL') }}: {% if dist.criteria.has_download_url %}{{ _('yes') }}{% else %}{{ _('no') }}{% endif %}</p>
       <p>{{ _('Download URL is accessible') }}: {% if dist.criteria.download_url_accessible %}{{ _('yes') }}{% else %}{{ _('no') }}{% endif %}</p>

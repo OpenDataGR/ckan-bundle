@@ -121,6 +121,43 @@
             </script>
 
           <hr>
+          <h4>{{ _('MQA') }}</h4>
+
+          {% set mqa_access_url_async_enabled = h.get_config_as_bool('ckanext.data_gov_gr.mqa.access_url_async_enabled', False) %}
+            <input
+              type="hidden"
+              id="field-ckanext.data_gov_gr.mqa.access_url_async_enabled-hidden"
+              name="ckanext.data_gov_gr.mqa.access_url_async_enabled"
+              value="false"
+              {% if mqa_access_url_async_enabled %}disabled="disabled"{% endif %}
+            />
+            {% call form.checkbox(
+              'ckanext.data_gov_gr.mqa.access_url_async_enabled',
+              id='field-ckanext.data_gov_gr.mqa.access_url_async_enabled',
+              label=_('Ασύγχρονος έλεγχος Access URL στο MQA'),
+              value='true',
+              checked=mqa_access_url_async_enabled
+            ) %}
+              <p class="help-block">
+                {{ _('Όταν είναι ενεργό, σε timeout του γρήγορου ελέγχου Access URL εκτελείται επανέλεγχος στο παρασκήνιο και το αποτέλεσμα χρησιμοποιείται σε επόμενο refresh της σελίδας MQA.') }}
+              </p>
+            {% endcall %}
+            <script>
+              document.addEventListener('DOMContentLoaded', function () {
+                var checkbox = document.getElementById('field-ckanext.data_gov_gr.mqa.access_url_async_enabled');
+                var hidden = document.getElementById('field-ckanext.data_gov_gr.mqa.access_url_async_enabled-hidden');
+                if (!checkbox || !hidden) {
+                  return;
+                }
+                function syncHidden() {
+                  hidden.disabled = !!checkbox.checked;
+                }
+                checkbox.addEventListener('change', syncHidden);
+                syncHidden();
+              });
+            </script>
+
+          <hr>
           <h4>{{ _('GeoJSON preview') }}</h4>
 
           {{ form.input(

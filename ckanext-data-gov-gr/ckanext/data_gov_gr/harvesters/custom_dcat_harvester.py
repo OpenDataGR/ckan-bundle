@@ -33,6 +33,23 @@ class CustomDcatHarvester(DCATRDFHarvester, IHarvester):
     that fixes validation errors through custom mapping.
     """
 
+    _MIMETYPE_TO_FILE_TYPE_FORMAT = {
+        'application/ld+json': 'JSON_LD',
+        'application/rdf+xml': 'RDF_XML',
+    }
+
+    _FORMAT_ALIASES = {
+        'application/ld+json': 'JSON_LD',
+        'application/rdf+xml': 'RDF_XML',
+        'json-ld': 'JSON_LD',
+        'json_ld': 'JSON_LD',
+        'jsonld': 'JSON_LD',
+        'rdf xml': 'RDF_XML',
+        'rdf/xml': 'RDF_XML',
+        'rdf+xml': 'RDF_XML',
+        'rdf_xml': 'RDF_XML',
+    }
+
     def _get_vocabulary_valid_codes(self, vocabulary_name):
         """
         Get valid codes from a controlled vocabulary in the database.
@@ -183,6 +200,40 @@ class CustomDcatHarvester(DCATRDFHarvester, IHarvester):
             return trimmed.rstrip('/').split('/')[-1]
 
         return trimmed
+
+    def _canonical_resource_format(self, format_value, mimetype_value=None):
+        """
+        Return a canonical File Type vocabulary code for known DCAT formats.
+
+        ckanext-dcat/CKAN can normalise RDF/XML to the generic CKAN format
+        ``RDF``. For MQA we need the controlled vocabulary code, eg
+        ``RDF_XML`` or ``JSON_LD``.
+        """
+        raw_format = format_value.strip() if isinstance(format_value, str) else ''
+        raw_mimetype = mimetype_value.strip() if isinstance(mimetype_value, str) else ''
+
+        mimetype_code = self._extract_code_from_identifier(raw_mimetype).lower()
+        if mimetype_code in self._MIMETYPE_TO_FILE_TYPE_FORMAT:
+            if not raw_format or raw_format.lower() in {'rdf', 'json'}:
+                return self._MIMETYPE_TO_FILE_TYPE_FORMAT[mimetype_code]
+
+        if not raw_format:
+            return ''
+
+        if raw_format.lower().startswith(('http://', 'https://')):
+            code = self._extract_code_from_identifier(raw_format)
+            if code:
+                mapped = self._MIMETYPE_TO_FILE_TYPE_FORMAT.get(code.lower())
+                if mapped:
+                    return mapped
+                return code.upper()
+
+        normalized = raw_format.strip().lower()
+        alias = self._FORMAT_ALIASES.get(normalized)
+        if alias:
+            return alias
+
+        return ''
 
     def _canonicalize_license_value(self, value, uri_by_code):
         """
@@ -1906,10 +1957,18 @@ class CustomDcatHarvester(DCATRDFHarvester, IHarvester):
             # Fix resource format/mimetype
             # First check if format is empty or null
             if not resource.get('format') or not resource['format'].strip():
+                canonical_format = self._canonical_resource_format(
+                    resource.get('format'),
+                    resource.get('mimetype'),
+                )
+                if canonical_format:
+                    resource['format'] = canonical_format
                 # Try to guess format from URL
                 url = resource.get('url', '').lower()
 
-                if '/csv/' in url or url.endswith('.csv'):
+                if canonical_format:
+                    pass
+                elif '/csv/' in url or url.endswith('.csv'):
                     resource['format'] = 'CSV'
                 elif '/json-stat/' in url:
                     resource['format'] = 'JSON-stat'
@@ -1942,6 +2001,10 @@ class CustomDcatHarvester(DCATRDFHarvester, IHarvester):
             else:
                 # Format exists, just normalize it
                 format_value = resource['format'].strip()
+                canonical_format = self._canonical_resource_format(
+                    format_value,
+                    resource.get('mimetype'),
+                )
 
                 # Keep valid formats as-is (case-insensitive check, but preserve original case)
                 valid_formats = {
@@ -1950,7 +2013,9 @@ class CustomDcatHarvester(DCATRDFHarvester, IHarvester):
                     'arcgis rest', 'api', 'txt', 'doc', 'docx', 'xls'
                 }
 
-                if '://' in format_value:
+                if canonical_format:
+                    resource['format'] = canonical_format[:50]
+                elif '://' in format_value:
                     # Treat as URI - derive short format code
                     uri_code = self._extract_code_from_identifier(format_value)
                     if uri_code:

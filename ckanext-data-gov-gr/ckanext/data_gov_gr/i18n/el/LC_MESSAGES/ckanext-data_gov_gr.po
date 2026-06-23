@@ -229,6 +229,10 @@ msgstr "Κατάσταση URL πρόσβασης"
 msgid "Download URL status"
 msgstr "Κατάσταση URL λήψης"
 
+#: ckanext/data_gov_gr/templates/package/mqa.html:277
+msgid "This access URL is being checked in the background. Refresh this page after 15 seconds to see whether the result has changed."
+msgstr "Αυτό το URL πρόσβασης ελέγχεται στο παρασκήνιο. Ανανεώστε τη σελίδα μετά από 15 δευτερόλεπτα για να δείτε αν το αποτέλεσμα έχει αλλάξει."
+
 #: ckanext/data_gov_gr/templates/package/mqa.html:74
 #: ckanext/data_gov_gr/templates/package/mqa.html:285
 msgid "Reusability"

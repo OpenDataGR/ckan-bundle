@@ -3,7 +3,11 @@ import json
 import logging
 from typing import Any, Dict, List, Optional, Tuple
 
+from ckan import model as ckan_model
+from ckanext.harvest.model import HarvestObject
+
 from .custom_dcat_harvester import CustomDcatHarvester
+from ..logic.harvest_mapping import get_harvest_source_config
 
 log = logging.getLogger(__name__)
 
@@ -134,6 +138,46 @@ class ApdKritisHarvester(CustomDcatHarvester):
 
         return super().validate_config(json.dumps(conf))
 
+    def fetch_stage(self, harvest_object):
+        self._log_progress(harvest_object)
+        return super().fetch_stage(harvest_object)
+
+    def _log_progress(self, harvest_object):
+        try:
+            job_id = harvest_object.harvest_job_id
+            if not job_id:
+                return
+
+            if not hasattr(self, "_job_total_cache"):
+                self._job_total_cache = {}
+
+            if job_id not in self._job_total_cache:
+                total = (
+                    ckan_model.Session.query(HarvestObject)
+                    .filter(HarvestObject.harvest_job_id == job_id)
+                    .count()
+                )
+                self._job_total_cache[job_id] = total
+
+            total = self._job_total_cache[job_id]
+
+            processed = (
+                ckan_model.Session.query(HarvestObject)
+                .filter(HarvestObject.harvest_job_id == job_id)
+                .filter(HarvestObject.fetch_finished.isnot(None))
+                .count()
+            )
+
+            guid = getattr(harvest_object, "guid", "?")
+            log.info(
+                "[APD KRITIS] Processing %d/%d: guid=%s",
+                processed,
+                total,
+                guid,
+            )
+        except Exception:
+            pass
+
     def modify_package_dict(self, package_dict, temp_dict, harvest_object):
         """
         Apply APD Kritis-specific mapping on top of the generic custom DCAT
@@ -172,10 +216,17 @@ class ApdKritisHarvester(CustomDcatHarvester):
 
         # Post-parent: derive HVD category and Data Theme from the POD
         # metadata when available.
+        harvest_config = get_harvest_source_config(harvest_object)
+
         try:
             if source_dataset:
                 self._apply_hvd_category_from_source(package_dict, source_dataset, harvest_object)
                 self._apply_data_theme_from_source(package_dict, source_dataset, harvest_object)
+                self._fix_contact_from_source(package_dict, source_dataset)
+                if harvest_config.get("skip_publisher"):
+                    package_dict.pop("publisher", None)
+                else:
+                    self._fix_publisher_from_source(package_dict, source_dataset)
         except Exception as e:
             log.error(
                 "[APD KRITIS HARVESTER] Error applying post-parent mapping: %s",
@@ -487,3 +538,138 @@ class ApdKritisHarvester(CustomDcatHarvester):
             "[APD KRITIS HARVESTER] Applied data theme(s)=%r based on POD theme labels",
             uris,
         )
+
+    # ------------------------------------------------------------------
+    # Contact point handling
+    # ------------------------------------------------------------------
+
+    def _fix_contact_from_source(
+        self,
+        package_dict: Dict[str, Any],
+        source_dataset: Dict[str, Any],
+    ) -> None:
+        """
+        Fix contact point email from the POD source dataset.
+
+        The POD data.json declares ``hasEmail`` without a ``mailto:``
+        prefix, which causes the rdflib JSON-LD parser to resolve it
+        as a relative file:// URI.  This method reads the clean email
+        from the original POD entry and injects it into the scheming
+        ``contact`` field.
+        """
+        if not isinstance(package_dict, dict) or not isinstance(source_dataset, dict):
+            return
+
+        contact_point = source_dataset.get("contactPoint")
+        if not contact_point:
+            return
+
+        entries: List[Dict[str, Any]] = []
+        if isinstance(contact_point, dict):
+            entries = [contact_point]
+        elif isinstance(contact_point, list):
+            entries = [e for e in contact_point if isinstance(e, dict)]
+
+        if not entries:
+            return
+
+        source_name = ""
+        source_email = ""
+        for entry in entries:
+            if not source_name:
+                source_name = (entry.get("fn") or "").strip()
+            if not source_email:
+                raw = (entry.get("hasEmail") or "").strip()
+                source_email = raw.replace("mailto:", "") if raw else ""
+
+        if not source_name and not source_email:
+            return
+
+        contacts = package_dict.get("contact")
+        if isinstance(contacts, dict):
+            contacts = [contacts]
+        elif not isinstance(contacts, list):
+            contacts = []
+
+        matched = False
+        for contact in contacts:
+            if not isinstance(contact, dict):
+                continue
+            if source_name and contact.get("name") == source_name:
+                if source_email and not contact.get("email"):
+                    contact["email"] = source_email
+                    matched = True
+                elif source_email and contact.get("email") != source_email:
+                    contact["email"] = source_email
+                    matched = True
+                else:
+                    matched = True
+                break
+
+        if not matched:
+            new_contact: Dict[str, str] = {}
+            if source_name:
+                new_contact["name"] = source_name
+            if source_email:
+                new_contact["email"] = source_email
+            if new_contact:
+                contacts.append(new_contact)
+
+        contacts = [c for c in contacts if isinstance(c, dict) and c]
+        if contacts:
+            package_dict["contact"] = contacts
+            log.debug(
+                "[APD KRITIS HARVESTER] Fixed contact from POD source: name=%r email=%r",
+                source_name,
+                source_email,
+            )
+
+    # ------------------------------------------------------------------
+    # Publisher handling
+    # ------------------------------------------------------------------
+
+    def _fix_publisher_from_source(
+        self,
+        package_dict: Dict[str, Any],
+        source_dataset: Dict[str, Any],
+    ) -> None:
+        """
+        Fix publisher name from the POD source dataset.
+
+        The POD JSON-LD context maps ``name`` to ``skos:prefLabel``
+        instead of ``foaf:name``, which the DCAT parser expects.
+        This method reads the clean publisher name from the original
+        POD entry and injects it into the scheming ``publisher`` field.
+        """
+        if not isinstance(package_dict, dict) or not isinstance(source_dataset, dict):
+            return
+
+        source_pub = source_dataset.get("publisher")
+        if not isinstance(source_pub, dict):
+            return
+
+        source_name = (source_pub.get("name") or "").strip()
+        if not source_name:
+            return
+
+        publishers = package_dict.get("publisher")
+        if isinstance(publishers, dict):
+            publishers = [publishers]
+        elif not isinstance(publishers, list):
+            publishers = []
+
+        if publishers:
+            first = publishers[0] if isinstance(publishers[0], dict) else {}
+            if not first.get("name"):
+                first["name"] = source_name
+                publishers[0] = first
+        else:
+            publishers = [{"name": source_name}]
+
+        publishers = [p for p in publishers if isinstance(p, dict) and p]
+        if publishers:
+            package_dict["publisher"] = publishers
+            log.debug(
+                "[APD KRITIS HARVESTER] Fixed publisher from POD source: name=%r",
+                source_name,
+            )

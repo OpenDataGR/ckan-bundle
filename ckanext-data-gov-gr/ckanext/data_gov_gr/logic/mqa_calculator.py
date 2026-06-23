@@ -13,6 +13,8 @@ import re
 import requests
 from typing import Dict, Any, List, Optional, Union, Tuple, Literal
 
+from ckanext.data_gov_gr.logic import mqa_access_url_cache
+
 log = logging.getLogger(__name__)
 
 class MQACalculator:
@@ -216,6 +218,13 @@ class MQACalculator:
             return access_url.strip()
         return access_url or ''
 
+    def _get_resource_access_url_role(self, resource: Dict[str, Any]) -> str:
+        """
+        Distinguish explicit DCAT access URLs from the legacy fallback to
+        resource.url. Async rechecks are only for explicit access_url values.
+        """
+        return 'access_url' if resource.get('access_url') else 'generic'
+
     def _get_resource_url(self, resource: Dict[str, Any]) -> str:
         """
         Επιστρέφει το κανονικό CKAN resource URL που χρησιμοποιεί το archiver.
@@ -327,13 +336,15 @@ class MQACalculator:
 
         return score  # float from 0.0 to 100.0
 
-    def _check_url_accessibility(self, url: str) -> bool:
+    def _check_url_accessibility(self, url: str, url_role: str = 'generic') -> bool:
         """
         Check if a URL is accessible by using the archiver plugin's Archival model if available,
         or falling back to making an HTTP HEAD request.
 
         Args:
             url: The URL to check
+            url_role: The URL role in the MQA calculation. The asynchronous
+                verification cache is only applied to explicit access_url checks.
 
         Returns:
             True if the URL is accessible, False otherwise
@@ -345,13 +356,22 @@ class MQACalculator:
         if not self.check_urls:
             return True
 
+        if url in self._url_cache:
+            return self._url_cache[url]
+
+        is_access_url = url_role == 'access_url'
+        access_url_async_enabled = is_access_url and mqa_access_url_cache.is_async_enabled()
+        if access_url_async_enabled:
+            cached_result = mqa_access_url_cache.get_cached_access_url_result(url)
+            if cached_result:
+                is_accessible = bool(cached_result.get('accessible'))
+                self._url_cache[url] = is_accessible
+                self._status_code_cache[url] = mqa_access_url_cache.format_cached_status(cached_result)
+                return is_accessible
+
         # First, try to use the archiver plugin's Archival model if it's available
         try:
             from ckanext.archiver.model import Archival, Status
-
-            # Check if the URL is in our cache
-            if url in self._url_cache:
-                return self._url_cache[url]
 
             # Το archiver παρακολουθεί μόνο το canonical resource.url.
             # Για access_url / download_url κάνουμε direct check ώστε να μη
@@ -391,6 +411,29 @@ class MQACalculator:
             result = 200 <= response.status_code < 400
             self._status_code_cache[url] = response.status_code
 
+            if access_url_async_enabled and result:
+                response_elapsed = getattr(response, 'elapsed', None)
+                elapsed_seconds = (
+                    response_elapsed.total_seconds()
+                    if response_elapsed is not None
+                    else 0
+                )
+                mqa_access_url_cache.set_cached_access_url_result(
+                    url,
+                    mqa_access_url_cache.build_result(
+                        url=url,
+                        accessible=True,
+                        status_code=response.status_code,
+                        method='HEAD',
+                        elapsed=elapsed_seconds,
+                    ),
+                )
+            elif access_url_async_enabled and not result:
+                if mqa_access_url_cache.enqueue_access_url_check(url):
+                    self._status_code_cache[url] = (
+                        f'{response.status_code}; queued for async verification'
+                    )
+
             # Cache the result
             self._url_cache[url] = result
 
@@ -404,7 +447,15 @@ class MQACalculator:
                 if e.response.status_code == 404:
                     log.debug(f"→ 404 Not Found, marking as inaccessible")
             else:
-                self._status_code_cache[url] = str(e)
+                self._status_code_cache[url] = mqa_access_url_cache.format_request_exception(
+                    e,
+                    self.url_check_timeout,
+                )
+
+            if access_url_async_enabled and mqa_access_url_cache.enqueue_access_url_check(url):
+                self._status_code_cache[url] = (
+                    f'{self._status_code_cache[url]}; queued for async verification'
+                )
 
             # Cache the result
             self._url_cache[url] = False
@@ -435,7 +486,10 @@ class MQACalculator:
             1
             for r in resources
             if self._get_resource_access_url(r)
-            and self._check_url_accessibility(self._get_resource_access_url(r))
+            and self._check_url_accessibility(
+                self._get_resource_access_url(r),
+                url_role=self._get_resource_access_url_role(r),
+            )
         )
         # Έλεγχος μόνο όταν υπάρχει download_url.
         download_url_exists_count = sum(1 for r in resources if self._get_resource_download_url(r))
@@ -443,7 +497,10 @@ class MQACalculator:
             1
             for r in resources
             if self._get_resource_download_url(r)
-            and self._check_url_accessibility(self._get_resource_download_url(r))
+            and self._check_url_accessibility(
+                self._get_resource_download_url(r),
+                url_role='download_url',
+            )
         )
 
         # 2) Calculate score as (prevalence * sub-criterion weight) for each sub-criterion
@@ -1127,7 +1184,10 @@ class MQACalculator:
                 self._access_urls.append(access_url)
 
             # Έλεγχος αν το access URL είναι προσβάσιμο
-            if self._check_url_accessibility(access_url):
+            if self._check_url_accessibility(
+                access_url,
+                url_role=self._get_resource_access_url_role(resource),
+            ):
                 score += 50
 
         # Έλεγχος για download URL.
@@ -1140,7 +1200,7 @@ class MQACalculator:
                 self._download_urls.append(download_url)
 
             score += 20  # DownloadURL existence
-            if self._check_url_accessibility(download_url):
+            if self._check_url_accessibility(download_url, url_role='download_url'):
                 score += 30  # DownloadURL accessibility
 
         return score
@@ -1273,11 +1333,17 @@ class MQACalculator:
         criteria = {
             # Κριτήρια προσβασιμότητας
             'has_access_url': bool(self._get_resource_access_url(resource)),
-            'access_url_accessible': self._check_url_accessibility(self._get_resource_access_url(resource)),
+            'access_url_accessible': self._check_url_accessibility(
+                self._get_resource_access_url(resource),
+                url_role=self._get_resource_access_url_role(resource),
+            ),
             'has_download_url': bool(self._get_resource_download_url(resource)),
             'download_url_accessible': bool(
                 self._get_resource_download_url(resource)
-                and self._check_url_accessibility(self._get_resource_download_url(resource))
+                and self._check_url_accessibility(
+                    self._get_resource_download_url(resource),
+                    url_role='download_url',
+                )
             ),
 
             # Format quality criteria

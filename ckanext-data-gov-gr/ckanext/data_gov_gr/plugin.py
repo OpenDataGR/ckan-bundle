@@ -143,6 +143,7 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         - ``ckanext.data_gov_gr.contact.gitbook_embed_items`` (contact page GitBook dropdown items as JSON)
         - ``ckanext.data_gov_gr.pages.faq`` (CKAN Pages slug for the FAQ footer link)
         - ``ckanext.data_gov_gr.pages.accessibility_statement`` (CKAN Pages slug for the Accessibility footer link)
+        - ``ckanext.data_gov_gr.mqa.access_url_async_enabled`` (enable async access_url checks on MQA)
         which are independent from their fallback values in the ini file.
 
         Επιπλέον, ορίζει παραμετρικές επιλογές μενού για τα σύνολα δεδομένων:
@@ -210,6 +211,7 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
             'ckanext.data_gov_gr.pages.cookies_policy': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.pages.privacy_policy': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.search.api_doc_url': [ignore_missing, unicode_safe],
+            'ckanext.data_gov_gr.mqa.access_url_async_enabled': [ignore_missing, boolean_validator],
             'ckanext.geoview.geojson.max_features': [ignore_missing, geojson_max_features_validator],
             'ckanext.geoview.geojson.max_coordinates': [ignore_missing, geojson_max_coordinates_validator],
             'ckanext.geoview.service_proxy.max_file_size_mb': [
@@ -279,6 +281,9 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         )
         declaration.declare(root.search.default_popularity_sort.enabled, "yes").set_description(
             "Use popularity (views_recent desc) as the default sort on the dataset search page."
+        )
+        declaration.declare(root.mqa.access_url_async_enabled, "no").set_description(
+            "Enable asynchronous MQA access_url verification via Redis/RQ. Disabled by default."
         )
         declaration.declare(root.organization_index.visits_sort.enabled, "no").set_description(
             "Show organization index sort options based on profile visits."

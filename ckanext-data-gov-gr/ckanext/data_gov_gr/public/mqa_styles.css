@@ -184,6 +184,12 @@
   font-weight: bold;
 }
 
+.mqa-async-refresh-note {
+  margin: 4px 0 10px;
+  color: #6c757d;
+  font-size: 12px;
+}
+
 /* Recommendation styles */
 .recommendation-section {
   margin-bottom: 20px;

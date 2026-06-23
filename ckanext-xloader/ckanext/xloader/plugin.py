@@ -99,6 +99,9 @@ class xloaderPlugin(plugins.SingletonPlugin):
                 or not isinstance(entity, Resource):
             return
 
+        if getattr(entity, 'state', None) == 'deleted':
+            return
+
         context = {
             "ignore_auth": True,
         }
