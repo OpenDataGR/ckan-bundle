@@ -2,6 +2,10 @@
   position: relative;
 }
 
+.masthead .main-navbar .enrich-header-search > .form-control {
+  padding-right: 3rem;
+}
+
 .masthead .main-navbar .enrich-header-search-menu {
   position: absolute;
   top: calc(100% + 0.5rem);
@@ -49,6 +53,62 @@
 }
 
 .masthead .main-navbar .enrich-header-search-query {
+  overflow-wrap: anywhere;
+}
+
+.proposal-hero .enrich-homepage-search .proposal-hero-search-group {
+  position: relative;
+}
+
+.proposal-hero .enrich-homepage-search-menu {
+  position: absolute;
+  top: calc(100% + 0.75rem);
+  right: 0;
+  left: 0;
+  z-index: 30;
+  width: 100%;
+  min-width: 100%;
+  max-width: 100%;
+  padding: 0.45rem;
+  border: 1px solid rgba(15, 74, 148, 0.18);
+  border-radius: 0.5rem;
+  background: #fff;
+  box-shadow: 0 1rem 2rem rgba(0, 0, 0, 0.22);
+  text-align: left;
+}
+
+.proposal-hero .enrich-homepage-search-menu[hidden] {
+  display: none;
+}
+
+.proposal-hero .enrich-homepage-search .enrich-header-search-option {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  margin: 0;
+  padding: 0.75rem 0.9rem;
+  border: 0;
+  border-radius: 0.35rem;
+  background: transparent;
+  color: #1f365c;
+  text-align: left;
+  white-space: normal;
+}
+
+.proposal-hero .enrich-homepage-search .enrich-header-search-option:hover,
+.proposal-hero .enrich-homepage-search .enrich-header-search-option:focus {
+  background: #eef5fb;
+  color: #0f4a94;
+  outline: none;
+}
+
+.proposal-hero .enrich-homepage-search .enrich-header-search-option .fa {
+  flex: 0 0 auto;
+  margin-right: 0.7rem;
+  color: inherit;
+}
+
+.proposal-hero .enrich-homepage-search .enrich-header-search-query {
   overflow-wrap: anywhere;
 }
 

@@ -57,6 +57,24 @@ class EnrichSearchCapabilitiesPlugin(
             boolean_validator,
         ]
         schema[
+            "ckanext.enrich_search_capabilities.homepage_search_enabled"
+        ] = [
+            ignore_missing,
+            boolean_validator,
+        ]
+        schema[
+            "ckanext.enrich_search_capabilities.homepage_pages_blog_search_enabled"
+        ] = [
+            ignore_missing,
+            boolean_validator,
+        ]
+        schema[
+            "ckanext.enrich_search_capabilities.homepage_guides_search_enabled"
+        ] = [
+            ignore_missing,
+            boolean_validator,
+        ]
+        schema[
             "ckanext.enrich_search_capabilities.dataset_live_search_enabled"
         ] = [
             ignore_missing,
@@ -107,6 +125,33 @@ class EnrichSearchCapabilitiesPlugin(
             toolkit._(
                 "Enable the external guides search option in the header "
                 "dropdown."
+            )
+        )
+        declaration.declare_bool(
+            key.ckanext.enrich_search_capabilities.homepage_search_enabled,
+            False,
+        ).set_description(
+            toolkit._(
+                "Enable the search destination dropdown in the homepage "
+                "hero search."
+            )
+        )
+        declaration.declare_bool(
+            key.ckanext.enrich_search_capabilities.homepage_pages_blog_search_enabled,
+            False,
+        ).set_description(
+            toolkit._(
+                "Enable page and blog search destinations in the homepage "
+                "search dropdown."
+            )
+        )
+        declaration.declare_bool(
+            key.ckanext.enrich_search_capabilities.homepage_guides_search_enabled,
+            False,
+        ).set_description(
+            toolkit._(
+                "Enable the external guides search option in the homepage "
+                "search dropdown."
             )
         )
         declaration.declare_bool(

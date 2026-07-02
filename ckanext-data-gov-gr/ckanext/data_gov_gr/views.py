@@ -751,6 +751,13 @@ def more_page():
                 'color': 'info'
             },
             {
+                'title': 'Θεσμικό Πλαίσιο',
+                'description': 'Κανονιστικό πλαίσιο και άλλα σχετικά',
+                'url': 'pages/thesmiko-plaisio',
+                'icon': 'fa-gavel',
+                'color': 'primary'
+            },
+            {
                 'title': 'Ανοικτά Δεδομένα',
                 'description': 'Εισαγωγικές πληροφορίες και οδηγίες για τα ανοικτά δεδομένα',
                 'url': 'pages/anoikta',

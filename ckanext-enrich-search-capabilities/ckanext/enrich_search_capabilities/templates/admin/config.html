@@ -82,6 +82,81 @@
     {% endcall %}
   </section>
 
+  <section>
+    <h3>{{ _('Homepage Search') }}</h3>
+
+    {% set homepage_search_enabled = h.get_config_as_bool('ckanext.enrich_search_capabilities.homepage_search_enabled', False) %}
+    <input
+      type="hidden"
+      id="field-ckanext.enrich_search_capabilities.homepage_search_enabled-hidden"
+      name="ckanext.enrich_search_capabilities.homepage_search_enabled"
+      value="false"
+      data-enrich-checkbox="field-ckanext.enrich_search_capabilities.homepage_search_enabled"
+      {% if homepage_search_enabled %}disabled="disabled"{% endif %}
+    />
+    {% call form.checkbox(
+      'ckanext.enrich_search_capabilities.homepage_search_enabled',
+      id='field-ckanext.enrich_search_capabilities.homepage_search_enabled',
+      label=_('Enable search destinations on the homepage'),
+      value='true',
+      checked=homepage_search_enabled
+    ) %}
+      <p class="help-block">
+        {{ _('Replaces the homepage dataset-only hero search with the same destination dropdown used by the header search.') }}
+      </p>
+    {% endcall %}
+  </section>
+
+  <section>
+    <h4>{{ _('Homepage Pages / Blog Search') }}</h4>
+
+    {% set homepage_pages_blog_search_enabled = h.get_config_as_bool('ckanext.enrich_search_capabilities.homepage_pages_blog_search_enabled', False) %}
+    <input
+      type="hidden"
+      id="field-ckanext.enrich_search_capabilities.homepage_pages_blog_search_enabled-hidden"
+      name="ckanext.enrich_search_capabilities.homepage_pages_blog_search_enabled"
+      value="false"
+      data-enrich-checkbox="field-ckanext.enrich_search_capabilities.homepage_pages_blog_search_enabled"
+      {% if homepage_pages_blog_search_enabled %}disabled="disabled"{% endif %}
+    />
+    {% call form.checkbox(
+      'ckanext.enrich_search_capabilities.homepage_pages_blog_search_enabled',
+      id='field-ckanext.enrich_search_capabilities.homepage_pages_blog_search_enabled',
+      label=_('Enable pages and blog search on the homepage'),
+      value='true',
+      checked=homepage_pages_blog_search_enabled
+    ) %}
+      <p class="help-block">
+        {{ _('Adds the Pages and Blog destinations only to the homepage search dropdown.') }}
+      </p>
+    {% endcall %}
+  </section>
+
+  <section>
+    <h4>{{ _('Homepage Guides Search') }}</h4>
+
+    {% set homepage_guides_search_enabled = h.get_config_as_bool('ckanext.enrich_search_capabilities.homepage_guides_search_enabled', False) %}
+    <input
+      type="hidden"
+      id="field-ckanext.enrich_search_capabilities.homepage_guides_search_enabled-hidden"
+      name="ckanext.enrich_search_capabilities.homepage_guides_search_enabled"
+      value="false"
+      data-enrich-checkbox="field-ckanext.enrich_search_capabilities.homepage_guides_search_enabled"
+      {% if homepage_guides_search_enabled %}disabled="disabled"{% endif %}
+    />
+    {% call form.checkbox(
+      'ckanext.enrich_search_capabilities.homepage_guides_search_enabled',
+      id='field-ckanext.enrich_search_capabilities.homepage_guides_search_enabled',
+      label=_('Enable guides search on the homepage'),
+      value='true',
+      checked=homepage_guides_search_enabled
+    ) %}
+      <p class="help-block">
+        {{ _('Adds the external guides search option only to the homepage search dropdown. The header guides option remains controlled separately.') }}
+      </p>
+    {% endcall %}
+  </section>
+
   <hr>
   <section>
     <h3>{{ _('Dataset Live Search') }}</h3>

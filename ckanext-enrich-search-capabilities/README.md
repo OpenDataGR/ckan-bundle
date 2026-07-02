@@ -88,6 +88,36 @@ new tab on the GitBook guides site:
 ckanext.enrich_search_capabilities.guides_search_enabled = true
 ```
 
+The homepage search destination dropdown is disabled by default and can be
+enabled independently from the header search:
+
+```ini
+ckanext.enrich_search_capabilities.homepage_search_enabled = true
+```
+
+When enabled on the data.gov.gr homepage, the dataset-only hero search is
+replaced with the same destination dropdown used by the header search.
+
+Page and blog destinations in the homepage search dropdown are controlled
+independently from the header search:
+
+```ini
+ckanext.enrich_search_capabilities.homepage_pages_blog_search_enabled = true
+```
+
+This setting only controls whether the homepage dropdown shows the page and
+blog destinations. The enhanced keyword filtering on the `/pages` and `/blog`
+indexes remains controlled by
+`ckanext.enrich_search_capabilities.enabled`.
+
+The external guides option for the homepage search is also controlled
+independently, so it can be hidden on the homepage without changing the header
+search:
+
+```ini
+ckanext.enrich_search_capabilities.homepage_guides_search_enabled = true
+```
+
 The dataset live search is disabled by default and can also be enabled
 independently:
 

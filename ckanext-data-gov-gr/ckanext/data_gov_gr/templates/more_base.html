@@ -177,6 +177,8 @@
                             <a href="{{ h.url_for('/blog') }}" class="btn btn-primary btn-sm">Μετάβαση <i class="fa fa-arrow-right"></i></a>
                           {% elif section.title == 'Σχετικά με την Πύλη' %}
                             <a href="{{ h.url_for('pages.show', page='about-portal', locale=h.lang()) }}" class="btn btn-primary btn-sm">Μετάβαση <i class="fa fa-arrow-right"></i></a>
+                          {% elif section.title == 'Θεσμικό Πλαίσιο' %}
+                            <a href="{{ h.url_for('pages.show', page='thesmiko-plaisio', locale=h.lang()) }}" class="btn btn-primary btn-sm">Μετάβαση <i class="fa fa-arrow-right"></i></a>
                           {% elif section.title == 'Ανοικτά Δεδομένα' %}
                             <a href="{{ h.url_for('pages.show', page='anoikta', locale=h.lang()) }}" class="btn btn-primary btn-sm">Μετάβαση <i class="fa fa-arrow-right"></i></a>
                           {% elif section.title == 'Προστατευόμενα Δεδομένα' %}

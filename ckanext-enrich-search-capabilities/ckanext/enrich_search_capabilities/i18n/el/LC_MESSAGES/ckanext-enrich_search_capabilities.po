@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ckanext-enrich-search-capabilities 0.0.1\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-11 09:03+0300\n"
+"POT-Creation-Date: 2026-06-25 12:59+0300\n"
 "PO-Revision-Date: 2026-06-09 20:35+0300\n"
 "Last-Translator: \n"
 "Language: el\n"
@@ -19,47 +19,47 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.15.0\n"
 
-#: ckanext/enrich_search_capabilities/actions.py:57
+#: ckanext/enrich_search_capabilities/actions.py:60
 msgid "Search query must be text"
 msgstr "Ο όρος αναζήτησης πρέπει να είναι κείμενο"
 
-#: ckanext/enrich_search_capabilities/actions.py:65
+#: ckanext/enrich_search_capabilities/actions.py:68
 msgid "Search query must not exceed {limit} characters"
 msgstr "Ο όρος αναζήτησης δεν πρέπει να υπερβαίνει τους {limit} χαρακτήρες"
 
-#: ckanext/enrich_search_capabilities/actions.py:104
+#: ckanext/enrich_search_capabilities/actions.py:115
 msgid "Page and blog search is disabled"
 msgstr "Η αναζήτηση σελίδων και ιστολογίου είναι απενεργοποιημένη"
 
-#: ckanext/enrich_search_capabilities/actions.py:114
+#: ckanext/enrich_search_capabilities/actions.py:125
 msgid "Page type must be either page or blog"
 msgstr "Ο τύπος πρέπει να αντιστοιχεί σε σελίδα ή ιστολόγιο"
 
-#: ckanext/enrich_search_capabilities/actions.py:195
+#: ckanext/enrich_search_capabilities/actions.py:239
 msgid "Dataset live search is disabled"
 msgstr "Η ζωντανή αναζήτηση συνόλων δεδομένων είναι απενεργοποιημένη"
 
-#: ckanext/enrich_search_capabilities/actions.py:205
+#: ckanext/enrich_search_capabilities/actions.py:249
 msgid "Search query must be at least {limit} characters"
 msgstr "Ο όρος αναζήτησης πρέπει να έχει τουλάχιστον {limit} χαρακτήρες"
 
-#: ckanext/enrich_search_capabilities/helpers.py:27
+#: ckanext/enrich_search_capabilities/helpers.py:31
 msgid "Datasets"
 msgstr "Σύνολα δεδομένων"
 
-#: ckanext/enrich_search_capabilities/helpers.py:28
+#: ckanext/enrich_search_capabilities/helpers.py:32
 msgid "Data Services"
 msgstr "Υπηρεσίες δεδομένων"
 
-#: ckanext/enrich_search_capabilities/helpers.py:31
+#: ckanext/enrich_search_capabilities/helpers.py:35
 msgid "Showcases"
 msgstr "Εφαρμογές"
 
-#: ckanext/enrich_search_capabilities/helpers.py:35
+#: ckanext/enrich_search_capabilities/helpers.py:39
 msgid "Organizations"
 msgstr "Οργανισμοί"
 
-#: ckanext/enrich_search_capabilities/helpers.py:42
+#: ckanext/enrich_search_capabilities/helpers.py:46
 #: ckanext/enrich_search_capabilities/templates/enrich_search_capabilities/pages_list.html:20
 #: ckanext/enrich_search_capabilities/templates/enrich_search_capabilities/pages_list.html:24
 #: ckanext/enrich_search_capabilities/templates/enrich_search_capabilities/pages_list.html:29
@@ -67,7 +67,7 @@ msgstr "Οργανισμοί"
 msgid "Pages"
 msgstr "Σελίδες"
 
-#: ckanext/enrich_search_capabilities/helpers.py:43
+#: ckanext/enrich_search_capabilities/helpers.py:47
 #: ckanext/enrich_search_capabilities/templates/enrich_search_capabilities/blog_list.html:21
 #: ckanext/enrich_search_capabilities/templates/enrich_search_capabilities/blog_list.html:25
 #: ckanext/enrich_search_capabilities/templates/enrich_search_capabilities/blog_list.html:31
@@ -75,29 +75,53 @@ msgstr "Σελίδες"
 msgid "Blog"
 msgstr "Ιστολόγιο"
 
-#: ckanext/enrich_search_capabilities/helpers.py:52
+#: ckanext/enrich_search_capabilities/helpers.py:55
 msgid "Guides"
 msgstr "Οδηγοί"
 
-#: ckanext/enrich_search_capabilities/plugin.py:77
+#: ckanext/enrich_search_capabilities/plugin.py:108
 msgid "Enable keyword search on the ckanext-pages /pages and /blog indexes."
 msgstr ""
 "Ενεργοποίηση αναζήτησης με λέξεις-κλειδιά στις λίστες /pages και /blog "
 "του ckanext-pages."
 
-#: ckanext/enrich_search_capabilities/plugin.py:86
+#: ckanext/enrich_search_capabilities/plugin.py:117
 msgid "Enable the search destination dropdown in the site header."
 msgstr ""
 "Ενεργοποίηση του αναπτυσσόμενου μενού επιλογής προορισμού αναζήτησης στην"
 " κεφαλίδα του ιστότοπου."
 
-#: ckanext/enrich_search_capabilities/plugin.py:94
+#: ckanext/enrich_search_capabilities/plugin.py:125
+msgid "Enable the external guides search option in the header dropdown."
+msgstr ""
+"Ενεργοποίηση της επιλογής αναζήτησης οδηγών στο αναπτυσσόμενο μενού της "
+"κεφαλίδας."
+
+#: ckanext/enrich_search_capabilities/plugin.py:134
+msgid "Enable the search destination dropdown in the homepage hero search."
+msgstr ""
+"Ενεργοποίηση του αναπτυσσόμενου μενού επιλογής προορισμού αναζήτησης στην"
+" αναζήτηση της αρχικής σελίδας."
+
+#: ckanext/enrich_search_capabilities/plugin.py:143
+msgid "Enable page and blog search destinations in the homepage search dropdown."
+msgstr ""
+"Ενεργοποίηση των προορισμών αναζήτησης σελίδων και ιστολογίου στο "
+"αναπτυσσόμενο μενού αναζήτησης της αρχικής σελίδας."
+
+#: ckanext/enrich_search_capabilities/plugin.py:152
+msgid "Enable the external guides search option in the homepage search dropdown."
+msgstr ""
+"Ενεργοποίηση της επιλογής αναζήτησης οδηγών στο αναπτυσσόμενο μενού "
+"αναζήτησης της αρχικής σελίδας."
+
+#: ckanext/enrich_search_capabilities/plugin.py:161
 msgid "Enable live search suggestions on the dataset search page."
 msgstr ""
 "Ενεργοποίηση ζωντανών προτάσεων αναζήτησης στη σελίδα αναζήτησης συνόλων "
 "δεδομένων."
 
-#: ckanext/enrich_search_capabilities/plugin.py:102
+#: ckanext/enrich_search_capabilities/plugin.py:169
 msgid ""
 "Maximum number of suggestions returned by the dataset live search, "
 "between 1 and 10."
@@ -109,18 +133,26 @@ msgstr ""
 #: ckanext/enrich_search_capabilities/templates/header.html:16
 #: ckanext/enrich_search_capabilities/templates/header.html:23
 #: ckanext/enrich_search_capabilities/templates/header.html:24
+#: ckanext/enrich_search_capabilities/templates/home/index.html:18
 msgid "Search"
 msgstr "Αναζήτηση"
 
 #: ckanext/enrich_search_capabilities/templates/header.html:31
+#: ckanext/enrich_search_capabilities/templates/home/index.html:37
 msgid "Choose where to search"
 msgstr "Επιλέξτε πού θα γίνει η αναζήτηση"
 
 #: ckanext/enrich_search_capabilities/templates/header.html:52
+#: ckanext/enrich_search_capabilities/templates/header.html:69
+#: ckanext/enrich_search_capabilities/templates/home/index.html:58
+#: ckanext/enrich_search_capabilities/templates/home/index.html:75
 msgid "Search in"
 msgstr "Αναζήτηση σε"
 
 #: ckanext/enrich_search_capabilities/templates/header.html:55
+#: ckanext/enrich_search_capabilities/templates/header.html:72
+#: ckanext/enrich_search_capabilities/templates/home/index.html:61
+#: ckanext/enrich_search_capabilities/templates/home/index.html:78
 msgid "for"
 msgstr "για"
 
@@ -156,31 +188,79 @@ msgstr ""
 "Εμφανίζει επιλογές αναζήτησης για σύνολα δεδομένων, υπηρεσίες δεδομένων, "
 "εφαρμογές, οργανισμούς, σελίδες και ιστολόγιο."
 
-#: ckanext/enrich_search_capabilities/templates/admin/config.html:62
+#: ckanext/enrich_search_capabilities/templates/admin/config.html:61
 msgid "Guides Search"
 msgstr "Αναζήτηση Οδηγών"
 
-#: ckanext/enrich_search_capabilities/templates/admin/config.html:76
+#: ckanext/enrich_search_capabilities/templates/admin/config.html:75
 msgid "Enable guides search in the header"
 msgstr "Ενεργοποίηση αναζήτησης οδηγών στην κεφαλίδα"
 
-#: ckanext/enrich_search_capabilities/templates/admin/config.html:81
+#: ckanext/enrich_search_capabilities/templates/admin/config.html:80
 msgid ""
 "Adds the external guides search option to the header search dropdown. "
 "Opens results in a new tab."
 msgstr ""
-"Προσθέτει την επιλογή αναζήτησης εξωτερικών οδηγών στο αναπτυσσόμενο μενού "
-"αναζήτησης της κεφαλίδας. Τα αποτελέσματα ανοίγουν σε νέα καρτέλα."
+"Προσθέτει την επιλογή αναζήτησης εξωτερικών οδηγών στο αναπτυσσόμενο "
+"μενού αναζήτησης της κεφαλίδας. Τα αποτελέσματα ανοίγουν σε νέα καρτέλα."
 
-#: ckanext/enrich_search_capabilities/templates/admin/config.html:88
+#: ckanext/enrich_search_capabilities/templates/admin/config.html:86
+msgid "Homepage Search"
+msgstr "Αναζήτηση Αρχικής Σελίδας"
+
+#: ckanext/enrich_search_capabilities/templates/admin/config.html:100
+msgid "Enable search destinations on the homepage"
+msgstr "Ενεργοποίηση επιλογών αναζήτησης στην αρχική σελίδα"
+
+#: ckanext/enrich_search_capabilities/templates/admin/config.html:105
+msgid ""
+"Replaces the homepage dataset-only hero search with the same destination "
+"dropdown used by the header search."
+msgstr ""
+"Αντικαθιστά την αναζήτηση της αρχικής σελίδας που περιορίζεται στα σύνολα"
+" δεδομένων με το ίδιο αναπτυσσόμενο μενού προορισμών που χρησιμοποιεί η "
+"αναζήτηση της κεφαλίδας."
+
+#: ckanext/enrich_search_capabilities/templates/admin/config.html:111
+msgid "Homepage Pages / Blog Search"
+msgstr "Αναζήτηση Σελίδων / Ιστολογίου στην Αρχική"
+
+#: ckanext/enrich_search_capabilities/templates/admin/config.html:125
+msgid "Enable pages and blog search on the homepage"
+msgstr "Ενεργοποίηση αναζήτησης σελίδων και ιστολογίου στην αρχική σελίδα"
+
+#: ckanext/enrich_search_capabilities/templates/admin/config.html:130
+msgid "Adds the Pages and Blog destinations only to the homepage search dropdown."
+msgstr ""
+"Προσθέτει τους προορισμούς Σελίδες και Ιστολόγιο μόνο στο αναπτυσσόμενο "
+"μενού αναζήτησης της αρχικής σελίδας."
+
+#: ckanext/enrich_search_capabilities/templates/admin/config.html:136
+msgid "Homepage Guides Search"
+msgstr "Αναζήτηση Οδηγών στην Αρχική"
+
+#: ckanext/enrich_search_capabilities/templates/admin/config.html:150
+msgid "Enable guides search on the homepage"
+msgstr "Ενεργοποίηση αναζήτησης οδηγών στην αρχική σελίδα"
+
+#: ckanext/enrich_search_capabilities/templates/admin/config.html:155
+msgid ""
+"Adds the external guides search option only to the homepage search "
+"dropdown. The header guides option remains controlled separately."
+msgstr ""
+"Προσθέτει την επιλογή αναζήτησης εξωτερικών οδηγών μόνο στο αναπτυσσόμενο"
+" μενού αναζήτησης της αρχικής σελίδας. Η αντίστοιχη επιλογή της κεφαλίδας"
+" παραμένει ξεχωριστή."
+
+#: ckanext/enrich_search_capabilities/templates/admin/config.html:162
 msgid "Dataset Live Search"
 msgstr "Ζωντανή Αναζήτηση Συνόλων Δεδομένων"
 
-#: ckanext/enrich_search_capabilities/templates/admin/config.html:76
+#: ckanext/enrich_search_capabilities/templates/admin/config.html:176
 msgid "Enable live search on the dataset search page"
 msgstr "Ενεργοποίηση ζωντανής αναζήτησης στη σελίδα αναζήτησης συνόλων δεδομένων"
 
-#: ckanext/enrich_search_capabilities/templates/admin/config.html:81
+#: ckanext/enrich_search_capabilities/templates/admin/config.html:181
 msgid ""
 "Shows the first matching datasets in a dropdown while typing in the "
 "/dataset search field. The regular search remains unchanged."
@@ -189,14 +269,13 @@ msgstr ""
 "λίστα, καθώς πληκτρολογείτε στο πεδίο αναζήτησης του /dataset. Η κανονική"
 " αναζήτηση παραμένει ως έχει."
 
-#: ckanext/enrich_search_capabilities/templates/admin/config.html:88
+#: ckanext/enrich_search_capabilities/templates/admin/config.html:188
 msgid "Number of live search results"
 msgstr "Αριθμός αποτελεσμάτων ζωντανής αναζήτησης"
 
-#: ckanext/enrich_search_capabilities/templates/admin/config.html:94
+#: ckanext/enrich_search_capabilities/templates/admin/config.html:194
 msgid "How many datasets are suggested while typing, between 1 and 10."
-msgstr ""
-"Πόσα σύνολα δεδομένων προτείνονται καθώς πληκτρολογείτε, από 1 έως 10."
+msgstr "Πόσα σύνολα δεδομένων προτείνονται καθώς πληκτρολογείτε, από 1 έως 10."
 
 #: ckanext/enrich_search_capabilities/templates/enrich_search_capabilities/blog_list.html:5
 msgid "Add Article"
@@ -260,4 +339,3 @@ msgstr "Δεν βρέθηκαν σύνολα δεδομένων που να τα
 #: ckanext/enrich_search_capabilities/templates/package/search.html:17
 msgid "Dataset suggestions"
 msgstr "Προτάσεις συνόλων δεδομένων"
-

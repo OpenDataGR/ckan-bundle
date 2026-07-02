@@ -40,6 +40,8 @@
     <div class="container">
       <h1>{{ _('Data and Services Portal') }}</h1>
       <p class="proposal-hero-lead">{{ _('Discover, use and improve public sector data!') }}</p>
+      {% block proposal_hero_search %}
+      {# OD-797: 4d6d3dfe was committed with the OD-794 message by mistake. #}
       {% set hero_search_placeholder = 'Αναζητήστε Σύνολα Δεδομένων...' if h.lang() == 'el' else 'Search Datasets...' %}
       <form class="proposal-hero-search" action="{{ h.url_for('dataset.search') }}" method="get" role="search">
         <label class="visually-hidden" for="field-hero-search">{{ _('Search') }}</label>
@@ -56,6 +58,7 @@
           </button>
         </div>
       </form>
+      {% endblock %}
     </div>
   </section>
 

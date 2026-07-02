@@ -7,6 +7,9 @@ from ckanext.enrich_search_capabilities.config import (
     dataset_live_search_limit,
     guides_search_enabled,
     header_search_enabled,
+    homepage_guides_search_enabled,
+    homepage_pages_blog_search_enabled,
+    homepage_search_enabled,
     search_enabled,
 )
 
@@ -23,7 +26,7 @@ def _search_target(endpoint, label):
     }
 
 
-def header_search_targets():
+def _search_targets(include_guides=False, include_pages_blog=False):
     targets = [
         _search_target("dataset.search", toolkit._("Datasets")),
         _search_target("data-service.search", toolkit._("Data Services")),
@@ -37,7 +40,7 @@ def header_search_targets():
         ),
     ]
 
-    if search_enabled():
+    if include_pages_blog:
         targets.extend(
             [
                 _search_target("pages.pages_index", toolkit._("Pages")),
@@ -45,7 +48,7 @@ def header_search_targets():
             ]
         )
 
-    if guides_search_enabled():
+    if include_guides:
         targets.append(
             {
                 "endpoint": None,
@@ -58,10 +61,26 @@ def header_search_targets():
     return [target for target in targets if target]
 
 
+def header_search_targets():
+    return _search_targets(
+        include_guides=guides_search_enabled(),
+        include_pages_blog=search_enabled(),
+    )
+
+
+def homepage_search_targets():
+    return _search_targets(
+        include_guides=homepage_guides_search_enabled(),
+        include_pages_blog=homepage_pages_blog_search_enabled(),
+    )
+
+
 def get_helpers():
     return {
         "enrich_header_search_enabled": header_search_enabled,
         "enrich_header_search_targets": header_search_targets,
+        "enrich_homepage_search_enabled": homepage_search_enabled,
+        "enrich_homepage_search_targets": homepage_search_targets,
         "enrich_dataset_live_search_enabled": dataset_live_search_enabled,
         "enrich_dataset_live_search_limit": dataset_live_search_limit,
     }
