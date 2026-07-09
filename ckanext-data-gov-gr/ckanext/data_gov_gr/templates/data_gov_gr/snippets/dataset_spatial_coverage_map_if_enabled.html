@@ -1,0 +1,22 @@
+{#
+Conditionally renders the dataset geographical coverage map at the configured
+position.
+
+pkg
+  Current package dictionary.
+dataset_type
+  Current package type.
+position
+  Render slot identifier, eg "after_tags" or "after_additional_info".
+#}
+
+{% set current_type = dataset_type or (pkg.type if pkg else 'dataset') %}
+{% if current_type == 'dataset'
+  and position == h.data_gov_gr_dataset_spatial_coverage_map_position()
+  and h.get_config_as_bool('ckanext.data_gov_gr.dataset.spatial_coverage.map.enabled', False)
+  and h.plugin_loaded('spatial_metadata') %}
+  {% set dataset_extent = h.data_gov_gr_dataset_spatial_extent(pkg) %}
+  {% if dataset_extent %}
+    {% snippet "data_gov_gr/snippets/dataset_spatial_coverage_map.html", extent=dataset_extent %}
+  {% endif %}
+{% endif %}

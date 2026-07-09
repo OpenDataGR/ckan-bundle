@@ -10,6 +10,7 @@
   {% else %}
     {{ super() }}
   {% endif %}
+
 {% endblock %}
 
 {% block package_tags %}
@@ -28,4 +29,7 @@
   {% else %}
     {{ super() }}
   {% endif %}
+
+  {% snippet "data_gov_gr/snippets/dataset_spatial_coverage_map_if_enabled.html",
+    pkg=pkg, dataset_type=current_type, position="after_tags" %}
 {% endblock %}

@@ -1,0 +1,13 @@
+{#
+Displays the dataset geographical coverage using ckanext-spatial's base map
+snippet, while keeping the data.gov.gr title/translation separate from the
+upstream ckanext-spatial template.
+
+extent
+  GeoJSON representation of the geometry to draw.
+#}
+
+<section class="dataset-map-section {% if g.ckan_base_version.startswith('2.0') %}dataset-map-section-20x{% endif %}">
+  <h3>{{ _('Geographical coverage') }}</h3>
+  {% snippet "spatial/snippets/dataset_map_base.html", extent=extent %}
+</section>

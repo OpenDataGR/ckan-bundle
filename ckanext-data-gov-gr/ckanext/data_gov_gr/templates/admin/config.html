@@ -1035,6 +1035,58 @@
           error=errors['ckanext.data_gov_gr.dataset.spatial_coverage.default'],
           classes=['control-medium']
         ) }}
+
+        {% set spatial_coverage_map_enabled = h.get_config_as_bool('ckanext.data_gov_gr.dataset.spatial_coverage.map.enabled', False) %}
+        <input
+          type="hidden"
+          id="field-ckanext.data_gov_gr.dataset.spatial_coverage.map.enabled-hidden"
+          name="ckanext.data_gov_gr.dataset.spatial_coverage.map.enabled"
+          value="false"
+          {% if spatial_coverage_map_enabled %}disabled="disabled"{% endif %}
+        />
+        {% call form.checkbox(
+          'ckanext.data_gov_gr.dataset.spatial_coverage.map.enabled',
+          id='field-ckanext.data_gov_gr.dataset.spatial_coverage.map.enabled',
+          label=_('Εμφάνιση χάρτη χωρικής κάλυψης στις σελίδες dataset'),
+          value='true',
+          checked=spatial_coverage_map_enabled
+        ) %}
+          <p class="help-block">
+            {{ _('Όταν είναι ενεργό, εμφανίζεται χάρτης στη σελίδα dataset, εφόσον η Χωρική Κάλυψη περιέχει έγκυρο GeoJSON και είναι ενεργό το spatial_metadata plugin.') }}
+          </p>
+        {% endcall %}
+
+        {% set spatial_coverage_map_position_options = [
+          {'value': 'after_tags', 'text': _('Κάτω από τις ετικέτες')},
+          {'value': 'after_additional_info', 'text': _('Κάτω από τις Επιπρόσθετες πληροφορίες')}
+        ] %}
+
+        {{ form.select(
+          'ckanext.data_gov_gr.dataset.spatial_coverage.map.position',
+          id='field-ckanext.data_gov_gr.dataset.spatial_coverage.map.position',
+          label=_('Θέση χάρτη χωρικής κάλυψης'),
+          options=spatial_coverage_map_position_options,
+          selected=data.get('ckanext.data_gov_gr.dataset.spatial_coverage.map.position', 'after_additional_info'),
+          error=errors['ckanext.data_gov_gr.dataset.spatial_coverage.map.position'],
+          classes=['control-medium']
+        ) }}
+        <p class="help-block">
+          {{ _('Η προεπιλογή είναι η εμφάνιση κάτω από τις Επιπρόσθετες πληροφορίες.') }}
+        </p>
+        <script>
+          document.addEventListener('DOMContentLoaded', function () {
+            var checkbox = document.getElementById('field-ckanext.data_gov_gr.dataset.spatial_coverage.map.enabled');
+            var hidden = document.getElementById('field-ckanext.data_gov_gr.dataset.spatial_coverage.map.enabled-hidden');
+            if (!checkbox || !hidden) {
+              return;
+            }
+            function syncHidden() {
+              hidden.disabled = !!checkbox.checked;
+            }
+            checkbox.addEventListener('change', syncHidden);
+            syncHidden();
+          });
+        </script>
       </section>
 
       <section id="dg-config-menu" class="dg-config-section" data-dg-section="dg-config-menu">

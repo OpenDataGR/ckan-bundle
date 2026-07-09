@@ -42,6 +42,10 @@ msgstr ""
 msgid "Number of Datasets per Thematic Category."
 msgstr ""
 
+#: ckanext/data_gov_gr/templates/data_gov_gr/snippets/dataset_spatial_coverage_map.html:10
+msgid "Geographical coverage"
+msgstr ""
+
 #: ckanext/data_gov_gr/helpers.py:115
 #: ckanext/data_gov_gr/templates/ckanext/stats/datasets_by_publisher_type.html:5
 #: ckanext/data_gov_gr/templates/ckanext/stats/datasets_by_publisher_type.html:11

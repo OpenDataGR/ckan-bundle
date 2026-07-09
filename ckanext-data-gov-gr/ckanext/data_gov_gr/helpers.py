@@ -34,6 +34,15 @@ _HOME_REUSE_STATS_IN_FLIGHT: set[str] = set()
 _HOME_REUSE_STATS_IN_FLIGHT_LOCK = threading.Lock()
 
 _GREECE_GEONAMES_ID = '390903'
+_DATASET_SPATIAL_COVERAGE_MAP_POSITION_CONFIG = (
+    'ckanext.data_gov_gr.dataset.spatial_coverage.map.position'
+)
+_DATASET_SPATIAL_COVERAGE_MAP_POSITION_AFTER_TAGS = 'after_tags'
+_DATASET_SPATIAL_COVERAGE_MAP_POSITION_AFTER_ADDITIONAL_INFO = 'after_additional_info'
+_DATASET_SPATIAL_COVERAGE_MAP_POSITIONS = {
+    _DATASET_SPATIAL_COVERAGE_MAP_POSITION_AFTER_TAGS,
+    _DATASET_SPATIAL_COVERAGE_MAP_POSITION_AFTER_ADDITIONAL_INFO,
+}
 # Το GeoNames 390903 είναι η προεπιλογή για την Ελλάδα. Γεμίζουμε το
 # spatial_coverage[].bbox με Polygon, ενώ geom/centroid μένουν ως Point.
 _GREECE_BBOX_GEOJSON = {
@@ -753,6 +762,312 @@ def get_dataset_spatial_coverage_default():
         'geom': geom,
         'bbox': bbox,
         'centroid': geom,
+    }]
+
+
+def data_gov_gr_dataset_spatial_extent(pkg):
+    """
+    Return a GeoJSON string suitable for ckanext-spatial's dataset map.
+
+    This is intentionally best-effort: invalid spatial metadata is ignored so
+    dataset pages keep rendering even when a coverage value cannot be mapped.
+    """
+    try:
+        spatial_coverage = (pkg or {}).get('spatial_coverage')
+        features = []
+
+        for item in _iter_spatial_coverage_items(spatial_coverage):
+            geojson = _select_spatial_coverage_geojson(item)
+            if not geojson:
+                continue
+            features.extend(_geojson_to_features(geojson))
+
+        if not features:
+            return ''
+
+        if len(features) == 1:
+            return json.dumps(features[0], ensure_ascii=False)
+
+        return json.dumps({
+            'type': 'FeatureCollection',
+            'features': features,
+        }, ensure_ascii=False)
+    except Exception as e:
+        log.debug('Unable to build dataset spatial extent: %s', e, exc_info=True)
+        return ''
+
+
+def data_gov_gr_dataset_spatial_coverage_map_position():
+    value = toolkit.config.get(
+        _DATASET_SPATIAL_COVERAGE_MAP_POSITION_CONFIG,
+        _DATASET_SPATIAL_COVERAGE_MAP_POSITION_AFTER_ADDITIONAL_INFO,
+    )
+    if isinstance(value, list):
+        value = value[-1] if value else ''
+
+    value = str(value or '').strip()
+    if value in _DATASET_SPATIAL_COVERAGE_MAP_POSITIONS:
+        return value
+    return _DATASET_SPATIAL_COVERAGE_MAP_POSITION_AFTER_ADDITIONAL_INFO
+
+
+def _iter_spatial_coverage_items(spatial_coverage):
+    if isinstance(spatial_coverage, str):
+        try:
+            spatial_coverage = json.loads(spatial_coverage)
+        except (TypeError, ValueError):
+            return
+
+    if isinstance(spatial_coverage, dict):
+        spatial_coverage = [spatial_coverage]
+
+    if not isinstance(spatial_coverage, list):
+        return
+
+    for item in spatial_coverage:
+        if isinstance(item, dict):
+            yield item
+
+
+def _select_spatial_coverage_geojson(item):
+    area_candidates = []
+    fallback_candidates = []
+
+    for field_name in ('geom', 'Geometry', 'bbox', 'Bounding Box'):
+        value = item.get(field_name)
+        parsed = _parse_geojson_value(value) or _parse_wkt_value(value)
+        if not parsed:
+            continue
+        if _geojson_contains_area(parsed):
+            area_candidates.append(parsed)
+        else:
+            fallback_candidates.append(parsed)
+
+    for field_name in ('centroid', 'Centroid'):
+        parsed = _parse_geojson_value(item.get(field_name))
+        if parsed:
+            fallback_candidates.append(parsed)
+
+    if area_candidates:
+        return area_candidates[0]
+    if fallback_candidates:
+        return fallback_candidates[0]
+
+    wkt_parsed = _parse_wkt_value(item.get('text'))
+    if wkt_parsed:
+        return wkt_parsed
+
+    return None
+
+
+def _parse_geojson_value(value):
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except (TypeError, ValueError):
+            return None
+
+    if not isinstance(value, dict):
+        return None
+
+    geojson_type = value.get('type')
+    if geojson_type not in {
+        'Point',
+        'MultiPoint',
+        'LineString',
+        'MultiLineString',
+        'Polygon',
+        'MultiPolygon',
+        'GeometryCollection',
+        'Feature',
+        'FeatureCollection',
+    }:
+        return None
+
+    if not _geojson_is_renderable(value):
+        return None
+
+    return value
+
+
+_WKT_KEYWORDS = re.compile(
+    r'^\s*(GEOMETRYCOLLECTION|MULTILINESTRING|MULTIPOLYGON|MULTIPOINT'
+    r'|LINESTRING|POLYGON|POINT)\s*\(',
+    re.IGNORECASE,
+)
+
+
+def _parse_wkt_value(value):
+    if not isinstance(value, str) or not _WKT_KEYWORDS.match(value):
+        return None
+    try:
+        from shapely import wkt as shapely_wkt
+        from shapely.geometry import mapping as shapely_mapping
+        value = _close_wkt_rings(value)
+        geom = shapely_wkt.loads(value)
+        if geom.is_empty:
+            return None
+        return _parse_geojson_value(dict(shapely_mapping(geom)))
+    except Exception:
+        return None
+
+
+_WKT_RING = re.compile(r'\(([^()]+)\)')
+
+
+def _close_wkt_rings(wkt_str):
+    def _close_ring(match):
+        coords_text = match.group(1).strip()
+        parts = [p.strip() for p in coords_text.split(',')]
+        if len(parts) >= 3 and parts[0] != parts[-1]:
+            parts.append(parts[0])
+        return '(' + ', '.join(parts) + ')'
+    return _WKT_RING.sub(_close_ring, wkt_str)
+
+
+def _geojson_is_renderable(geojson):
+    geojson_type = geojson.get('type')
+
+    if geojson_type in {
+        'Point',
+        'MultiPoint',
+        'LineString',
+        'MultiLineString',
+        'Polygon',
+        'MultiPolygon',
+    }:
+        return _coordinates_contain_position(geojson.get('coordinates'))
+
+    if geojson_type == 'GeometryCollection':
+        geometries = geojson.get('geometries')
+        return (
+            isinstance(geometries, list)
+            and any(
+                isinstance(geometry, dict) and _geojson_is_renderable(geometry)
+                for geometry in geometries
+            )
+        )
+
+    if geojson_type == 'Feature':
+        geometry = geojson.get('geometry')
+        return isinstance(geometry, dict) and _geojson_is_renderable(geometry)
+
+    if geojson_type == 'FeatureCollection':
+        features = geojson.get('features')
+        return (
+            isinstance(features, list)
+            and any(
+                isinstance(feature, dict) and _geojson_is_renderable(feature)
+                for feature in features
+            )
+        )
+
+    return False
+
+
+def _coordinates_contain_position(value):
+    if not isinstance(value, (list, tuple)):
+        return False
+
+    if (
+        len(value) >= 2
+        and not isinstance(value[0], (list, tuple))
+        and not isinstance(value[1], (list, tuple))
+    ):
+        try:
+            float(value[0])
+            float(value[1])
+            return True
+        except (TypeError, ValueError):
+            return False
+
+    return any(_coordinates_contain_position(child) for child in value)
+
+
+def _geojson_contains_area(geojson):
+    geojson_type = geojson.get('type')
+
+    if geojson_type in ('Polygon', 'MultiPolygon'):
+        return True
+
+    if geojson_type == 'Feature':
+        geometry = geojson.get('geometry')
+        return isinstance(geometry, dict) and _geojson_contains_area(geometry)
+
+    if geojson_type == 'FeatureCollection':
+        features = geojson.get('features')
+        if not isinstance(features, list):
+            return False
+        return any(
+            isinstance(feature, dict) and _geojson_contains_area(feature)
+            for feature in features
+        )
+
+    if geojson_type == 'GeometryCollection':
+        geometries = geojson.get('geometries')
+        if not isinstance(geometries, list):
+            return False
+        return any(
+            isinstance(geometry, dict) and _geojson_contains_area(geometry)
+            for geometry in geometries
+        )
+
+    return False
+
+
+def _geojson_to_features(geojson):
+    geojson_type = geojson.get('type')
+
+    if geojson_type == 'FeatureCollection':
+        features = geojson.get('features')
+        if not isinstance(features, list):
+            return []
+        out = []
+        for feature in features:
+            if isinstance(feature, dict):
+                out.extend(_geojson_to_features(feature))
+        return out
+
+    if geojson_type == 'Feature':
+        geometry = geojson.get('geometry')
+        if not isinstance(geometry, dict):
+            return []
+
+        properties = geojson.get('properties')
+        if not isinstance(properties, dict):
+            properties = {}
+
+        if geometry.get('type') == 'GeometryCollection':
+            features = []
+            for feature in _geojson_to_features(geometry):
+                feature['properties'] = properties
+                features.append(feature)
+            return features
+
+        if not _geojson_is_renderable(geometry):
+            return []
+
+        return [{
+            'type': 'Feature',
+            'geometry': geometry,
+            'properties': properties,
+        }]
+
+    if geojson_type == 'GeometryCollection':
+        geometries = geojson.get('geometries')
+        if not isinstance(geometries, list):
+            return []
+
+        out = []
+        for geometry in geometries:
+            if isinstance(geometry, dict):
+                out.extend(_geojson_to_features(geometry))
+        return out
+
+    return [{
+        'type': 'Feature',
+        'geometry': geojson,
+        'properties': {},
     }]
 
 
@@ -2993,6 +3308,8 @@ def get_helpers():
         'get_dataset_legislation_default': get_dataset_legislation_default,
         'get_resource_license_default': get_resource_license_default,
         'get_dataset_spatial_coverage_default': get_dataset_spatial_coverage_default,
+        'data_gov_gr_dataset_spatial_extent': data_gov_gr_dataset_spatial_extent,
+        'data_gov_gr_dataset_spatial_coverage_map_position': data_gov_gr_dataset_spatial_coverage_map_position,
         'get_dataset_temporal_coverage_default': get_dataset_temporal_coverage_default,
         'data_gov_gr_get_organizations': data_gov_gr_get_organizations,
         'get_data_service_guides_url': get_data_service_guides_url,

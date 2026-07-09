@@ -60,6 +60,10 @@ msgstr "Εναλλαγή σε διάγραμμα"
 msgid "No data available"
 msgstr "Δεν υπάρχουν διαθέσιμα δεδομένα"
 
+#: ckanext/data_gov_gr/templates/data_gov_gr/snippets/dataset_spatial_coverage_map.html:10
+msgid "Geographical coverage"
+msgstr "Χωρική κάλυψη"
+
 #: ckanext/data_gov_gr/templates/ckanext/stats/datasets_by_hvd_category.html:39
 msgid "No categories found"
 msgstr "Δεν βρέθηκαν κατηγορίες"

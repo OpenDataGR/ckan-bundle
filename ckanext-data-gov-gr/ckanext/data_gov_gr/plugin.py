@@ -138,6 +138,8 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         - ``ckanext.data_gov_gr.resource.license.default`` (default license URI for new resources on open datasets)
         - ``ckanext.data_gov_gr.dataset.spatial_coverage.default.*`` (προεπιλεγμένη χωρική κάλυψη για νέα datasets - παλιό/advanced σχήμα)
         - ``ckanext.data_gov_gr.dataset.spatial_coverage.default`` (απλή επιλογή προεπιλεγμένης χωρικής κάλυψης)
+        - ``ckanext.data_gov_gr.dataset.spatial_coverage.map.enabled`` (show/hide spatial coverage map on dataset pages)
+        - ``ckanext.data_gov_gr.dataset.spatial_coverage.map.position`` (position of the spatial coverage map on dataset pages)
         - ``ckanext.data_gov_gr.home.reuse_stats.view_all_url`` (home reuse stats button URL)
         - ``guides_base_url`` (external guides base URL)
         - ``ckanext.data_gov_gr.contact.gitbook_embed_items`` (contact page GitBook dropdown items as JSON)
@@ -178,6 +180,8 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
             'ckanext.data_gov_gr.dataset.spatial_coverage.default.text': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.dataset.spatial_coverage.default.lng': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.dataset.spatial_coverage.default.lat': [ignore_missing, unicode_safe],
+            'ckanext.data_gov_gr.dataset.spatial_coverage.map.enabled': [ignore_missing, boolean_validator],
+            'ckanext.data_gov_gr.dataset.spatial_coverage.map.position': [ignore_missing, unicode_safe],
             'guides_base_url': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.getting_started.url': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.api_guide.url': [ignore_missing, unicode_safe],
@@ -343,6 +347,12 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         )
         declaration.declare(dataset.spatial_coverage.default.lat, "").set_description(
             "Προεπιλεγμένο latitude (lat) για centroid/geom στο spatial_coverage (π.χ. 39)."
+        )
+        declaration.declare(dataset.spatial_coverage.map.enabled, "no").set_description(
+            "Show a spatial coverage map on dataset pages when spatial_coverage contains renderable GeoJSON."
+        )
+        declaration.declare(dataset.spatial_coverage.map.position, "after_additional_info").set_description(
+            "Position of the spatial coverage map on dataset pages. Values: 'after_tags' or 'after_additional_info'."
         )
         declaration.declare(root.menu.dataset.items, "").set_description(
             "JSON list for the dataset dropdown menu items."

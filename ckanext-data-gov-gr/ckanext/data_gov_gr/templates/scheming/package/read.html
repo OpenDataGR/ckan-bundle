@@ -1,0 +1,8 @@
+{% ckan_extends %}
+
+{% block package_additional_info %}
+  {{ super() }}
+
+  {% snippet "data_gov_gr/snippets/dataset_spatial_coverage_map_if_enabled.html",
+    pkg=pkg, dataset_type=dataset_type, position="after_additional_info" %}
+{% endblock %}
