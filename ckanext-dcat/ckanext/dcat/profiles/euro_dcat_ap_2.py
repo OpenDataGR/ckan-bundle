@@ -21,7 +21,10 @@ from .base import (
     VCARD,
 )
 
-from .euro_dcat_ap_base import BaseEuropeanDCATAPProfile
+from .euro_dcat_ap_base import (
+    BaseEuropeanDCATAPProfile,
+    INCLUDE_DOWNLOADALL_RESOURCE_CONFIG,
+)
 
 
 log = logging.getLogger(__name__)
@@ -323,7 +326,15 @@ class EuropeanDCATAP2Profile(BaseEuropeanDCATAPProfile):
                     )
 
         # Resources
+        include_downloadall_resource = toolkit.asbool(
+            toolkit.config.get(INCLUDE_DOWNLOADALL_RESOURCE_CONFIG, False)
+        )
         for resource_dict in dataset_dict.get("resources", []):
+            if (
+                not include_downloadall_resource
+                and "downloadall_metadata_modified" in resource_dict
+            ):
+                continue
 
             distribution_ref = CleanedURIRef(resource_uri(resource_dict))
 
@@ -744,15 +755,17 @@ class EuropeanDCATAP2Profile(BaseEuropeanDCATAPProfile):
             or self._ensure_list(resource_dict.get("applicable_legislation"))
             or self._ensure_list(dataset_dict.get("applicable_legislation"))
         )
+        default_legislation = (
+            toolkit.config.get(HVD_APPLICABLE_LEGISLATION_CONFIG)
+            or DEFAULT_HVD_APPLICABLE_LEGISLATION
+        )
+        if isinstance(default_legislation, str):
+            default_legislation = default_legislation.strip()
         if not applicable_legislation:
-            default_legislation = (
-                toolkit.config.get(HVD_APPLICABLE_LEGISLATION_CONFIG)
-                or DEFAULT_HVD_APPLICABLE_LEGISLATION
-            )
-            if isinstance(default_legislation, str):
-                default_legislation = default_legislation.strip()
             if default_legislation:
                 applicable_legislation = [default_legislation]
+        elif default_legislation and default_legislation not in applicable_legislation:
+            applicable_legislation.append(default_legislation)
 
         # The documentation of a declared service can only come from the
         # service itself: the datastore API guides do not describe it

@@ -102,7 +102,9 @@ HVD, όπως και τα αυτόματα παραγόμενα services του 
 * `dcatap:applicableLegislation`: `applicable_legislation` του data-service →
   του πόρου → του συνόλου δεδομένων → ρύθμιση
   `ckanext.data_gov_gr.hvd.applicable_legislation.default`
-  (προεπιλογή: `http://data.europa.eu/eli/reg_impl/2023/138/oj`).
+  (προεπιλογή: `http://data.europa.eu/eli/reg_impl/2023/138/oj`). Αν η HVD
+  νομοθεσία από τη ρύθμιση λείπει από τις τιμές που επιλέχθηκαν, προστίθεται
+  συμπληρωματικά στο access service.
 * `dcatap:hvdCategory`: `hvd_category` του data-service → του συνόλου
   δεδομένων.
 * `dcat:contactPoint`: `contact` του data-service → του συνόλου δεδομένων.
@@ -249,5 +251,4 @@ ckanext.dcat.croissant.profiles = my_custom_croissant_profile
 Default value: `croissant`
 
 Profiles to use when creating the [Croissant](croissant.md) serializations
-
 

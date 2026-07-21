@@ -559,8 +559,30 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
 
     def after_parsing(self, rdf_parser, harvest_job):
         """
-        No-op hook after the RDF/JSON-LD content has been parsed into a graph.
+        Enrich parsed accessService payloads with DataService fields that
+        ckanext-dcat does not currently expose in resource.access_services.
         """
+        if not rdf_parser or getattr(rdf_parser, '_data_gov_gr_access_service_enriched', False):
+            return rdf_parser, []
+
+        try:
+            from ckanext.data_gov_gr.harvesters.custom_dcat_harvester import CustomDcatHarvester
+
+            original_datasets = rdf_parser.datasets
+            harvester = CustomDcatHarvester()
+
+            def datasets_with_access_service_enrichment():
+                for dataset_dict in original_datasets():
+                    harvester._enrich_access_services_from_graph(
+                        dataset_dict, getattr(rdf_parser, 'g', None)
+                    )
+                    yield dataset_dict
+
+            rdf_parser.datasets = datasets_with_access_service_enrichment
+            rdf_parser._data_gov_gr_access_service_enriched = True
+        except Exception:
+            log.exception("Failed to install accessService enrichment hook")
+
         return rdf_parser, []
 
     def after_update(self, harvest_object, dataset_dict, temp_dict):

@@ -3300,7 +3300,12 @@ asn-ds-7a3f1bc9e204
 | `endpoint_description` | `endpoint_description` |
 | `license` | `license` |
 | `access_rights` | `access_rights` |
+| `documentation` / `foaf:page` | `documentation` |
+| `landing_page` / `dcat:landingPage` | `landing_page` |
 | — | `owner_org` (κληρονομείται από parent dataset) |
+
+Στο re-harvest, αν το data-service υπάρχει ήδη, τα harvested πεδία του
+επικαιροποιούνται από το τρέχον `dcat:accessService` payload.
 
 ### `default_data_service_tags`
 

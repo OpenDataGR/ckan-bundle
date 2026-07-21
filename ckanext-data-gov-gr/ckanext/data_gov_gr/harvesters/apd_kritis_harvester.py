@@ -3,9 +3,6 @@ import json
 import logging
 from typing import Any, Dict, List, Optional, Tuple
 
-from ckan import model as ckan_model
-from ckanext.harvest.model import HarvestObject
-
 from .custom_dcat_harvester import CustomDcatHarvester
 from ..logic.harvest_mapping import get_harvest_source_config
 
@@ -137,46 +134,6 @@ class ApdKritisHarvester(CustomDcatHarvester):
             conf["rdf_format"] = "json-ld"
 
         return super().validate_config(json.dumps(conf))
-
-    def fetch_stage(self, harvest_object):
-        self._log_progress(harvest_object)
-        return super().fetch_stage(harvest_object)
-
-    def _log_progress(self, harvest_object):
-        try:
-            job_id = harvest_object.harvest_job_id
-            if not job_id:
-                return
-
-            if not hasattr(self, "_job_total_cache"):
-                self._job_total_cache = {}
-
-            if job_id not in self._job_total_cache:
-                total = (
-                    ckan_model.Session.query(HarvestObject)
-                    .filter(HarvestObject.harvest_job_id == job_id)
-                    .count()
-                )
-                self._job_total_cache[job_id] = total
-
-            total = self._job_total_cache[job_id]
-
-            processed = (
-                ckan_model.Session.query(HarvestObject)
-                .filter(HarvestObject.harvest_job_id == job_id)
-                .filter(HarvestObject.fetch_finished.isnot(None))
-                .count()
-            )
-
-            guid = getattr(harvest_object, "guid", "?")
-            log.info(
-                "[APD KRITIS] Processing %d/%d: guid=%s",
-                processed,
-                total,
-                guid,
-            )
-        except Exception:
-            pass
 
     def modify_package_dict(self, package_dict, temp_dict, harvest_object):
         """

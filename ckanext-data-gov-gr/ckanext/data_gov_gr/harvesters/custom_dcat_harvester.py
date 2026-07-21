@@ -6,10 +6,13 @@ import json
 import threading
 from urllib.parse import urlparse
 from typing import Optional
+from rdflib import BNode, Literal, URIRef
 from ckan import model
 from ckan.lib.munge import munge_title_to_name
+from ckanext.dcat.profiles import DCAT, FOAF
 from ckanext.dcat.harvesters.rdf import DCATRDFHarvester
 from ckanext.harvest.interfaces import IHarvester
+from ckanext.harvest.model import HarvestObject
 import ckan.plugins as plugins
 import ckan.plugins.toolkit as toolkit
 from ckanext.data_gov_gr import helpers as data_gov_helpers
@@ -341,6 +344,41 @@ class CustomDcatHarvester(DCATRDFHarvester, IHarvester):
             log.debug("[HARVESTER] Δεν ορίστηκε user_agent στο config — χρήση default")
         return super().gather_stage(harvest_job)
 
+    def fetch_stage(self, harvest_object):
+        self._log_fetch_progress(harvest_object)
+        return super().fetch_stage(harvest_object)
+
+    def _log_fetch_progress(self, harvest_object):
+        try:
+            job_id = getattr(harvest_object, 'harvest_job_id', None)
+            if not job_id:
+                return
+
+            if not hasattr(self, '_job_total_cache'):
+                self._job_total_cache = {}
+
+            if job_id not in self._job_total_cache:
+                total = (
+                    model.Session.query(HarvestObject)
+                    .filter(HarvestObject.harvest_job_id == job_id)
+                    .count()
+                )
+                self._job_total_cache[job_id] = total
+
+            total = self._job_total_cache[job_id]
+            processed = (
+                model.Session.query(HarvestObject)
+                .filter(HarvestObject.harvest_job_id == job_id)
+                .filter(HarvestObject.fetch_finished.isnot(None))
+                .count()
+            )
+
+            current = min(processed + 1, total) if total else processed + 1
+            guid = getattr(harvest_object, 'guid', '?')
+            log.info("[DCAT] Processing %d/%d: guid=%s", current, total, guid)
+        except Exception:
+            log.debug("[DCAT] Could not log fetch progress", exc_info=True)
+
     def modify_package_dict(self, package_dict, temp_dict, harvest_object):
         """
         Apply custom mapping fixes to resolve validation errors
@@ -430,6 +468,7 @@ class CustomDcatHarvester(DCATRDFHarvester, IHarvester):
             apply_default_dataset_fields_from_config(package_dict, harvest_object)
 
             # Data-service creation from DCAT accessService
+            self._enrich_access_services_from_harvest_content(package_dict, harvest_object)
             self._process_data_services(package_dict, harvest_config, harvest_object)
 
             log.info(f"Custom mapping applied to dataset: {package_dict.get('name', 'unknown')}")
@@ -1563,6 +1602,150 @@ class CustomDcatHarvester(DCATRDFHarvester, IHarvester):
     # Data-service creation from DCAT accessService
     # -----------------------------------------------------------------
 
+    def _normalise_string_list(self, value):
+        if value is None:
+            return []
+
+        if isinstance(value, str):
+            raw = value.strip()
+            if not raw:
+                return []
+            if raw.startswith('['):
+                try:
+                    parsed = json.loads(raw)
+                    if isinstance(parsed, list):
+                        return self._normalise_string_list(parsed)
+                except (TypeError, ValueError):
+                    pass
+            return [raw]
+
+        if isinstance(value, (list, tuple, set)):
+            values = []
+            seen = set()
+            for item in value:
+                if isinstance(item, dict):
+                    item = item.get('@id') or item.get('uri') or item.get('url') or item.get('value') or item.get('@value')
+                if item is None:
+                    continue
+                item = str(item).strip()
+                if not item or item in seen:
+                    continue
+                values.append(item)
+                seen.add(item)
+            return values
+
+        return [str(value).strip()] if str(value).strip() else []
+
+    def _access_services_from_value(self, raw):
+        if isinstance(raw, list):
+            return raw, False
+        if isinstance(raw, str):
+            try:
+                parsed = json.loads(raw)
+            except (json.JSONDecodeError, TypeError):
+                return None, True
+            return (parsed, True) if isinstance(parsed, list) else (None, True)
+        return None, False
+
+    def _node_from_access_service_ref(self, value):
+        if not isinstance(value, str):
+            return None
+        value = value.strip()
+        if not value:
+            return None
+        if value.lower().startswith(('http://', 'https://', 'urn:')):
+            return URIRef(value)
+        return BNode(value)
+
+    def _graph_node_values(self, graph, node, predicate):
+        values = []
+        seen = set()
+        for obj in graph.objects(node, predicate):
+            if isinstance(obj, (URIRef, Literal)):
+                value = str(obj).strip()
+            else:
+                value = ''
+            if not value or value in seen:
+                continue
+            values.append(value)
+            seen.add(value)
+        return values
+
+    def _enrich_access_services_from_graph(self, package_dict, graph):
+        if not graph or not isinstance(package_dict, dict):
+            return
+
+        resources = package_dict.get('resources')
+        if not isinstance(resources, list):
+            return
+
+        for resource in resources:
+            if not isinstance(resource, dict):
+                continue
+
+            access_service_list, was_json = self._access_services_from_value(resource.get('access_services'))
+            if not isinstance(access_service_list, list):
+                continue
+
+            updated = False
+            for service_dict in access_service_list:
+                if not isinstance(service_dict, dict):
+                    continue
+
+                node = self._node_from_access_service_ref(
+                    service_dict.get('access_service_ref') or service_dict.get('uri')
+                )
+                if node is None:
+                    continue
+
+                documentation = self._graph_node_values(graph, node, FOAF.page)
+                if documentation:
+                    existing = self._normalise_string_list(service_dict.get('documentation'))
+                    merged = self._normalise_string_list(existing + documentation)
+                    if merged != existing:
+                        service_dict['documentation'] = merged
+                        updated = True
+
+                landing_page = self._graph_node_values(graph, node, DCAT.landingPage)
+                if landing_page:
+                    existing = self._normalise_string_list(service_dict.get('landing_page'))
+                    merged = self._normalise_string_list(existing + landing_page)
+                    if merged != existing:
+                        service_dict['landing_page'] = merged
+                        updated = True
+
+            if updated and was_json:
+                resource['access_services'] = json.dumps(access_service_list)
+            elif updated:
+                resource['access_services'] = access_service_list
+
+    def _enrich_access_services_from_harvest_content(self, package_dict, harvest_object):
+        content = getattr(harvest_object, 'content', None) if harvest_object else None
+        if not content:
+            return
+        if isinstance(content, bytes):
+            try:
+                content = content.decode('utf-8')
+            except UnicodeDecodeError:
+                return
+        if not isinstance(content, str):
+            return
+
+        stripped = content.lstrip()
+        if stripped.startswith(('{', '[')):
+            return
+        if not stripped.startswith(('<', '@prefix', '@base')):
+            return
+
+        try:
+            from ckanext.dcat.processors import RDFParser
+            parser = RDFParser()
+            parser.parse(content)
+        except Exception:
+            return
+
+        self._enrich_access_services_from_graph(package_dict, parser.g)
+
     def _process_data_services(self, package_dict, harvest_config, harvest_object):
         try:
             log.debug("[DATA.GOV.GR HARVESTER] _process_data_services called for dataset '%s'",
@@ -1668,6 +1851,7 @@ class CustomDcatHarvester(DCATRDFHarvester, IHarvester):
                         log.info("[DATA.GOV.GR HARVESTER] Re-activated deleted data-service: %s", ds_name)
                     else:
                         log.debug("[DATA.GOV.GR HARVESTER] Data-service already exists (by name): %s", ds_name)
+                    self._sync_existing_data_service(existing, access_service_dict, base_context)
                     self._ensure_data_service_defaults(existing, harvest_config, base_context)
                     self._data_service_cache[ds_name] = existing
                     return existing
@@ -1690,6 +1874,7 @@ class CustomDcatHarvester(DCATRDFHarvester, IHarvester):
                     existing = toolkit.get_action('package_show')(
                         toolkit.fresh_context(base_context), {'id': match.id})
                     log.debug("[DATA.GOV.GR HARVESTER] Data-service already exists (by endpoint): %s", match.name)
+                    self._sync_existing_data_service(existing, access_service_dict, base_context)
                     self._ensure_data_service_defaults(existing, harvest_config, base_context)
                     self._data_service_cache[ds_name] = existing
                     return existing
@@ -1812,6 +1997,56 @@ class CustomDcatHarvester(DCATRDFHarvester, IHarvester):
         log.info("[DATA.GOV.GR HARVESTER] Updated defaults on existing data-service %s",
                  existing.get('name', ''))
 
+    def _apply_data_service_harvested_fields(self, ds_dict, access_service_dict):
+        if not isinstance(ds_dict, dict) or not isinstance(access_service_dict, dict):
+            return False
+
+        changed = False
+
+        scalar_fields = (
+            ('title', 'title'),
+            ('description', 'notes'),
+            ('license', 'license'),
+            ('access_rights', 'access_rights'),
+        )
+        for source_key, target_key in scalar_fields:
+            value = access_service_dict.get(source_key)
+            if not isinstance(value, str) or not value.strip():
+                continue
+            value = value.strip()
+            if ds_dict.get(target_key) != value:
+                ds_dict[target_key] = value
+                changed = True
+
+        list_fields = (
+            ('endpoint_url', 'endpoint_url'),
+            ('endpoint_description', 'endpoint_description'),
+            ('documentation', 'documentation'),
+            ('landing_page', 'landing_page'),
+        )
+        for source_key, target_key in list_fields:
+            values = self._normalise_string_list(access_service_dict.get(source_key))
+            if not values:
+                continue
+            current = self._normalise_string_list(ds_dict.get(target_key))
+            if current != values:
+                ds_dict[target_key] = values
+                changed = True
+
+        return changed
+
+    def _sync_existing_data_service(self, existing, access_service_dict, base_context):
+        if not existing:
+            return
+
+        if not self._apply_data_service_harvested_fields(existing, access_service_dict):
+            return
+
+        toolkit.get_action('package_update')(
+            toolkit.fresh_context(base_context), existing)
+        log.info("[DATA.GOV.GR HARVESTER] Synced harvested fields on existing data-service %s",
+                 existing.get('name', ''))
+
     def _build_data_service_dict(self, access_service_dict, name, owner_org):
         endpoint_urls = access_service_dict.get('endpoint_url', [])
         if isinstance(endpoint_urls, str):
@@ -1843,6 +2078,11 @@ class CustomDcatHarvester(DCATRDFHarvester, IHarvester):
 
         if access_service_dict.get('access_rights'):
             ds_dict['access_rights'] = access_service_dict['access_rights']
+
+        for field_name in ('documentation', 'landing_page'):
+            values = self._normalise_string_list(access_service_dict.get(field_name))
+            if values:
+                ds_dict[field_name] = values
 
         return ds_dict
 
