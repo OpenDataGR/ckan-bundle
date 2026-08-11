@@ -36,6 +36,7 @@ config = toolkit.config
 
 DISTRIBUTION_LICENSE_FALLBACK_CONFIG = "ckanext.dcat.resource.inherit.license"
 INCLUDE_DOWNLOADALL_RESOURCE_CONFIG = "ckanext.dcat.include_downloadall_resource"
+LICENSE_DOCUMENT_EMIT_TYPE_CONFIG = "ckanext.dcat.license_document.emit_type"
 OUTPUT_RESOURCE_FORMAT_AS_FILE_TYPE_URI_CONFIG = (
     "ckanext.dcat.output_resource_format_as_file_type_uri"
 )
@@ -569,12 +570,19 @@ class BaseEuropeanDCATAPProfile(RDFProfile):
             g.add((dataset_ref, DCT.publisher, publisher_ref))
             items = [
                 ("name", FOAF.name, None, Literal),
-                ("email", FOAF.mbox, None, Literal),
                 ("url", FOAF.homepage, None, URIRef),
                 ("type", DCT.type, None, URIRefOrLiteral),
                 ("identifier", DCT.identifier, None, URIRefOrLiteral),
             ]
             self._add_triples_from_dict(publisher_details, publisher_ref, items)
+            self._add_triple_from_dict(
+                publisher_details,
+                publisher_ref,
+                FOAF.mbox,
+                "email",
+                _type=URIRef,
+                value_modifier=self._add_mailto,
+            )
 
         # Creator
         creator_ref = None
@@ -611,12 +619,19 @@ class BaseEuropeanDCATAPProfile(RDFProfile):
             g.add((dataset_ref, DCT.creator, creator_ref))  # Use DCT.creator for creator
             items = [
                 ("name", FOAF.name, None, Literal),
-                ("email", FOAF.mbox, None, Literal),
                 ("url", FOAF.homepage, None, URIRef),
                 ("type", DCT.type, None, URIRefOrLiteral),
                 ("identifier", DCT.identifier, None, URIRefOrLiteral),
             ]
             self._add_triples_from_dict(creator_details, creator_ref, items)
+            self._add_triple_from_dict(
+                creator_details,
+                creator_ref,
+                FOAF.mbox,
+                "email",
+                _type=URIRef,
+                value_modifier=self._add_mailto,
+            )
 
         # Temporal
         start = self._get_dataset_value(dataset_dict, "temporal_start")
@@ -740,8 +755,10 @@ class BaseEuropeanDCATAPProfile(RDFProfile):
                         URIRefOrLiteral(resource_license_fallback),
                     )
                 )
-            # TODO: add an actual field to manage this
-            if (distribution, DCT.license, None) in g:
+            if (
+                toolkit.asbool(config.get(LICENSE_DOCUMENT_EMIT_TYPE_CONFIG, False))
+                and (distribution, DCT.license, None) in g
+            ):
                 g.add(
                     (
                         list(g.objects(distribution, DCT.license))[0],

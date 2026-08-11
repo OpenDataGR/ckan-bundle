@@ -608,8 +608,36 @@
                 'field-ckanext.data_gov_gr.activity_stream.dataset.restrict_visibility',
                 'field-ckanext.data_gov_gr.activity_stream.dataset.restrict_visibility-hidden'
               );
+              syncCheckboxHidden(
+                'field-ckanext.data_gov_gr.more.hvd_validator.enabled',
+                'field-ckanext.data_gov_gr.more.hvd_validator.enabled-hidden'
+              );
             });
           </script>
+
+          <hr>
+          <h4>{{ _('Σελίδα Εργαλείων (/more)') }}</h4>
+
+          {% set hvd_validator_enabled = h.get_config_as_bool('ckanext.data_gov_gr.more.hvd_validator.enabled', False) %}
+          <input
+            type="hidden"
+            id="field-ckanext.data_gov_gr.more.hvd_validator.enabled-hidden"
+            name="ckanext.data_gov_gr.more.hvd_validator.enabled"
+            value="false"
+            {% if hvd_validator_enabled %}disabled="disabled"{% endif %}
+          />
+          {% call form.checkbox(
+            'ckanext.data_gov_gr.more.hvd_validator.enabled',
+            id='field-ckanext.data_gov_gr.more.hvd_validator.enabled',
+            label=_('Εμφάνιση Ελεγκτή Συμμόρφωσης HVD στη σελίδα Εργαλείων'),
+            value='true',
+            checked=hvd_validator_enabled
+          ) %}
+            <p class="help-block">
+              {{ _('Εμφανίζει/αποκρύπτει την κάρτα «Ελεγκτής DCAT-AP HVD» στη σελίδα Εργαλεία (/more). Απαιτεί ενεργοποιημένο το plugin hvd_validator.') }}
+            </p>
+          {% endcall %}
+
       </section>
 
 	      <section id="dg-config-home" class="dg-config-section" data-dg-section="dg-config-home">
@@ -1954,6 +1982,7 @@
         <li><strong>{{ _('Λογότυπο Footer (Υπ. Ψηφιακής Διακυβέρνησης)') }}:</strong> {{ _('Επιλέγει την παραλλαγή του λογοτύπου του Υπουργείου Ψηφιακής Διακυβέρνησης που εμφανίζεται κάτω αριστερά στο footer (light ή dark).') }}</li>
         <li><strong>{{ _('Περιορισμός ορατότητας της ροής δραστηριότητας') }}:</strong> {{ _('Ενεργοποιεί ή απενεργοποιεί τον περιορισμό της ροής δραστηριότητας μόνο σε sysadmins και admins του αντίστοιχου φορέα.') }}</li>
         <li><strong>{{ _('Σύνδεσμος τεκμηρίωσης API') }}:</strong> {{ _('Αν συμπληρωθεί, αντικαθιστά τον προεπιλεγμένο σύνδεσμο «API Docs» στη σελίδα αναζήτησης. Ανοίγει σε νέα καρτέλα.') }}</li>
+        <li><strong>{{ _('Εμφάνιση Ελεγκτή HVD') }}:</strong> {{ _('Εμφανίζει κάρτα στη σελίδα Εργαλεία (/more) για on-demand έλεγχο RDF metadata βάσει DCAT-AP HVD και των ευρωπαϊκών SHACL σχημάτων. Απαιτεί εγκατεστημένο και ενεργοποιημένο το plugin hvd_validator.') }}</li>
       </ul>
     </div>
 

@@ -263,6 +263,14 @@ Optional settings:
     # Μπορεί επίσης να αλλάξει από το /ckan-admin/config → Οδηγοί (GitBook).
     ckanext.data_gov_gr.gitbook.pdf_per_page_panel.enabled = true
 
+    # Εμφάνιση/απόκρυψη της κάρτας «Ελεγκτής DCAT-AP HVD» στη σελίδα
+    # Εργαλείων (/more). Απαιτεί εγκατεστημένο και ενεργοποιημένο το plugin
+    # hvd_validator, και η κάρτα εμφανίζεται μόνο σε χρήστες που έχουν
+    # πρόσβαση στο /hvd-validator.
+    # (προαιρετικό, default: no)
+    # Μπορεί επίσης να αλλάξει από το /ckan-admin/config → Γενικά → Σελίδα Εργαλείων (/more).
+    ckanext.data_gov_gr.more.hvd_validator.enabled = no
+
     # Footer: σελίδα Συχνών Ερωτήσεων (FAQ).
     # Δηλώστε μόνο το slug της CKAN σελίδας (ckanext-pages) και όχι πλήρες URL ή /pages path.
     # Παράδειγμα: αν η σελίδα είναι /pages/faq, η τιμή είναι faq.

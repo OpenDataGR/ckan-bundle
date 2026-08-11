@@ -10,3 +10,7 @@ dist/
 distribute-*
 /CHANGELOG.html
 /README.html
+
+# IDE files
+.idea/
+*.iml

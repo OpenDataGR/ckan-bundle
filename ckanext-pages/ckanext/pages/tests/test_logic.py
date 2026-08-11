@@ -124,6 +124,61 @@ class TestPages():
         assert '<h1 class="page-heading page-list-header">Blog</h1>' in response.body
         assert 'Add Article</a>' in response.body
 
+    def test_blog_sidebar_links_do_not_include_double_slashes(self, app):
+        user = factories.Sysadmin()
+        env = {'REMOTE_USER': user['name'].encode('ascii')}
+
+        helpers.call_action(
+            "ckanext_pages_update",
+            {"user": user["name"]},
+            name="current-blog-post",
+            title="Current Blog Post",
+            content="This is the current blog post",
+            page_type="blog",
+            publish_date="2024-10-15",
+            private=False,
+        )
+        helpers.call_action(
+            "ckanext_pages_update",
+            {"user": user["name"]},
+            name="linked-blog-post",
+            title="Linked Blog Post",
+            content="This is the linked blog post",
+            page_type="blog",
+            publish_date="2024-10-16",
+            private=False,
+        )
+
+        response = app.get(
+            toolkit.url_for('pages.blog_show', page="current-blog-post"),
+            status=200,
+            extra_environ=env,
+        )
+
+        assert 'href="/blog/linked-blog-post"' in response.body
+        assert 'href="/blog//linked-blog-post"' not in response.body
+
+    @pytest.mark.ckan_config('ckan.root_path', '/data/')
+    def test_pages_nav_main_handles_trailing_root_path(self):
+        from ckanext.pages import plugin
+
+        pages = [{
+            'page_type': 'blog',
+            'name': 'welcome',
+            'title': 'Welcome',
+        }]
+
+        with mock.patch.object(plugin, 'core_build_nav_main',
+                               return_value=plugin.tk.literal('')):
+            with mock.patch.object(plugin.tk, 'get_action',
+                                   return_value=lambda context, data_dict: pages):
+                with mock.patch.object(plugin.tk, 'get_endpoint',
+                                       return_value=('home', 'index')):
+                    output = plugin.build_pages_nav_main()
+
+        assert 'href="/data/blog/welcome"' in str(output)
+        assert 'href="/data//blog/welcome"' not in str(output)
+
     def test_organization_pages_index(self, app):
         user = factories.Sysadmin()
         env = {'REMOTE_USER': user['name'].encode('ascii')}

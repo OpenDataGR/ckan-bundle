@@ -181,6 +181,15 @@ def _current_package_for_hvd_sync(context: Context, data_dict: Dict[str, Any]) -
         return None
 
 
+def _drop_read_only_relationship_fields(data_dict: Dict[str, Any]) -> None:
+    """
+    Relationships are exposed in package_show for API visibility, but they are
+    managed by the dedicated package relationship actions, not package_update.
+    """
+    data_dict.pop('relationships_as_subject', None)
+    data_dict.pop('relationships_as_object', None)
+
+
 @toolkit.chained_action
 def package_create(original_action, context, data_dict):
     """
@@ -196,6 +205,7 @@ def package_update(original_action, context, data_dict):
     """
     Συγχρονίζει την HVD εφαρμοστέα νομοθεσία στην ενημέρωση dataset/data-service.
     """
+    _drop_read_only_relationship_fields(data_dict)
     hvd_category_form_present = bool(
         data_dict.pop(HVD_CATEGORY_FORM_PRESENT_FIELD, None)
     )

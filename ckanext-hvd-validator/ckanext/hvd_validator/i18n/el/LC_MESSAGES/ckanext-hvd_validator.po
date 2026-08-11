@@ -1,0 +1,253 @@
+# Greek translations for ckanext-hvd-validator.
+# Copyright (C) 2025 ORGANIZATION
+# This file is distributed under the same license as the ckanext-hvd-validator
+# project.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: ckanext-hvd-validator 0.1.0\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2025-07-22 00:00+0300\n"
+"PO-Revision-Date: 2025-07-22 00:00+0300\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: el\n"
+"Language-Team: el <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.15.0\n"
+
+msgid "DCAT-AP HVD Validator"
+msgstr "Ελεγκτής DCAT-AP HVD"
+
+msgid "DCAT-AP HVD Validator settings"
+msgstr "Ρυθμίσεις Ελεγκτή DCAT-AP HVD"
+
+msgid "Validate RDF metadata against DCAT-AP HVD using the corresponding European SHACL shapes."
+msgstr "Ελέγξτε RDF metadata βάσει DCAT-AP HVD και των αντίστοιχων ευρωπαϊκών SHACL σχημάτων."
+
+msgid "Show HVD Validator button on HVD dataset pages"
+msgstr "Εμφάνιση κουμπιού Ελεγκτή HVD στις σελίδες HVD datasets"
+
+msgid "Displays a dataset page action that opens the validator directly for datasets with at least one HVD category. The button is shown only to users who can access the validator."
+msgstr "Εμφανίζει action στη σελίδα dataset που ανοίγει απευθείας τον ελεγκτή για datasets με τουλάχιστον μία HVD κατηγορία. Το κουμπί εμφανίζεται μόνο σε χρήστες που έχουν πρόσβαση στον ελεγκτή."
+
+msgid "User not authorized to view page"
+msgstr "Δεν έχετε δικαίωμα πρόσβασης σε αυτή τη σελίδα"
+
+msgid "Dataset name / UUID"
+msgstr "Όνομα / UUID Συνόλου Δεδομένων"
+
+msgid "RDF URL"
+msgstr "URL εγγράφου RDF"
+
+msgid "Upload RDF file"
+msgstr "Μεταφόρτωση αρχείου RDF"
+
+msgid "Dataset name or UUID"
+msgstr "Όνομα ή UUID Συνόλου Δεδομένων"
+
+msgid "e.g. apografi-akinition-dhmosioy"
+msgstr "π.χ. apografi-akinition-dhmosioy"
+
+msgid "RDF document URL"
+msgstr "URL εγγράφου RDF"
+
+msgid "Supported formats"
+msgstr "Υποστηριζόμενες μορφές"
+
+msgid "max 5 MB"
+msgstr "μέγ. 5 MB"
+
+msgid "Validate"
+msgstr "Έλεγχος"
+
+msgid "Validating..."
+msgstr "Έλεγχος σε εξέλιξη..."
+
+msgid "Results"
+msgstr "Αποτελέσματα"
+
+msgid "Source"
+msgstr "Πηγή"
+
+msgid "Status"
+msgstr "Κατάσταση"
+
+msgid "Conforms"
+msgstr "Συμμορφώνεται"
+
+msgid "Does not conform"
+msgstr "Δεν συμμορφώνεται"
+
+msgid "Violations"
+msgstr "Παραβιάσεις"
+
+msgid "Warnings"
+msgstr "Προειδοποιήσεις"
+
+msgid "License"
+msgstr "Άδεια"
+
+msgid "Open"
+msgstr "Ανοικτή"
+
+msgid "Missing"
+msgstr "Λείπει"
+
+msgid "Not confirmed open"
+msgstr "Δεν επιβεβαιώθηκε ως ανοικτή"
+
+msgid "Legal citation issue"
+msgstr "Πρόβλημα νομικής αναφοράς"
+
+msgid "No API access"
+msgstr "Χωρίς πρόσβαση API"
+
+msgid "Details"
+msgstr "Λεπτομέρειες"
+
+msgid "Severity"
+msgstr "Σοβαρότητα"
+
+msgid "Finding"
+msgstr "Εύρημα"
+
+msgid "Violation"
+msgstr "Παραβίαση"
+
+msgid "Warning"
+msgstr "Προειδοποίηση"
+
+msgid "No issues found. The dataset fully conforms to HVD requirements."
+msgstr "Δεν βρέθηκαν προβλήματα. Το σύνολο δεδομένων συμμορφώνεται πλήρως με τις απαιτήσεις HVD."
+
+msgid "Tools"
+msgstr "Εργαλεία"
+
+msgid "Please enter a dataset name or UUID."
+msgstr "Συμπληρώστε όνομα συνόλου δεδομένων ή UUID."
+
+msgid "ckan.site_url is not configured."
+msgstr "Δεν έχει ρυθμιστεί το ckan.site_url."
+
+msgid "DCAT RDF export is not available."
+msgstr "Η εξαγωγή RDF μέσω DCAT δεν είναι διαθέσιμη."
+
+msgid "You are not authorized to view this dataset."
+msgstr "Δεν έχετε δικαίωμα προβολής αυτού του συνόλου δεδομένων."
+
+msgid "Dataset not found."
+msgstr "Το σύνολο δεδομένων δεν βρέθηκε."
+
+msgid "Please enter a valid HTTP(S) URL."
+msgstr "Συμπληρώστε ένα έγκυρο HTTP(S) URL."
+
+msgid "This URL cannot be fetched by the validator."
+msgstr "Το URL δεν μπορεί να ανακτηθεί από τον ελεγκτή."
+
+msgid "The fetched RDF document exceeds the size limit."
+msgstr "Το RDF έγγραφο που ανακτήθηκε υπερβαίνει το όριο μεγέθους."
+
+msgid "This input method is not enabled."
+msgstr "Αυτός ο τρόπος εισαγωγής δεν είναι ενεργοποιημένος."
+
+msgid "Please select a file to upload."
+msgstr "Επιλέξτε αρχείο για μεταφόρτωση."
+
+msgid "Unsupported file type '{ext}'. Allowed: {allowed}"
+msgstr "Μη υποστηριζόμενος τύπος αρχείου '{ext}'. Επιτρέπονται: {allowed}"
+
+msgid "File exceeds the 5 MB size limit."
+msgstr "Το αρχείο υπερβαίνει το όριο μεγέθους των 5 MB."
+
+msgid "Please select an input method."
+msgstr "Επιλέξτε τρόπο εισαγωγής."
+
+msgid "the applicable EU legislation citation"
+msgstr "την αναφορά στην εφαρμοστέα νομοθεσία της ΕΕ"
+
+msgid "the HVD category classification"
+msgstr "την ταξινόμηση κατηγορίας HVD"
+
+msgid "the link back to the dataset this API serves"
+msgstr "τον σύνδεσμο προς το σύνολο δεδομένων που εξυπηρετεί αυτό το API"
+
+msgid "the API's endpoint URL"
+msgstr "το URL endpoint του API"
+
+msgid "the API's endpoint documentation"
+msgstr "την τεκμηρίωση του endpoint του API"
+
+msgid "the dataset's contact point"
+msgstr "το σημείο επικοινωνίας του συνόλου δεδομένων"
+
+msgid "the documentation/reference page"
+msgstr "τη σελίδα τεκμηρίωσης/αναφοράς"
+
+msgid "the rights statement"
+msgstr "τη δήλωση δικαιωμάτων"
+
+msgid "the license"
+msgstr "την άδεια"
+
+msgid "the standard/specification it conforms to"
+msgstr "το πρότυπο/την προδιαγραφή με την οποία συμμορφώνεται"
+
+msgid "at least one distribution (downloadable file/API)"
+msgstr "τουλάχιστον μία διανομή (αρχείο λήψης/API)"
+
+msgid "the dataset series it belongs to"
+msgstr "τη σειρά συνόλων δεδομένων στην οποία ανήκει"
+
+msgid "the contact point's email address"
+msgstr "τη διεύθυνση email του σημείου επικοινωνίας"
+
+msgid "the contact point's web address"
+msgstr "τη διαδικτυακή διεύθυνση του σημείου επικοινωνίας"
+
+msgid "the vocabulary/scheme reference"
+msgstr "την αναφορά λεξιλογίου/σχήματος"
+
+msgid "the linked API (access service)"
+msgstr "το συνδεδεμένο API (υπηρεσία πρόσβασης)"
+
+msgid "the API's access URL"
+msgstr "το URL πρόσβασης του API"
+
+msgid "Missing {label}."
+msgstr "Λείπει {label}."
+
+msgid "{label} isn't a properly linked resource (a plain value instead of a URI)."
+msgstr "Το πεδίο {label} δεν είναι σωστά συνδεδεμένος πόρος (απλή τιμή αντί για URI)."
+
+msgid "{label} doesn't reference the expected type of resource."
+msgstr "Το πεδίο {label} δεν παραπέμπει στον αναμενόμενο τύπο πόρου."
+
+msgid "{label} has the wrong data type."
+msgstr "Το πεδίο {label} έχει λανθασμένο τύπο δεδομένων."
+
+msgid "Issue with {label}."
+msgstr "Πρόβλημα με {label}."
+
+msgid "The cited legislation isn't linked to a recognized EU legal resource (ELI) — likely plain text instead of the official reference."
+msgstr "Η νομοθεσία που αναφέρεται δεν συνδέεται με αναγνωρισμένο νομικό πόρο της ΕΕ (ELI) — πιθανότατα έχει δοθεί ως απλό κείμενο αντί για την επίσημη αναφορά."
+
+msgid "The applicable HVD legislation isn't cited as a properly linked legal resource."
+msgstr "Η εφαρμοστέα νομοθεσία HVD δεν αναφέρεται ως σωστά συνδεδεμένος νομικός πόρος."
+
+msgid "No API (data access service) is linked to this dataset, as HVD rules require."
+msgstr "Δεν έχει συνδεθεί API (υπηρεσία πρόσβασης δεδομένων) με αυτό το σύνολο δεδομένων, όπως απαιτούν οι κανόνες HVD."
+
+msgid "An API is linked, but it isn't described as a proper dcat:DataService."
+msgstr "Έχει συνδεθεί API, αλλά δεν περιγράφεται ως σωστό dcat:DataService."
+
+msgid "An API is linked, but only inline — it has no stable web address of its own."
+msgstr "Έχει συνδεθεί API, αλλά μόνο ενσωματωμένα — δεν έχει δική του σταθερή διαδικτυακή διεύθυνση."
+
+msgid "The dataset's license couldn't be matched to a known open-license entry in the EU's vocabulary."
+msgstr "Η άδεια του συνόλου δεδομένων δεν μπόρεσε να αντιστοιχιστεί με γνωστή ανοικτή άδεια στο λεξιλόγιο της ΕΕ."
+
+msgid "Unrecognized SHACL validation issue."
+msgstr "Μη αναγνωρισμένο πρόβλημα ελέγχου SHACL."

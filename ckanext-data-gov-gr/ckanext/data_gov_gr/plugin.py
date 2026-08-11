@@ -231,6 +231,7 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
             'ckanext.data_gov_gr.gitbook.pdf_per_page_auto_print': [ignore_missing, boolean_validator],
             'ckanext.data_gov_gr.gitbook.pdf_all_guides_panel.enabled': [ignore_missing, boolean_validator],
             'ckanext.data_gov_gr.gitbook.pdf_per_page_panel.enabled': [ignore_missing, boolean_validator],
+            'ckanext.data_gov_gr.more.hvd_validator.enabled': [ignore_missing, boolean_validator],
         })
 
         return schema
@@ -386,6 +387,9 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         )
         declaration.declare(root.gitbook.pdf_per_page_print_delay_ms, 0).set_description(
             "Delay in milliseconds before the print dialog opens for single-section PDF. 0 = immediate."
+        )
+        declaration.declare(root.more.hvd_validator.enabled, "no").set_description(
+            "Show/hide the HVD Validator card on the /more (Tools) page."
         )
         declaration.declare(root.gitbook.pdf_all_guides_panel.enabled, True).set_description(
             "Show/hide the 'Download all guides (PDF)' panel on the /more page."

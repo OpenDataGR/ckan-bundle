@@ -22,6 +22,12 @@ from urllib.parse import urlparse, urlencode, parse_qs, urlunparse
 
 from ckanext.data_gov_gr.admin_views import admin_blueprint
 
+try:
+    from ckanext.hvd_validator.auth import user_can_access_hvd_validator
+except ImportError:
+    def user_can_access_hvd_validator(user=None):
+        return False
+
 log = logging.getLogger(__name__)
 
 blueprint = Blueprint('dataset_type', __name__)
@@ -787,6 +793,17 @@ def more_page():
             }
         ]
     }
+    if (
+        toolkit.asbool(config.get('ckanext.data_gov_gr.more.hvd_validator.enabled', False))
+        and user_can_access_hvd_validator(current_user)
+    ):
+        extra_vars['sections'].append({
+            'title': 'Ελεγκτής DCAT-AP HVD',
+            'description': 'Ελέγξτε RDF metadata βάσει DCAT-AP HVD και των αντίστοιχων ευρωπαϊκών SHACL σχημάτων',
+            'url': '/hvd-validator',
+            'icon': 'fa-check-circle',
+            'color': 'success'
+        })
     return render(template_name, extra_vars)
 
 # Add the /more route

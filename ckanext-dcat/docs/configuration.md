@@ -40,6 +40,15 @@ Default value: `False`
 If there is no license defined for a resource / distribution, inherit it from
 the dataset.
 
+#### ckanext.dcat.license_document.emit_type
+
+Default value: `False`
+
+When set to `True`, every distribution license document is serialized with a
+default `dct:type` of `http://purl.org/adms/licencetype/UnknownIPR`. This
+restores the legacy behavior for installations that still need that license
+type triple.
+
 #### ckanext.dcat.include_downloadall_resource
 
 Default value: `False`
@@ -57,8 +66,9 @@ Set to `True` to include them.
 `datastore_active` είναι true) αλλά δεν έχει access service στα μεταδεδομένα
 του (το πεδίο `access_services` λείπει, είναι κενό, ή περιέχει μόνο εγγραφές
 με κενό `uri`), τότε παράγεται αυτόματα ένα `dcat:DataService` για το
-distribution, με τυποποιημένο τίτλο και `dcat:endpointURL` που δείχνει στο
-`datastore_search` API endpoint του πόρου.
+distribution, με τυποποιημένο τίτλο, περιγραφή που αναφέρει το UUID του
+συνόλου δεδομένων και τη σελίδα του πόρου, και `dcat:endpointURL` που δείχνει
+στο `datastore_search` API endpoint του πόρου.
 
 Ο κόμβος του service (τόσο του αυτόματα παραγόμενου όσο και του
 εμπλουτισμένου από δηλωμένο data service) εκδίδεται με σταθερό IRI της μορφής
@@ -251,4 +261,3 @@ ckanext.dcat.croissant.profiles = my_custom_croissant_profile
 Default value: `croissant`
 
 Profiles to use when creating the [Croissant](croissant.md) serializations
-

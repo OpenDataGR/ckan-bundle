@@ -36,6 +36,14 @@ groups:
           If there is no license defined for a resource / distribution, inherit it from
           the dataset.
 
+      - key: ckanext.dcat.license_document.emit_type
+        type: bool
+        default: False
+        description: |
+          When true, serialize every distribution license document with a default
+          dct:type of http://purl.org/adms/licencetype/UnknownIPR. This restores
+          the legacy behavior for installations that still need it.
+
       - key: ckanext.dcat.include_downloadall_resource
         type: bool
         default: False

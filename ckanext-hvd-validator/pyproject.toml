@@ -1,0 +1,26 @@
+[project]
+name = "ckanext-hvd-validator"
+version = "0.1.0"
+description = "On-demand HVD (High-Value Dataset) DCAT-AP compliance validator for CKAN"
+readme = "README.md"
+license = {text = "AGPL"}
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+requires-python = ">=3.9"
+dependencies = ["rdflib", "pyshacl", "requests"]
+
+[project.entry-points."ckan.plugins"]
+hvd_validator = "ckanext.hvd_validator.plugin:HvdValidatorPlugin"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["ckanext*"]

@@ -43,6 +43,11 @@ DATASTORE_ACCESS_SERVICE_DOCUMENTATION = [
     "https://docs.ckan.org/en/2.11/maintaining/datastore.html#the-data-api",
     "https://data-gov-gr.gitbook.io/guides/texnika-egxeiridia/data.gov.gr/dedomena",
 ]
+DATASTORE_ACCESS_SERVICE_DESCRIPTION_TEMPLATE = (
+    "Υπηρεσία πρόσβασης στα δεδομένα του πόρου {resource_id} "
+    "του συνόλου δεδομένων {dataset_id} μέσω του CKAN DataStore API. "
+    "Σελίδα πόρου: {resource_url}"
+)
 
 
 class EuropeanDCATAP2Profile(BaseEuropeanDCATAPProfile):
@@ -660,6 +665,18 @@ class EuropeanDCATAP2Profile(BaseEuropeanDCATAPProfile):
                 f"{site_url}/api/action/datastore_search"
                 f"?resource_id={resource_id}&limit=5"
             )
+            dataset_id = dataset_dict.get("id") or ""
+            dataset_name_or_id = dataset_dict.get("name") or dataset_id
+            resource_url = (
+                f"{site_url}/dataset/{dataset_name_or_id}/resource/{resource_id}"
+                if dataset_name_or_id
+                else ""
+            )
+            description = DATASTORE_ACCESS_SERVICE_DESCRIPTION_TEMPLATE.format(
+                resource_id=resource_id,
+                dataset_id=dataset_id,
+                resource_url=resource_url,
+            )
 
             access_service_node = (
                 self._access_service_iri(dataset_dict, resource_dict) or BNode()
@@ -671,6 +688,13 @@ class EuropeanDCATAP2Profile(BaseEuropeanDCATAPProfile):
                     access_service_node,
                     DCT.title,
                     Literal(f"Υπηρεσία διάθεσης δεδομένων πόρου {resource_id}"),
+                )
+            )
+            self.g.add(
+                (
+                    access_service_node,
+                    DCT.description,
+                    Literal(description),
                 )
             )
             self.g.add(

@@ -177,6 +177,7 @@ class ApdKritisHarvester(CustomDcatHarvester):
 
         try:
             if source_dataset:
+                self._drop_empty_conforms_to_from_source(package_dict, source_dataset)
                 self._apply_hvd_category_from_source(package_dict, source_dataset, harvest_object)
                 self._apply_data_theme_from_source(package_dict, source_dataset, harvest_object)
                 self._fix_contact_from_source(package_dict, source_dataset)
@@ -494,6 +495,60 @@ class ApdKritisHarvester(CustomDcatHarvester):
         log.debug(
             "[APD KRITIS HARVESTER] Applied data theme(s)=%r based on POD theme labels",
             uris,
+        )
+
+    # ------------------------------------------------------------------
+    # Conformance handling
+    # ------------------------------------------------------------------
+
+    def _drop_empty_conforms_to_from_source(
+        self,
+        package_dict: Dict[str, Any],
+        source_dataset: Dict[str, Any],
+    ) -> None:
+        """
+        Remove parser artifacts caused by APD Kritis POD ``conformsTo: ""``.
+
+        In POD JSON-LD, ``conformsTo`` is an IRI field.  rdflib resolves the
+        empty string as the process working directory (``file:///...``), which
+        would otherwise be stored as CKAN ``conforms_to`` and serialized back
+        to RDF as ``dct:conformsTo``.
+        """
+        if not isinstance(package_dict, dict) or not isinstance(source_dataset, dict):
+            return
+
+        if "conformsTo" not in source_dataset:
+            return
+
+        raw_value = source_dataset.get("conformsTo")
+        raw_values: List[Any]
+        if isinstance(raw_value, list):
+            raw_values = raw_value
+        else:
+            raw_values = [raw_value]
+
+        has_non_empty_value = any(
+            isinstance(value, str) and value.strip()
+            for value in raw_values
+        )
+        if has_non_empty_value:
+            return
+
+        package_dict.pop("conforms_to", None)
+
+        extras = package_dict.get("extras")
+        if isinstance(extras, list):
+            package_dict["extras"] = [
+                extra
+                for extra in extras
+                if not (
+                    isinstance(extra, dict)
+                    and extra.get("key") in ("conforms_to", "dcat_conforms_to")
+                )
+            ]
+
+        log.debug(
+            "[APD KRITIS HARVESTER] Removed conforms_to generated from empty POD conformsTo"
         )
 
     # ------------------------------------------------------------------

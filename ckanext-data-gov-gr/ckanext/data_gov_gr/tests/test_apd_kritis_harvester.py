@@ -137,6 +137,79 @@ class TestFixPublisherFromSource:
         assert "publisher" not in package_dict
 
 
+class TestDropEmptyConformsToFromSource:
+
+    def test_removes_file_uri_conforms_to_extra_when_source_is_empty(self):
+        package_dict = {
+            "extras": [
+                {
+                    "key": "conforms_to",
+                    "value": '["file:///opt/ckan/lib/default/src/ckan/"]',
+                },
+                {"key": "identifier", "value": "bbc6c56a-a429-44ea-a651-54b535d586c5"},
+            ]
+        }
+        source = {"conformsTo": ""}
+
+        _harvester()._drop_empty_conforms_to_from_source(package_dict, source)
+
+        assert package_dict["extras"] == [
+            {"key": "identifier", "value": "bbc6c56a-a429-44ea-a651-54b535d586c5"}
+        ]
+
+    def test_removes_root_conforms_to_when_source_is_empty(self):
+        package_dict = {
+            "conforms_to": ["file:///opt/ckan/lib/default/src/ckan/"],
+            "title": "Dataset",
+        }
+        source = {"conformsTo": ""}
+
+        _harvester()._drop_empty_conforms_to_from_source(package_dict, source)
+
+        assert "conforms_to" not in package_dict
+        assert package_dict["title"] == "Dataset"
+
+    def test_preserves_conforms_to_when_source_has_value(self):
+        package_dict = {
+            "extras": [
+                {
+                    "key": "conforms_to",
+                    "value": '["https://example.test/standard"]',
+                }
+            ]
+        }
+        source = {"conformsTo": "https://example.test/standard"}
+
+        _harvester()._drop_empty_conforms_to_from_source(package_dict, source)
+
+        assert package_dict["extras"] == [
+            {
+                "key": "conforms_to",
+                "value": '["https://example.test/standard"]',
+            }
+        ]
+
+    def test_preserves_conforms_to_when_source_field_is_absent(self):
+        package_dict = {
+            "extras": [
+                {
+                    "key": "conforms_to",
+                    "value": '["https://example.test/standard"]',
+                }
+            ]
+        }
+        source = {}
+
+        _harvester()._drop_empty_conforms_to_from_source(package_dict, source)
+
+        assert package_dict["extras"] == [
+            {
+                "key": "conforms_to",
+                "value": '["https://example.test/standard"]',
+            }
+        ]
+
+
 class TestSkipPublisherConfig:
 
     def test_skip_publisher_removes_field(self):

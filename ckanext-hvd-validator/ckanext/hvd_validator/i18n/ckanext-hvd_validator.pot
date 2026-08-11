@@ -1,0 +1,252 @@
+# Translations template for ckanext-hvd-validator.
+# Copyright (C) 2025 ORGANIZATION
+# This file is distributed under the same license as the ckanext-hvd-validator
+# project.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: ckanext-hvd-validator 0.1.0\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2025-07-22 00:00+0300\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.15.0\n"
+
+msgid "DCAT-AP HVD Validator"
+msgstr ""
+
+msgid "DCAT-AP HVD Validator settings"
+msgstr ""
+
+msgid "Validate RDF metadata against DCAT-AP HVD using the corresponding European SHACL shapes."
+msgstr ""
+
+msgid "Show HVD Validator button on HVD dataset pages"
+msgstr ""
+
+msgid "Displays a dataset page action that opens the validator directly for datasets with at least one HVD category. The button is shown only to users who can access the validator."
+msgstr ""
+
+msgid "User not authorized to view page"
+msgstr ""
+
+msgid "Dataset name / UUID"
+msgstr ""
+
+msgid "RDF URL"
+msgstr ""
+
+msgid "Upload RDF file"
+msgstr ""
+
+msgid "Dataset name or UUID"
+msgstr ""
+
+msgid "e.g. apografi-akinition-dhmosioy"
+msgstr ""
+
+msgid "RDF document URL"
+msgstr ""
+
+msgid "Supported formats"
+msgstr ""
+
+msgid "max 5 MB"
+msgstr ""
+
+msgid "Validate"
+msgstr ""
+
+msgid "Validating..."
+msgstr ""
+
+msgid "Results"
+msgstr ""
+
+msgid "Source"
+msgstr ""
+
+msgid "Status"
+msgstr ""
+
+msgid "Conforms"
+msgstr ""
+
+msgid "Does not conform"
+msgstr ""
+
+msgid "Violations"
+msgstr ""
+
+msgid "Warnings"
+msgstr ""
+
+msgid "License"
+msgstr ""
+
+msgid "Open"
+msgstr ""
+
+msgid "Missing"
+msgstr ""
+
+msgid "Not confirmed open"
+msgstr ""
+
+msgid "Legal citation issue"
+msgstr ""
+
+msgid "No API access"
+msgstr ""
+
+msgid "Details"
+msgstr ""
+
+msgid "Severity"
+msgstr ""
+
+msgid "Finding"
+msgstr ""
+
+msgid "Violation"
+msgstr ""
+
+msgid "Warning"
+msgstr ""
+
+msgid "No issues found. The dataset fully conforms to HVD requirements."
+msgstr ""
+
+msgid "Tools"
+msgstr ""
+
+msgid "Please enter a dataset name or UUID."
+msgstr ""
+
+msgid "ckan.site_url is not configured."
+msgstr ""
+
+msgid "DCAT RDF export is not available."
+msgstr ""
+
+msgid "You are not authorized to view this dataset."
+msgstr ""
+
+msgid "Dataset not found."
+msgstr ""
+
+msgid "Please enter a valid HTTP(S) URL."
+msgstr ""
+
+msgid "This URL cannot be fetched by the validator."
+msgstr ""
+
+msgid "The fetched RDF document exceeds the size limit."
+msgstr ""
+
+msgid "This input method is not enabled."
+msgstr ""
+
+msgid "Please select a file to upload."
+msgstr ""
+
+msgid "Unsupported file type '{ext}'. Allowed: {allowed}"
+msgstr ""
+
+msgid "File exceeds the 5 MB size limit."
+msgstr ""
+
+msgid "Please select an input method."
+msgstr ""
+
+msgid "the applicable EU legislation citation"
+msgstr ""
+
+msgid "the HVD category classification"
+msgstr ""
+
+msgid "the link back to the dataset this API serves"
+msgstr ""
+
+msgid "the API's endpoint URL"
+msgstr ""
+
+msgid "the API's endpoint documentation"
+msgstr ""
+
+msgid "the dataset's contact point"
+msgstr ""
+
+msgid "the documentation/reference page"
+msgstr ""
+
+msgid "the rights statement"
+msgstr ""
+
+msgid "the license"
+msgstr ""
+
+msgid "the standard/specification it conforms to"
+msgstr ""
+
+msgid "at least one distribution (downloadable file/API)"
+msgstr ""
+
+msgid "the dataset series it belongs to"
+msgstr ""
+
+msgid "the contact point's email address"
+msgstr ""
+
+msgid "the contact point's web address"
+msgstr ""
+
+msgid "the vocabulary/scheme reference"
+msgstr ""
+
+msgid "the linked API (access service)"
+msgstr ""
+
+msgid "the API's access URL"
+msgstr ""
+
+msgid "Missing {label}."
+msgstr ""
+
+msgid "{label} isn't a properly linked resource (a plain value instead of a URI)."
+msgstr ""
+
+msgid "{label} doesn't reference the expected type of resource."
+msgstr ""
+
+msgid "{label} has the wrong data type."
+msgstr ""
+
+msgid "Issue with {label}."
+msgstr ""
+
+msgid "The cited legislation isn't linked to a recognized EU legal resource (ELI) — likely plain text instead of the official reference."
+msgstr ""
+
+msgid "The applicable HVD legislation isn't cited as a properly linked legal resource."
+msgstr ""
+
+msgid "No API (data access service) is linked to this dataset, as HVD rules require."
+msgstr ""
+
+msgid "An API is linked, but it isn't described as a proper dcat:DataService."
+msgstr ""
+
+msgid "An API is linked, but only inline — it has no stable web address of its own."
+msgstr ""
+
+msgid "The dataset's license couldn't be matched to a known open-license entry in the EU's vocabulary."
+msgstr ""
+
+msgid "Unrecognized SHACL validation issue."
+msgstr ""

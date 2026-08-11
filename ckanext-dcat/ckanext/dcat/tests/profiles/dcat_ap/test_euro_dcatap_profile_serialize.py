@@ -21,7 +21,10 @@ from ckanext.dcat.profiles import (
     SKOS, LOCN, GSP, OWL, SPDX, GEOJSON_IMT,
     RDFS,
 )
-from ckanext.dcat.profiles.euro_dcat_ap_base import DISTRIBUTION_LICENSE_FALLBACK_CONFIG
+from ckanext.dcat.profiles.euro_dcat_ap_base import (
+    DISTRIBUTION_LICENSE_FALLBACK_CONFIG,
+    LICENSE_DOCUMENT_EMIT_TYPE_CONFIG,
+)
 from ckanext.dcat.utils import DCAT_EXPOSE_SUBCATALOGS
 from ckanext.dcat.tests.utils import BaseSerializeTest
 
@@ -402,7 +405,9 @@ class TestEuroDCATAPProfileSerializeDataset(BaseSerializeTest):
 
         assert self._triple(g, publisher, RDF.type, FOAF.Agent)
         assert self._triple(g, publisher, FOAF.name, extras['publisher_name'])
-        assert self._triple(g, publisher, FOAF.mbox, extras['publisher_email'])
+        assert self._triple(
+            g, publisher, FOAF.mbox, URIRef('mailto:' + extras['publisher_email'])
+        )
         assert self._triple(g, publisher, FOAF.homepage, URIRef(extras['publisher_url']))
         assert self._triple(g, publisher, DCT.type, URIRef(extras['publisher_type']))
 
@@ -485,9 +490,60 @@ class TestEuroDCATAPProfileSerializeDataset(BaseSerializeTest):
 
         assert self._triple(g, publisher, RDF.type, FOAF.Agent)
         assert self._triple(g, publisher, FOAF.name, extras['publisher_name'])
-        assert self._triple(g, publisher, FOAF.mbox, extras['publisher_email'])
+        assert self._triple(
+            g, publisher, FOAF.mbox, URIRef('mailto:' + extras['publisher_email'])
+        )
         assert self._triple(g, publisher, FOAF.homepage, URIRef(extras['publisher_url']))
         assert self._triple(g, publisher, DCT.type, URIRef(extras['publisher_type']))
+
+    def test_publisher_email_with_mailto_prefix_is_not_prefixed_twice(self):
+        dataset = {
+            'id': '4b6fe9ca-dc77-4cec-92a4-55c6624a5bd6',
+            'name': 'test-dataset',
+            'extras': [
+                {'key': 'publisher_name', 'value': 'Example Publisher'},
+                {'key': 'publisher_email', 'value': 'mailto:publisher@example.com'},
+            ]
+        }
+
+        s = RDFSerializer(profiles=['euro_dcat_ap'])
+        g = s.g
+
+        dataset_ref = s.graph_from_dataset(dataset)
+
+        publisher = self._triple(g, dataset_ref, DCT.publisher, None)[2]
+        assert publisher
+        assert isinstance(publisher, BNode)
+
+        assert self._triple(g, publisher, RDF.type, FOAF.Agent)
+        assert self._triple(g, publisher, FOAF.name, 'Example Publisher')
+        assert self._triple(g, publisher, FOAF.mbox, URIRef('mailto:publisher@example.com'))
+        assert not self._triple(
+            g, publisher, FOAF.mbox, URIRef('mailto:mailto:publisher@example.com')
+        )
+
+    def test_creator_email_is_serialized_as_mailto_uri(self):
+        dataset = {
+            'id': '4b6fe9ca-dc77-4cec-92a4-55c6624a5bd6',
+            'name': 'test-dataset',
+            'extras': [
+                {'key': 'creator_name', 'value': 'Example Creator'},
+                {'key': 'creator_email', 'value': 'creator@example.com'},
+            ]
+        }
+
+        s = RDFSerializer(profiles=['euro_dcat_ap'])
+        g = s.g
+
+        dataset_ref = s.graph_from_dataset(dataset)
+
+        creator = self._triple(g, dataset_ref, DCT.creator, None)[2]
+        assert creator
+        assert isinstance(creator, BNode)
+
+        assert self._triple(g, creator, RDF.type, FOAF.Agent)
+        assert self._triple(g, creator, FOAF.name, 'Example Creator')
+        assert self._triple(g, creator, FOAF.mbox, URIRef('mailto:creator@example.com'))
 
     def test_temporal(self):
         dataset = {
@@ -1483,6 +1539,75 @@ class TestEuroDCATAPProfileSerializeCatalog(BaseSerializeTest):
 
         # Verify that the license of the dataset is not in the distribution
         assert not self._triple(g, distribution, DCT.license, URIRef(dataset['license_id']))
+
+    def test_license_document_type_is_not_serialized_by_default(self):
+        resource = {
+            'id': 'c041c635-054f-4431-b647-f9186926d021',
+            'package_id': '4b6fe9ca-dc77-4cec-92a4-55c6624a5bd6',
+            'name': 'CSV file',
+            'url': 'http://example.com/data/file.csv',
+            'download_url': 'http://example.com/data/file.csv',
+            'license': 'http://publications.europa.eu/resource/authority/licence/CC_BY_4_0',
+        }
+
+        dataset = {
+            'id': '4b6fe9ca-dc77-4cec-92a4-55c6624a5bd6',
+            'name': 'test-dataset',
+            'title': 'Test DCAT dataset',
+            'resources': [
+                resource
+            ]
+        }
+
+        s = RDFSerializer(profiles=['euro_dcat_ap'])
+        g = s.g
+
+        dataset_ref = s.graph_from_dataset(dataset)
+        distribution = self._triple(g, dataset_ref, DCAT.distribution, None)[2]
+        license_ref = URIRef(resource['license'])
+
+        assert self._triple(g, distribution, DCT.license, license_ref)
+        assert not self._triple(
+            g,
+            license_ref,
+            DCT.type,
+            URIRef('http://purl.org/adms/licencetype/UnknownIPR')
+        )
+
+    @pytest.mark.ckan_config(LICENSE_DOCUMENT_EMIT_TYPE_CONFIG, 'true')
+    def test_license_document_type_can_be_serialized_with_config(self):
+        resource = {
+            'id': 'c041c635-054f-4431-b647-f9186926d021',
+            'package_id': '4b6fe9ca-dc77-4cec-92a4-55c6624a5bd6',
+            'name': 'CSV file',
+            'url': 'http://example.com/data/file.csv',
+            'download_url': 'http://example.com/data/file.csv',
+            'license': 'http://publications.europa.eu/resource/authority/licence/CC_BY_4_0',
+        }
+
+        dataset = {
+            'id': '4b6fe9ca-dc77-4cec-92a4-55c6624a5bd6',
+            'name': 'test-dataset',
+            'title': 'Test DCAT dataset',
+            'resources': [
+                resource
+            ]
+        }
+
+        s = RDFSerializer(profiles=['euro_dcat_ap'])
+        g = s.g
+
+        dataset_ref = s.graph_from_dataset(dataset)
+        distribution = self._triple(g, dataset_ref, DCAT.distribution, None)[2]
+        license_ref = URIRef(resource['license'])
+
+        assert self._triple(g, distribution, DCT.license, license_ref)
+        assert self._triple(
+            g,
+            license_ref,
+            DCT.type,
+            URIRef('http://purl.org/adms/licencetype/UnknownIPR')
+        )
 
     @pytest.mark.ckan_config(DISTRIBUTION_LICENSE_FALLBACK_CONFIG, 'false')
     def test_dont_set_missing_license_for_resource_config_param_value_false(self):

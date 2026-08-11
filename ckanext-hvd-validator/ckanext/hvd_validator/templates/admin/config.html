@@ -1,0 +1,47 @@
+{% ckan_extends %}
+
+{% import 'macros/form.html' as form %}
+
+{% block admin_form %}
+  {{ super() }}
+
+  <hr>
+  <section>
+    <h3>{{ _('DCAT-AP HVD Validator settings') }}</h3>
+
+    {% set dataset_action_enabled = h.hvd_validator_dataset_action_enabled() %}
+    <input
+      type="hidden"
+      id="field-ckanext.hvd_validator.dataset_action.enabled-hidden"
+      name="ckanext.hvd_validator.dataset_action.enabled"
+      value="false"
+      {% if dataset_action_enabled %}disabled="disabled"{% endif %}
+    />
+    {% call form.checkbox(
+      'ckanext.hvd_validator.dataset_action.enabled',
+      id='field-ckanext.hvd_validator.dataset_action.enabled',
+      label=_('Show HVD Validator button on HVD dataset pages'),
+      value='true',
+      checked=dataset_action_enabled
+    ) %}
+      <p class="help-block">
+        {{ _('Displays a dataset page action that opens the validator directly for datasets with at least one HVD category. The button is shown only to users who can access the validator.') }}
+      </p>
+    {% endcall %}
+  </section>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      var checkbox = document.getElementById('field-ckanext.hvd_validator.dataset_action.enabled');
+      var hidden = document.getElementById('field-ckanext.hvd_validator.dataset_action.enabled-hidden');
+      if (!checkbox || !hidden) {
+        return;
+      }
+      function syncHidden() {
+        hidden.disabled = !!checkbox.checked;
+      }
+      checkbox.addEventListener('change', syncHidden);
+      syncHidden();
+    });
+  </script>
+{% endblock %}

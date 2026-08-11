@@ -1,0 +1,255 @@
+{% extends "page.html" %}
+
+{% block subtitle %}{{ _('DCAT-AP HVD Validator') }}{% endblock %}
+
+{% block breadcrumb_content %}
+  <li class="breadcrumb-item"><a href="{{ h.url_for('dataset_type.more_page') }}">{{ _('Tools') }}</a></li>
+  <li class="breadcrumb-item active">{{ _('DCAT-AP HVD Validator') }}</li>
+{% endblock %}
+
+{% block secondary %}{% endblock %}
+
+{% block primary %}
+<section class="primary col-12" role="main">
+  <article class="module">
+    <div class="module-content">
+      <h1 class="page-heading">{{ _('DCAT-AP HVD Validator') }}</h1>
+      <p class="text-muted">
+        {{ _('Validate RDF metadata against DCAT-AP HVD using the corresponding European SHACL shapes.') }}
+      </p>
+
+      <style>
+        .hvd-input-tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+        .hvd-input-tabs label { padding: 8px 16px; border: 1px solid #ccc; border-radius: 3px; cursor: pointer; font-weight: 500; font-size: 14px; transition: background-color 0.15s; }
+        .hvd-input-tabs input[type="radio"] { display: none; }
+        .hvd-input-tabs input[type="radio"]:checked + label { background-color: #0066b3; color: #fff; border-color: #0066b3; }
+        .hvd-panel { display: none; margin-bottom: 16px; }
+        .hvd-panel.active { display: block; }
+        .hvd-summary { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
+        .hvd-summary-card { flex: 1; min-width: 140px; padding: 14px; border-radius: 4px; border: 1px solid #e3e3e3; text-align: center; }
+        .hvd-summary-card .label { font-size: 13px; color: #666; margin-bottom: 4px; }
+        .hvd-summary-card .value { font-size: 22px; font-weight: 700; }
+        .hvd-conforms { border-left: 4px solid #28a745; }
+        .hvd-not-conforms { border-left: 4px solid #dc3545; }
+        .hvd-violations .value { color: #dc3545; }
+        .hvd-warnings .value { color: #e68a00; }
+        .badge-violation { background-color: #dc3545; color: #fff; font-size: 12px; padding: 3px 8px; border-radius: 3px; }
+        .badge-warning { background-color: #ffc107; color: #333; font-size: 12px; padding: 3px 8px; border-radius: 3px; }
+        .hvd-details-table { width: 100%; border-collapse: collapse; }
+        .hvd-details-table th, .hvd-details-table td { padding: 8px 10px; border-bottom: 1px solid #e3e3e3; font-size: 14px; text-align: left; }
+        .hvd-details-table th { background-color: #f7f7f7; font-weight: 600; }
+        .hvd-flags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+        .hvd-flag { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 3px; font-size: 13px; border: 1px solid #e3e3e3; }
+        .hvd-flag-bad { background-color: #fff3f3; border-color: #f5c6cb; color: #721c24; }
+        .hvd-flag-ok { background-color: #f0fff0; border-color: #c3e6cb; color: #155724; }
+        .hvd-source { font-size: 13px; color: #888; margin-bottom: 12px; word-break: break-all; }
+        @media (max-width: 768px) {
+          .hvd-summary-card { min-width: 100%; }
+        }
+      </style>
+
+      {# --- Input mode tabs --- #}
+      <div class="hvd-input-tabs">
+        <input type="radio" name="input_mode_tab" value="name" id="mode-name"
+               {% if not input_mode or input_mode == 'name' %}checked{% endif %}>
+        <label for="mode-name"><i class="fa fa-database"></i> {{ _('Dataset name / UUID') }}</label>
+
+        {% if url_input_enabled %}
+          <input type="radio" name="input_mode_tab" value="url" id="mode-url"
+                 {% if input_mode == 'url' %}checked{% endif %}>
+          <label for="mode-url"><i class="fa fa-link"></i> {{ _('RDF URL') }}</label>
+        {% endif %}
+
+        {% if file_input_enabled %}
+          <input type="radio" name="input_mode_tab" value="file" id="mode-file"
+                 {% if input_mode == 'file' %}checked{% endif %}>
+          <label for="mode-file"><i class="fa fa-upload"></i> {{ _('Upload RDF file') }}</label>
+        {% endif %}
+      </div>
+
+      {# --- Forms --- #}
+      <div id="panel-name" class="hvd-panel {% if not input_mode or input_mode == 'name' %}active{% endif %}">
+        <form method="get" class="hvd-form">
+          <input type="hidden" name="input_mode" value="name">
+          <div class="form-group">
+            <label for="dataset_name">{{ _('Dataset name or UUID') }}</label>
+            <input type="text" class="form-control" id="dataset_name" name="dataset_name"
+                   placeholder="{{ _('e.g. apografi-akinition-dhmosioy') }}"
+                   value="{{ input_value if input_mode == 'name' else '' }}">
+          </div>
+          <button type="submit" class="btn btn-primary hvd-submit-btn">
+            <i class="fa fa-check-circle"></i> {{ _('Validate') }}
+          </button>
+        </form>
+      </div>
+
+      {% if url_input_enabled %}
+        <div id="panel-url" class="hvd-panel {% if input_mode == 'url' %}active{% endif %}">
+          <form method="post" class="hvd-form">
+            {{ h.csrf_input() if h.csrf_input is defined }}
+            <input type="hidden" name="input_mode" value="url">
+            <div class="form-group">
+              <label for="rdf_url">{{ _('RDF document URL') }}</label>
+              <input type="url" class="form-control" id="rdf_url" name="rdf_url"
+                     placeholder="https://data.gov.gr/dataset/example.rdf"
+                     value="{{ input_value if input_mode == 'url' else '' }}">
+            </div>
+            <button type="submit" class="btn btn-primary hvd-submit-btn">
+              <i class="fa fa-check-circle"></i> {{ _('Validate') }}
+            </button>
+          </form>
+        </div>
+      {% endif %}
+
+      {% if file_input_enabled %}
+        <div id="panel-file" class="hvd-panel {% if input_mode == 'file' %}active{% endif %}">
+          <form method="post" enctype="multipart/form-data" class="hvd-form">
+            {{ h.csrf_input() if h.csrf_input is defined }}
+            <input type="hidden" name="input_mode" value="file">
+            <div class="form-group">
+              <label for="rdf_file">{{ _('Upload RDF file') }}</label>
+              <input type="file" class="form-control" id="rdf_file" name="rdf_file"
+                     accept=".rdf,.ttl,.xml,.jsonld,.n3,.nt">
+              <p class="help-block">{{ _('Supported formats') }}: .rdf, .ttl, .xml, .jsonld, .n3, .nt ({{ _('max 5 MB') }})</p>
+            </div>
+            <button type="submit" class="btn btn-primary hvd-submit-btn">
+              <i class="fa fa-check-circle"></i> {{ _('Validate') }}
+            </button>
+          </form>
+        </div>
+      {% endif %}
+
+      {# --- Error --- #}
+      {% if error %}
+        <div class="alert alert-danger" style="margin-top: 16px;">
+          <i class="fa fa-exclamation-triangle"></i> {{ error }}
+        </div>
+      {% endif %}
+
+      {# --- Results --- #}
+      {% if result %}
+        <hr>
+        <h2>{{ _('Results') }}</h2>
+
+        {% if result.source %}
+          <p class="hvd-source"><i class="fa fa-info-circle"></i> {{ _('Source') }}: {{ result.source }}</p>
+        {% endif %}
+
+        {% if result.title %}
+          <p><strong>{{ result.title }}</strong>
+            {% if result.publisher_name %}<span class="text-muted"> &mdash; {{ result.publisher_name }}</span>{% endif %}
+          </p>
+        {% endif %}
+
+        {# Summary cards #}
+        <div class="hvd-summary">
+          <div class="hvd-summary-card {% if result.conforms %}hvd-conforms{% else %}hvd-not-conforms{% endif %}">
+            <div class="label">{{ _('Status') }}</div>
+            <div class="value">
+              {% if result.conforms %}
+                <span style="color: #28a745;"><i class="fa fa-check-circle"></i> {{ _('Conforms') }}</span>
+              {% else %}
+                <span style="color: #dc3545;"><i class="fa fa-times-circle"></i> {{ _('Does not conform') }}</span>
+              {% endif %}
+            </div>
+          </div>
+          <div class="hvd-summary-card hvd-violations">
+            <div class="label">{{ _('Violations') }}</div>
+            <div class="value">{{ result.violation_count }}</div>
+          </div>
+          <div class="hvd-summary-card hvd-warnings">
+            <div class="label">{{ _('Warnings') }}</div>
+            <div class="value">{{ result.warning_count }}</div>
+          </div>
+          <div class="hvd-summary-card">
+            <div class="label">{{ _('License') }}</div>
+            <div class="value" style="font-size: 16px;">
+              {% if result.license_status == 'open' %}
+                <span style="color: #28a745;">{{ _('Open') }}</span>
+              {% elif result.license_status == 'missing' %}
+                <span style="color: #dc3545;">{{ _('Missing') }}</span>
+              {% else %}
+                <span style="color: #e68a00;">{{ _('Not confirmed open') }}</span>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        {# Issue flags #}
+        {% if result.legal_citation_issue or result.no_api_access %}
+          <div class="hvd-flags">
+            {% if result.legal_citation_issue %}
+              <span class="hvd-flag hvd-flag-bad">
+                <i class="fa fa-exclamation-circle"></i> {{ _('Legal citation issue') }}
+              </span>
+            {% endif %}
+            {% if result.no_api_access %}
+              <span class="hvd-flag hvd-flag-bad">
+                <i class="fa fa-exclamation-circle"></i> {{ _('No API access') }}
+              </span>
+            {% endif %}
+          </div>
+        {% endif %}
+
+        {# Details table #}
+        {% if result.details %}
+          <h3>{{ _('Details') }}</h3>
+          <div style="overflow-x: auto;">
+            <table class="hvd-details-table">
+              <thead>
+                <tr>
+                  <th style="width: 100px;">{{ _('Severity') }}</th>
+                  <th>{{ _('Finding') }}</th>
+                  <th style="width: 60px; text-align: center;">#</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for d in result.details %}
+                  <tr>
+                    <td>
+                      {% if d.severity == 'violation' %}
+                        <span class="badge-violation">{{ _('Violation') }}</span>
+                      {% else %}
+                        <span class="badge-warning">{{ _('Warning') }}</span>
+                      {% endif %}
+                    </td>
+                    <td>{{ d.message }}</td>
+                    <td style="text-align: center;">{{ d.count if d.count > 1 else '' }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% elif result.conforms %}
+          <p style="color: #28a745;"><i class="fa fa-check"></i> {{ _('No issues found. The dataset fully conforms to HVD requirements.') }}</p>
+        {% endif %}
+      {% endif %}
+
+      {# --- Panel toggle + loading spinner JS --- #}
+      <script>
+        (function() {
+          var radios = document.querySelectorAll('input[name="input_mode_tab"]');
+          var panels = document.querySelectorAll('.hvd-panel');
+          radios.forEach(function(r) {
+            r.addEventListener('change', function() {
+              panels.forEach(function(p) { p.classList.remove('active'); });
+              var target = document.getElementById('panel-' + r.value);
+              if (target) target.classList.add('active');
+            });
+          });
+          var forms = document.querySelectorAll('.hvd-form');
+          forms.forEach(function(form) {
+            form.addEventListener('submit', function() {
+              var btn = form.querySelector('.hvd-submit-btn');
+              if (!btn) return;
+              btn.disabled = true;
+              btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> {{ _("Validating...") }}';
+            });
+          });
+        })();
+      </script>
+
+    </div>
+  </article>
+</section>
+{% endblock %}

@@ -524,7 +524,76 @@ class WmsCapabilitiesHarvester(HarvesterBase):
         return object_ids
 
     def fetch_stage(self, harvest_object):
+        self._log_fetch_progress(harvest_object)
         return True
+
+    def _log_fetch_progress(self, harvest_object):
+        try:
+            job_id = getattr(harvest_object, "harvest_job_id", None)
+            if not job_id:
+                return
+
+            if not hasattr(self, "_job_total_cache"):
+                self._job_total_cache = {}
+
+            if job_id not in self._job_total_cache:
+                total = (
+                    model.Session.query(HarvestObject)
+                    .filter(HarvestObject.harvest_job_id == job_id)
+                    .count()
+                )
+                self._job_total_cache[job_id] = total
+
+            total = self._job_total_cache[job_id]
+            processed = (
+                model.Session.query(HarvestObject)
+                .filter(HarvestObject.harvest_job_id == job_id)
+                .filter(HarvestObject.fetch_finished.isnot(None))
+                .count()
+            )
+
+            current = min(processed + 1, total) if total else processed + 1
+            status = self._get_object_extra(harvest_object, "status") or "unknown"
+            guid = getattr(harvest_object, "guid", "?")
+            package_id = getattr(harvest_object, "package_id", None) or "-"
+
+            payload = self._payload_for_log(harvest_object)
+            if status == "delete":
+                log.info(
+                    "[WMS] Processing %d/%d: status=%s guid=%s package_id=%s",
+                    current,
+                    total,
+                    status,
+                    guid,
+                    package_id,
+                )
+                return
+
+            layer = payload.get("layer") if isinstance(payload, dict) else {}
+            if not isinstance(layer, dict):
+                layer = {}
+            log.info(
+                "[WMS] Processing %d/%d: status=%s guid=%s dataset=%s layer=%s title=%s",
+                current,
+                total,
+                status,
+                guid,
+                payload.get("dataset_name") or "-",
+                layer.get("name") or "-",
+                layer.get("title") or "-",
+            )
+        except Exception:
+            log.debug("[WMS] Could not log fetch progress", exc_info=True)
+
+    def _payload_for_log(self, harvest_object):
+        content = getattr(harvest_object, "content", None)
+        if not content:
+            return {}
+        try:
+            payload = json.loads(content)
+        except (TypeError, ValueError):
+            return {}
+        return payload if isinstance(payload, dict) else {}
 
     def import_stage(self, harvest_object):
         status = self._get_object_extra(harvest_object, "status")

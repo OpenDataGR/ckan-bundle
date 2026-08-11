@@ -1,0 +1,4 @@
+include LICENSE
+recursive-include ckanext/hvd_validator/i18n *.pot *.po *.mo
+recursive-include ckanext/hvd_validator/shacl *.ttl
+recursive-include ckanext/hvd_validator/templates *.html

@@ -1,0 +1,10 @@
+{% ckan_extends %}
+
+{% block content_action %}
+  {{ super() }}
+  {% if h.hvd_validator_show_dataset_action(pkg) %}
+    <a class="btn btn-light" href="{{ h.hvd_validator_dataset_action_url(pkg) }}">
+      <i class="fa fa-check-circle"></i> {{ _('HVD Validator') }}
+    </a>
+  {% endif %}
+{% endblock %}
