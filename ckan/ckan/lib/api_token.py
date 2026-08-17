@@ -7,9 +7,11 @@ from typing import Any, Iterable, Mapping, Optional
 from calendar import timegm
 from datetime import datetime
 
+from flask import has_request_context
+
 import ckan.plugins as plugins
 import ckan.model as model
-from ckan.common import config
+from ckan.common import config, request
 from ckan.logic.schema import default_create_api_token_schema
 from ckan.exceptions import CkanConfigurationException
 from ckan.types import Schema
@@ -72,6 +74,39 @@ def postprocess(data: dict[str, Any], jti: str,
     return data
 
 
+def _invalid_token_log_context(encoded: str) -> str:
+    try:
+        token = str(encoded or u"")
+        auth_scheme = u"raw"
+        if token:
+            first_part = token.split(None, 1)[0].lower()
+            if first_part in {u"bearer", u"basic", u"digest"}:
+                auth_scheme = first_part
+            elif u" " in token:
+                auth_scheme = u"other"
+
+        context = [
+            u"token_length={}".format(len(token)),
+            u"dot_count={}".format(token.count(u".")),
+            u"auth_scheme={}".format(auth_scheme),
+        ]
+
+        if has_request_context():
+            context.extend([
+                u"method={}".format(request.method),
+                u"path={}".format(request.path),
+                u"remote_addr={}".format(request.remote_addr),
+                u"x_forwarded_for={!r}".format(
+                    request.headers.get(u"X-Forwarded-For", u"")
+                ),
+                u"user_agent={!r}".format(request.user_agent.string),
+            ])
+
+        return u" ".join(context)
+    except Exception as e:
+        return u"context_error={}".format(type(e).__name__)
+
+
 def decode(encoded: str, **kwargs: Any) -> Optional[Mapping[str, Any]]:
     for plugin in _get_plugins():
         data = plugin.decode_api_token(encoded, **kwargs)
@@ -88,7 +123,11 @@ def decode(encoded: str, **kwargs: Any) -> Optional[Mapping[str, Any]]:
         except jwt.InvalidTokenError as e:
             # TODO: add signal for performing extra work, like removing
             # expired tokens
-            log.error(u"Cannot decode JWT token: %s", e)
+            log.warning(
+                u"Rejected invalid API token: reason=%s %s",
+                e,
+                _invalid_token_log_context(encoded),
+            )
             data = None
     return data
 
