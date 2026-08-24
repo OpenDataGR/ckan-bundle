@@ -145,6 +145,9 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         - ``ckanext.data_gov_gr.contact.gitbook_embed_items`` (contact page GitBook dropdown items as JSON)
         - ``ckanext.data_gov_gr.pages.faq`` (CKAN Pages slug for the FAQ footer link)
         - ``ckanext.data_gov_gr.pages.accessibility_statement`` (CKAN Pages slug for the Accessibility footer link)
+        - ``ckanext.data_gov_gr.dataset.mqa_visibility`` (dataset MQA visibility mode)
+        - ``ckanext.data_gov_gr.dataset.mqa_visibility.admin_config_enabled`` (ini-only gate for the admin config field)
+        - ``ckanext.data_gov_gr.dataset.mqa_visibility.allowed_values`` (ini-only whitelist for admin config choices)
         - ``ckanext.data_gov_gr.mqa.access_url_async_enabled`` (enable async access_url checks on MQA)
         which are independent from their fallback values in the ini file.
 
@@ -173,6 +176,10 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
             HVD_CATEGORY_NOTICE_URL_CONFIG: [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.dataset.show_metadata_license_disclaimer': [ignore_missing, boolean_validator],
             'ckanext.data_gov_gr.dataset.redirect_to_resource_after_create': [ignore_missing, boolean_validator],
+            helpers.MQA_VISIBILITY_CONFIG: [
+                ignore_missing,
+                helpers.mqa_visibility_allowed_value_validator,
+            ],
             'ckanext.dcat.output_resource_format_as_file_type_uri': [ignore_missing, boolean_validator],
             'ckanext.data_gov_gr.resource.license.default': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.dataset.spatial_coverage.default': [ignore_missing, unicode_safe],
@@ -330,6 +337,17 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         )
         declaration.declare(dataset.redirect_to_resource_after_create, "no").set_description(
             "Redirect users to the new resource form after creating a dataset from the UI. Applies only to the 'dataset' package type."
+        )
+        declaration.declare(dataset.mqa_visibility, "").set_description(
+            "Dataset MQA visibility mode: hidden, public, or organization_members. Empty uses legacy ckanext.data_gov_gr.dataset.hide_mqa_tab."
+        )
+        declaration.declare(dataset.mqa_visibility.admin_config_enabled, "no").set_description(
+            "Show the dataset MQA visibility field in /ckan-admin/config. Ini-only option; hidden by default."
+        )
+        declaration.declare(dataset.mqa_visibility.allowed_values, "").set_description(
+            "Comma-separated MQA visibility values allowed in /ckan-admin/config. "
+            "Supported values: hidden, public, organization_members. Empty defaults "
+            "to hidden,organization_members. Ini-only option."
         )
         declaration.declare(resource.license.default, "").set_description(
             "Προεπιλεγμένο URI άδειας για νέους πόρους σε ανοικτά datasets (access_rights που καταλήγει σε /PUBLIC)."
@@ -1144,7 +1162,7 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
             del facets['groups']
 
         # Προσθέτουμε τα ίδια facets όπως στα datasets
-        if not helpers.should_hide_mqa_tab():
+        if helpers.can_view_mqa_facet():
             facets['qa_mqa_rating'] = toolkit._('Metadata quality')
 
         # Only add openness score facet for datasets, not for decisions or data-services

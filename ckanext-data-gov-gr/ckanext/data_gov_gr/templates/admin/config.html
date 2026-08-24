@@ -563,6 +563,22 @@
             </p>
           {% endcall %}
 
+          {% if h.mqa_visibility_admin_config_enabled() %}
+            {% set mqa_visibility_options = h.get_mqa_visibility_options() %}
+            {{ form.select(
+              'ckanext.data_gov_gr.dataset.mqa_visibility',
+              id='field-ckanext.data_gov_gr.dataset.mqa_visibility',
+              label=_('Ορατότητα MQA'),
+              options=mqa_visibility_options,
+              selected=data.get('ckanext.data_gov_gr.dataset.mqa_visibility') or h.get_mqa_visibility(),
+              error=errors.get('ckanext.data_gov_gr.dataset.mqa_visibility'),
+              classes=['control-medium']
+            ) }}
+            <p class="help-block" style="margin-top: -10px; margin-bottom: 16px">
+              {{ _('Ελέγχει την εμφάνιση του MQA tab και των σχετικών φίλτρων. «Μέλη οργανισμών» επιτρέπει πρόσβαση σε sysadmins και χρήστες που ανήκουν σε τουλάχιστον έναν οργανισμό, ενώ τα private datasets συνεχίζουν να προστατεύονται από τα κανονικά δικαιώματα του CKAN.') }}
+            </p>
+          {% endif %}
+
           {% set activity_stream_restricted = h.get_config_as_bool('ckanext.data_gov_gr.activity_stream.dataset.restrict_visibility', True) %}
           <input
             type="hidden"

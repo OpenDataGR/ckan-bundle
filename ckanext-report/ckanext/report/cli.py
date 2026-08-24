@@ -5,7 +5,7 @@ import click
 from . import utils
 from ckan.plugins import toolkit
 from ckan import model
-from ckan.lib.mailer import _mail_recipient
+from ckan.lib.mailer import mail_recipient
 from ckanext.report import lib as report_lib
 from ckanext.report.stale_datasets_report import stale_datasets_report
 from ckan.logic import get_action
@@ -261,26 +261,18 @@ def _send_report_email(report_data, subject, email, recipient_name, org_name=Non
     """
     Send the report email to a specific recipient.
     """
-    from ckan.common import config
-    
     # Create email body using simple string formatting
     email_body = _create_text_email_body(report_data, org_name)
     
     # Create HTML email body
     email_body_html = _create_html_email_body(report_data, org_name)
     
-    # Get site settings
-    site_title = config.get('ckan.site_title', 'CKAN')
-    site_url = config.get('ckan.site_url', '')
-    
     # Send email
-    _mail_recipient(
-        recipient_name,
-        email,
-        site_title,
-        site_url,
-        subject,
-        email_body,
+    mail_recipient(
+        recipient_name=recipient_name,
+        recipient_email=email,
+        subject=subject,
+        body=email_body,
         body_html=email_body_html
     )
 

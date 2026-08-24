@@ -7,10 +7,21 @@ from ckanext.report.report_registry import Report
 from jinja2.exceptions import TemplateNotFound
 from ckanext.report.lib import make_csv_from_dicts, ensure_data_is_dicts, anonymise_user_names
 
+try:
+    from ckanext.data_gov_gr import helpers as data_gov_gr_helpers
+except ImportError:
+    data_gov_gr_helpers = None
+
 
 log = __import__('logging').getLogger(__name__)
 
 c = t.c
+
+
+def _can_view_report(report_name):
+    if report_name == 'metadata-quality' and data_gov_gr_helpers is not None:
+        return data_gov_gr_helpers.can_view_mqa_report()
+    return True
 
 
 class ReportController(t.BaseController):
@@ -29,6 +40,9 @@ class ReportController(t.BaseController):
         except t.NotAuthorized:
             t.abort(401)
         except t.ObjectNotFound:
+            t.abort(404)
+
+        if not _can_view_report(report_name):
             t.abort(404)
 
         # ensure correct url is being used

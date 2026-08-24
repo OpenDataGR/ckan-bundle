@@ -263,7 +263,7 @@ class QAPlugin(MixinPlugin, p.SingletonPlugin, toolkit.DefaultDatasetForm):
             # Προσθήκη facet για Openness Score
             facets_dict['qa_openness_score'] = toolkit._('Openness Score')
             # Προσθήκη facet για MQA Rating
-            if not data_gov_gr_helpers.should_hide_mqa_tab():
+            if data_gov_gr_helpers.can_view_mqa_facet():
                 facets_dict['qa_mqa_rating'] = toolkit._('MQA Rating')
         return facets_dict
 

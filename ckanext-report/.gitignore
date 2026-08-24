@@ -5,5 +5,10 @@
 
 ckanext/report/i18n/_reused_translations.pot
 
+# Ignore IDE files
+*.iml
+modules.xml
+profiles_settings.xml
+
 # IDE
 .idea

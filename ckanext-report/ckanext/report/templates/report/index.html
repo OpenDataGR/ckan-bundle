@@ -18,7 +18,7 @@
     <div class="reports-grid">
       <div class="row">
         {% for report in reports %}
-          {% if not (h.should_hide_mqa_tab() and 'metadata-quality' in report.name) %}
+          {% if not ('metadata-quality' in report.name and not h.can_view_mqa_report()) %}
             {# Removed clearfix divs as we're using flex layout now #}
             <div class="report-card-column">
               {% set report_url=h.url_for('report.view', report_name=report.name, **h.report__explicit_default_options(report.name)) %}

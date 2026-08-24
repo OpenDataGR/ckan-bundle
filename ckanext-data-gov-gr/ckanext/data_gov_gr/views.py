@@ -12,7 +12,11 @@ from ckan.lib.helpers import helper_functions as h
 from ckan.plugins import toolkit
 from ckan.logic import NotFound, NotAuthorized, get_action
 from ckan.views.user import _extra_template_variables
-from ckanext.data_gov_gr.helpers import get_config_as_bool, get_powerbi_embed_url
+from ckanext.data_gov_gr.helpers import (
+    can_view_mqa,
+    get_config_as_bool,
+    get_powerbi_embed_url,
+)
 from ckan import model
 
 from ckanext.data_gov_gr.logic.mqa_calculator import MQACalculator
@@ -525,6 +529,9 @@ class MQAView(MethodView):
 
         context, pkg_dict = self._prepare(id)
         dataset_type = pkg_dict.get('type') or package_type
+
+        if not can_view_mqa(pkg_dict, dataset_type):
+            abort(404, toolkit._('Dataset not found'))
 
         # Calculate MQA scores
         # Enable/Disable URL checking by default to improve performance

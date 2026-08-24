@@ -43,6 +43,36 @@ _DATASET_SPATIAL_COVERAGE_MAP_POSITIONS = {
     _DATASET_SPATIAL_COVERAGE_MAP_POSITION_AFTER_TAGS,
     _DATASET_SPATIAL_COVERAGE_MAP_POSITION_AFTER_ADDITIONAL_INFO,
 }
+MQA_VISIBILITY_CONFIG = 'ckanext.data_gov_gr.dataset.mqa_visibility'
+MQA_VISIBILITY_ADMIN_CONFIG_ENABLED = (
+    'ckanext.data_gov_gr.dataset.mqa_visibility.admin_config_enabled'
+)
+MQA_VISIBILITY_ALLOWED_VALUES_CONFIG = (
+    'ckanext.data_gov_gr.dataset.mqa_visibility.allowed_values'
+)
+MQA_HIDE_TAB_CONFIG = 'ckanext.data_gov_gr.dataset.hide_mqa_tab'
+MQA_VISIBILITY_HIDDEN = 'hidden'
+MQA_VISIBILITY_PUBLIC = 'public'
+MQA_VISIBILITY_ORGANIZATION_MEMBERS = 'organization_members'
+MQA_VISIBILITY_ORDER = (
+    MQA_VISIBILITY_HIDDEN,
+    MQA_VISIBILITY_PUBLIC,
+    MQA_VISIBILITY_ORGANIZATION_MEMBERS,
+)
+MQA_VISIBILITY_DEFAULT_ALLOWED_VALUES = (
+    MQA_VISIBILITY_HIDDEN,
+    MQA_VISIBILITY_ORGANIZATION_MEMBERS,
+)
+MQA_VISIBILITY_VALUES = {
+    MQA_VISIBILITY_HIDDEN,
+    MQA_VISIBILITY_PUBLIC,
+    MQA_VISIBILITY_ORGANIZATION_MEMBERS,
+}
+MQA_VISIBILITY_ALIASES = {
+    'organization_member': MQA_VISIBILITY_ORGANIZATION_MEMBERS,
+    'org_member': MQA_VISIBILITY_ORGANIZATION_MEMBERS,
+    'org_members': MQA_VISIBILITY_ORGANIZATION_MEMBERS,
+}
 # Το GeoNames 390903 είναι η προεπιλογή για την Ελλάδα. Γεμίζουμε το
 # spatial_coverage[].bbox με Polygon, ενώ geom/centroid μένουν ως Point.
 _GREECE_BBOX_GEOJSON = {
@@ -1488,16 +1518,267 @@ def humanize_entity_type(entity_type, object_type, purpose):
     return base_value
 
 
+def _last_config_value(value):
+    if isinstance(value, list):
+        if not value:
+            return None
+        return value[-1]
+    return value
+
+
+def _user_is_authenticated(user):
+    return bool(getattr(user, "is_authenticated", False))
+
+
+def _user_name(user):
+    return getattr(user, "name", None)
+
+
+def _user_is_sysadmin(user=None):
+    if user is None:
+        return _current_user_is_sysadmin()
+
+    if not _user_is_authenticated(user):
+        return False
+
+    if getattr(user, "sysadmin", False):
+        return True
+
+    context = {
+        'user': _user_name(user),
+        'auth_user_obj': user,
+    }
+    try:
+        toolkit.check_access('sysadmin', context, {})
+    except toolkit.NotAuthorized:
+        return False
+    return True
+
+
+def get_mqa_visibility():
+    """
+    Returns the MQA visibility mode.
+
+    The newer ckanext.data_gov_gr.dataset.mqa_visibility option supports:
+    hidden, public, organization_members. When it is not set, the legacy
+    ckanext.data_gov_gr.dataset.hide_mqa_tab boolean is used for compatibility.
+    """
+    raw_value = _last_config_value(toolkit.config.get(MQA_VISIBILITY_CONFIG))
+    if raw_value is not None and str(raw_value).strip():
+        value = str(raw_value).strip().lower()
+        value = MQA_VISIBILITY_ALIASES.get(value, value)
+        if value in MQA_VISIBILITY_VALUES:
+            return value
+        log.warning(
+            'Invalid MQA visibility config %s=%r, using legacy %s fallback',
+            MQA_VISIBILITY_CONFIG,
+            raw_value,
+            MQA_HIDE_TAB_CONFIG,
+        )
+
+    return (
+        MQA_VISIBILITY_HIDDEN
+        if get_config_as_bool(MQA_HIDE_TAB_CONFIG, default=True)
+        else MQA_VISIBILITY_PUBLIC
+    )
+
+
+def _normalize_mqa_visibility_value(value):
+    value = str(value).strip().lower()
+    return MQA_VISIBILITY_ALIASES.get(value, value)
+
+
+def get_mqa_visibility_allowed_values():
+    """
+    Returns the MQA visibility values allowed in /ckan-admin/config.
+
+    The ini option is comma-separated. When it is missing or empty, the
+    dropdown is restricted to hidden and organization_members.
+    """
+    raw_value = _last_config_value(
+        toolkit.config.get(MQA_VISIBILITY_ALLOWED_VALUES_CONFIG)
+    )
+    if raw_value is None or not str(raw_value).strip():
+        return MQA_VISIBILITY_DEFAULT_ALLOWED_VALUES
+
+    configured_values = []
+    for item in re.split(r'[\s,]+', str(raw_value)):
+        if not item:
+            continue
+        value = _normalize_mqa_visibility_value(item)
+        if value not in MQA_VISIBILITY_VALUES:
+            log.warning(
+                'Invalid MQA visibility allowed value %r in %s=%r',
+                item,
+                MQA_VISIBILITY_ALLOWED_VALUES_CONFIG,
+                raw_value,
+            )
+            continue
+        if value not in configured_values:
+            configured_values.append(value)
+
+    if not configured_values:
+        log.warning(
+            'No valid MQA visibility allowed values in %s=%r, using default %r',
+            MQA_VISIBILITY_ALLOWED_VALUES_CONFIG,
+            raw_value,
+            MQA_VISIBILITY_DEFAULT_ALLOWED_VALUES,
+        )
+        return MQA_VISIBILITY_DEFAULT_ALLOWED_VALUES
+
+    return tuple(
+        value
+        for value in MQA_VISIBILITY_ORDER
+        if value in configured_values
+    )
+
+
+def get_mqa_visibility_options():
+    """Returns dropdown options for the MQA visibility admin config field."""
+    labels = {
+        MQA_VISIBILITY_HIDDEN: _('Κρυφό'),
+        MQA_VISIBILITY_PUBLIC: _('Δημόσιο'),
+        MQA_VISIBILITY_ORGANIZATION_MEMBERS: _('Μέλη οργανισμών'),
+    }
+    return [
+        {'value': value, 'text': labels[value]}
+        for value in get_mqa_visibility_allowed_values()
+    ]
+
+
+def mqa_visibility_allowed_value_validator(value, context):
+    """Validate runtime-edited MQA visibility against the ini whitelist."""
+    value = _last_config_value(value)
+    if value is None or not str(value).strip():
+        return value
+
+    normalized_value = _normalize_mqa_visibility_value(value)
+    if normalized_value not in MQA_VISIBILITY_VALUES:
+        raise toolkit.Invalid(
+            _('Invalid MQA visibility value: {value}').format(value=value)
+        )
+
+    allowed_values = get_mqa_visibility_allowed_values()
+    if normalized_value not in allowed_values:
+        raise toolkit.Invalid(
+            _('MQA visibility value is not allowed in this installation: {value}').format(
+                value=normalized_value
+            )
+        )
+
+    return normalized_value
+
+
+def mqa_visibility_admin_config_enabled():
+    """
+    Returns True when the MQA visibility dropdown should be shown in
+    /ckan-admin/config.
+
+    This is intentionally an ini-only gate; it is declared for config warnings
+    but not added to the runtime-editable admin config schema.
+    """
+    return get_config_as_bool(MQA_VISIBILITY_ADMIN_CONFIG_ENABLED, default=False)
+
+
+def user_is_member_of_any_organization(user=None):
+    """Allow sysadmins and users with any role in at least one organization."""
+    if user is None:
+        user = _cu
+
+    if not _user_is_authenticated(user):
+        return False
+
+    if _user_is_sysadmin(user):
+        return True
+
+    user_id = getattr(user, "id", None)
+    user_name = _user_name(user)
+    if not user_id and not user_name:
+        return False
+
+    context = {
+        "user": user_name,
+        "auth_user_obj": user,
+    }
+    data_dict = {
+        "id": user_id or user_name,
+        "permission": "read",
+    }
+
+    try:
+        organizations = toolkit.get_action("organization_list_for_user")(
+            context,
+            data_dict,
+        )
+    except Exception as exc:
+        log.warning("Could not check MQA organization access: %s", exc)
+        return False
+
+    return bool(organizations)
+
+
+def _package_type(pkg, dataset_type='dataset'):
+    if isinstance(pkg, dict):
+        return pkg.get('type') or dataset_type
+    if pkg is not None and not isinstance(pkg, str):
+        return getattr(pkg, 'type', None) or dataset_type
+    return dataset_type
+
+
+def can_view_mqa(pkg=None, dataset_type='dataset', user=None):
+    """
+    Returns True when the current user may see dataset-level MQA UI/content.
+
+    This helper assumes CKAN's normal package_show authorization has already
+    been applied by the page or route, so private datasets remain protected by
+    CKAN's own visibility rules.
+    """
+    if _package_type(pkg, dataset_type) != 'dataset':
+        return False
+
+    visibility = get_mqa_visibility()
+    if visibility == MQA_VISIBILITY_HIDDEN:
+        return False
+    if visibility == MQA_VISIBILITY_PUBLIC:
+        return True
+    if visibility == MQA_VISIBILITY_ORGANIZATION_MEMBERS:
+        return user_is_member_of_any_organization(user)
+    return False
+
+
+def can_view_mqa_facet(user=None):
+    """Returns True when MQA search facets may be shown."""
+    visibility = get_mqa_visibility()
+    if visibility == MQA_VISIBILITY_HIDDEN:
+        return False
+    if visibility == MQA_VISIBILITY_PUBLIC:
+        return True
+    if visibility == MQA_VISIBILITY_ORGANIZATION_MEMBERS:
+        return user_is_member_of_any_organization(user)
+    return False
+
+
+def can_view_mqa_report(user=None):
+    """Returns True when the metadata-quality report may be shown."""
+    visibility = get_mqa_visibility()
+    if visibility == MQA_VISIBILITY_HIDDEN:
+        return False
+    if visibility == MQA_VISIBILITY_PUBLIC:
+        return True
+    if visibility == MQA_VISIBILITY_ORGANIZATION_MEMBERS:
+        return _user_is_sysadmin(user)
+    return False
+
+
 def should_hide_mqa_tab():
     """
-    Ελέγχει αν πρέπει να κρυφτεί το MQA tab βάσει της παραμετροποίησης
-    ckanext.data_gov_gr.dataset.hide_mqa_tab στο configuration file.
+    Legacy boolean helper for callers that only understand hidden/visible MQA.
 
     Returns:
-        bool: True αν πρέπει να κρυφτεί το tab, False διαφορετικά
-              Το default είναι True αν δεν έχει δηλωθεί καθόλου
+        bool: True αν το MQA είναι πλήρως κρυφό, False διαφορετικά.
     """
-    return get_config_as_bool('ckanext.data_gov_gr.dataset.hide_mqa_tab', default=True)
+    return get_mqa_visibility() == MQA_VISIBILITY_HIDDEN
+
 
 def should_disable_protected_data():
     """
@@ -3302,6 +3583,14 @@ def get_helpers():
         'data_gov_gr_map_search_basemap': map_search_basemap_key,
         'decisions_menu_enabled': decisions_menu_enabled,
         "build_mqa_nav_icon": build_mqa_nav_icon,
+        "get_mqa_visibility": get_mqa_visibility,
+        "get_mqa_visibility_allowed_values": get_mqa_visibility_allowed_values,
+        "get_mqa_visibility_options": get_mqa_visibility_options,
+        "mqa_visibility_admin_config_enabled": mqa_visibility_admin_config_enabled,
+        "user_is_member_of_any_organization": user_is_member_of_any_organization,
+        "can_view_mqa": can_view_mqa,
+        "can_view_mqa_facet": can_view_mqa_facet,
+        "can_view_mqa_report": can_view_mqa_report,
         "fluent_language_is_required": fluent_language_is_required,
         "get_organizations_stats": get_organizations_stats,
         'get_access_rights_type': get_access_rights_type,

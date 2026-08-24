@@ -38,7 +38,7 @@
 
   {{ primary_nav }}
 
-  {% if dataset_type == 'dataset' and not h.should_hide_mqa_tab() %}
+  {% if h.can_view_mqa(pkg, dataset_type) %}
     {{ h.build_mqa_nav_icon(pkg.name, dataset_type) }}
   {% endif %}
 {% endblock %}

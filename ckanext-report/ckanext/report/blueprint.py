@@ -11,6 +11,11 @@ from ckanext.report.report_registry import Report
 from ckanext.report import lib
 from ckanext.report.lib import make_csv_from_dicts, ensure_data_is_dicts, anonymise_user_names
 
+try:
+    from ckanext.data_gov_gr import helpers as data_gov_gr_helpers
+except ImportError:
+    data_gov_gr_helpers = None
+
 
 import logging
 log = logging.getLogger(__name__)
@@ -18,6 +23,12 @@ log = logging.getLogger(__name__)
 c = t.c
 
 report = Blueprint(u'report', __name__)
+
+
+def _can_view_report(report_name):
+    if report_name == 'metadata-quality' and data_gov_gr_helpers is not None:
+        return data_gov_gr_helpers.can_view_mqa_report()
+    return True
 
 
 def redirect_to_index():
@@ -39,6 +50,9 @@ def view(report_name, organization=None, refresh=False):
     except t.NotAuthorized:
         t.abort(401)
     except t.ObjectNotFound:
+        t.abort(404)
+
+    if not _can_view_report(report_name):
         t.abort(404)
 
     args = t.request.args
