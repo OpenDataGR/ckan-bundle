@@ -11,6 +11,67 @@ def _spatial_extent(pkg):
     return json.loads(value) if value else None
 
 
+def test_map_search_carto_api_key_defaults_to_empty(monkeypatch):
+    config_key = "ckanext.data_gov_gr.map_search.carto_api_key"
+    monkeypatch.delitem(helpers.toolkit.config, config_key, raising=False)
+
+    assert helpers.map_search_carto_api_key() == ""
+
+
+def test_map_search_carto_api_key_is_trimmed(monkeypatch):
+    config_key = "ckanext.data_gov_gr.map_search.carto_api_key"
+    monkeypatch.setitem(helpers.toolkit.config, config_key, "  test-key  ")
+
+    assert helpers.map_search_carto_api_key() == "test-key"
+
+
+def test_map_search_carto_api_key_helper_is_registered():
+    registered_helpers = helpers.get_helpers()
+
+    assert (
+        registered_helpers["data_gov_gr_map_search_carto_api_key"]
+        is helpers.map_search_carto_api_key
+    )
+
+
+def test_map_search_vector_style_url_defaults_to_local_style(monkeypatch):
+    config_key = "ckanext.data_gov_gr.map_search.vector_style_url"
+    monkeypatch.delitem(helpers.toolkit.config, config_key, raising=False)
+
+    assert helpers.map_search_vector_style_url() == (
+        "/basemaps/carto-positron-el-no-maritime.json"
+    )
+
+
+def test_map_search_vector_settings_are_trimmed(monkeypatch):
+    monkeypatch.setitem(
+        helpers.toolkit.config,
+        "ckanext.data_gov_gr.map_search.vector_style_url",
+        "  /custom/vector-style.json  ",
+    )
+    monkeypatch.setitem(
+        helpers.toolkit.config,
+        "ckanext.data_gov_gr.map_search.vector_fallback_basemap",
+        "  eox_osm  ",
+    )
+
+    assert helpers.map_search_vector_style_url() == "/custom/vector-style.json"
+    assert helpers.map_search_vector_fallback_basemap() == "eox_osm"
+
+
+def test_map_search_vector_helpers_are_registered():
+    registered_helpers = helpers.get_helpers()
+
+    assert (
+        registered_helpers["data_gov_gr_map_search_vector_style_url"]
+        is helpers.map_search_vector_style_url
+    )
+    assert (
+        registered_helpers["data_gov_gr_map_search_vector_fallback_basemap"]
+        is helpers.map_search_vector_fallback_basemap
+    )
+
+
 def test_dataset_spatial_extent_uses_irregular_geom_polygon():
     polygon = {
         "type": "Polygon",

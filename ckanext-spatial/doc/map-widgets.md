@@ -74,6 +74,24 @@ For example:
     ckanext.spatial.common_map.custom_url = https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}
     ckanext.spatial.common_map.attribution = Tiles courtesy of the <a href="https://usgs.gov/">U.S. Geological Survey</a>
 
+### CARTO vector layer
+
+The `carto_vector` type renders a Mapbox/MapLibre Style JSON while keeping the
+existing Leaflet overlays. It automatically falls back to a raster XYZ layer
+when WebGL, the style, or the vector requests are unavailable:
+
+    ckanext.spatial.common_map.type = carto_vector
+    ckanext.spatial.common_map.carto_vector.style_url = https://basemaps.cartocdn.com/gl/positron-gl-style/style.json
+    ckanext.spatial.common_map.carto_vector.api_key = <your_carto_browser_key>
+    ckanext.spatial.common_map.carto_vector.fallback_url = https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png
+    ckanext.spatial.common_map.subdomains = abcd
+    ckanext.spatial.common_map.attribution = &copy; OpenStreetMap contributors &copy; CARTO
+
+The API key is necessarily exposed to the browser because style, tile, glyph
+and sprite requests are made client-side. Use a browser/basemap key restricted
+to the deployment's domains. A deployment can instead point `style_url` to a
+locally hosted customized Style JSON.
+
 ### Old Stamen tiles
 
 Previous versions of ckanext-spatial defaulted to using the

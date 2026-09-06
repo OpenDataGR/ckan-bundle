@@ -1,0 +1,13 @@
+--- leaflet-maplibre-gl.js
++++ leaflet-maplibre-gl.js
+@@ -1,5 +1,9 @@
+ (function (root, factory) {
+-    if (typeof define === 'function' && define.amd) {
++    // CKAN exposes RequireJS globally even for scripts loaded as browser assets.
++    // Prefer the already loaded globals so the adapter is registered immediately.
++    if (root && root.L && root.maplibregl) {
++        root.returnExports = factory(root.L, root.maplibregl);
++    } else if (typeof define === 'function' && define.amd) {
+         // AMD
+         define(['leaflet', 'maplibre-gl'], factory);
+     } else if (typeof exports === 'object') {

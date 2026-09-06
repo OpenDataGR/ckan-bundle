@@ -51,6 +51,34 @@
                 accessToken: mapConfig['mapbox.access_token']
           });
 
+      } else if (mapConfig.type == 'carto_vector') {
+          var vectorStyleUrl = mapConfig['carto_vector.style_url'] ||
+                               mapConfig['carto_vector_style_url'] ||
+                               'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json';
+          var vectorApiKey = mapConfig['carto_vector.api_key'] ||
+                             mapConfig['carto_vector_api_key'] || '';
+          var vectorFallbackUrl = mapConfig['carto_vector.fallback_url'] ||
+                                  mapConfig['carto_vector_fallback_url'] ||
+                                  'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+
+          if (window.CkanCartoVector) {
+            baseLayer = window.CkanCartoVector.addLeafletBasemap(map, {
+              styleUrl: vectorStyleUrl,
+              apiKey: vectorApiKey,
+              fallbackUrl: vectorFallbackUrl,
+              attribution: mapConfig.attribution || window.CkanCartoVector.DEFAULT_ATTRIBUTION,
+              subdomains: mapConfig.subdomains || 'abcd',
+              maxZoom: leafletBaseLayerOptions.maxZoom
+            });
+          } else {
+            if (vectorApiKey && vectorFallbackUrl.indexOf('key=') === -1) {
+              vectorFallbackUrl += (vectorFallbackUrl.indexOf('?') === -1 ? '?' : '&') +
+                                   'key=' + encodeURIComponent(vectorApiKey);
+            }
+            leafletBaseLayerOptions.attribution = mapConfig.attribution;
+            baseLayer = new L.TileLayer(vectorFallbackUrl, leafletBaseLayerOptions);
+          }
+
       } else if (mapConfig.type == 'custom') {
           // Custom XYZ layer
           baseLayerUrl = mapConfig['custom_url'] || mapConfig['custom.url'];

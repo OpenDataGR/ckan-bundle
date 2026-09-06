@@ -16,4 +16,8 @@ extent
 </div>
 
 {% asset 'ckanext-spatial/dataset_map_js' %}
+{% if map_config.type == 'carto_vector' %}
+  {% asset 'ckanext-spatial/carto_vector_leaflet_js' %}
+  {% asset 'ckanext-spatial/carto_vector_leaflet_css' %}
+{% endif %}
 {% asset 'ckanext-spatial/dataset_map_css' %}

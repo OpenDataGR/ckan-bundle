@@ -71,6 +71,7 @@ class GeoViewBase(p.SingletonPlugin):
 
         geoview = key.ckanext.geoview
         ol_viewer = geoview.ol_viewer
+        common_map = key.ckanext.spatial.common_map
 
         def declare_once(config_key, default, description):
             if config_key not in declaration:
@@ -82,6 +83,23 @@ class GeoViewBase(p.SingletonPlugin):
             "Space- or comma-separated host allowlist. HTTPS URLs for these "
             "hosts are rewritten to HTTP when fetched by the geoview service "
             "proxy."
+        )
+        declare_once(
+            common_map.carto_vector.style_url,
+            "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+            "Mapbox/MapLibre Style JSON URL used when common_map.type is "
+            "carto_vector."
+        )
+        declare_once(
+            common_map.carto_vector.api_key,
+            "",
+            "Optional CARTO vector basemap API key. The key is exposed to "
+            "the browser for style, tile, glyph and sprite requests."
+        )
+        declare_once(
+            common_map.carto_vector.fallback_url,
+            "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+            "Raster XYZ fallback URL used when CARTO vector rendering fails."
         )
         declare_once(
             geoview.service_proxy.max_file_size_mb,

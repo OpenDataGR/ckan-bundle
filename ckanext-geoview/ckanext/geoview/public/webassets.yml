@@ -1,3 +1,15 @@
+carto_vector_leaflet_js:
+  output: ckanext-geoview/%(version)s_carto_vector_leaflet.js
+  contents:
+    - js/vendor/maplibre/maplibre-gl-5.6.1.js
+    - js/vendor/maplibre/leaflet-maplibre-gl-0.1.3.js
+    - js/carto_vector.js
+
+carto_vector_leaflet_css:
+  output: ckanext-geoview/%(version)s_carto_vector_leaflet.css
+  contents:
+    - css/vendor/maplibre/maplibre-gl-5.6.1.css
+
 openlayers_js:
   filter: rjsmin
   output: ckanext-geoview/%(version)s_openlayers.js
@@ -8,6 +20,8 @@ openlayers_js:
     - js/vendor/underscore/underscore-min.js
     - js/vendor/proj4/proj4.js
     - js/vendor/openlayers/ol.js
+    - js/vendor/ol-mapbox-style/olms-12.3.1.js
+    - js/carto_vector.js
     - js/vendor/ol-helpers/ol-helpers.js
     - js/vendor/ol-helpers/ol-layer-switcher.js
     - js/ol_preview.js

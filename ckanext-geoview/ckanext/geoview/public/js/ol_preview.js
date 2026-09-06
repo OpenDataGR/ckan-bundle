@@ -233,7 +233,105 @@
 
             _commonBaseLayer: function(mapConfig, callback, module) {
 
-                if (mapConfig.type == 'mapbox') {
+                if (mapConfig.type == 'carto_vector') {
+                    var styleUrl = mapConfig.style_url ||
+                                   mapConfig['style.url'] ||
+                                   'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json';
+                    var apiKey = mapConfig.api_key || mapConfig['api.key'] || '';
+                    var fallbackUrl = mapConfig.fallback_url ||
+                                      mapConfig['fallback.url'] ||
+                                      'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+                    var attribution = mapConfig.attribution ||
+                                      '&copy; OpenStreetMap contributors &copy; CARTO';
+                    var vectorGroup = new ol.layer.Group({
+                        title: mapConfig.title || 'CARTO vector',
+                        type: 'base',
+                        layers: []
+                    });
+                    var fallbackEnabled = false;
+                    var tileErrorCount = 0;
+
+                    var addKey = function(url) {
+                        if (window.CkanCartoVector) {
+                            return window.CkanCartoVector.addApiKey(url, apiKey);
+                        }
+                        if (apiKey && url.indexOf('key=') === -1) {
+                            return url + (url.indexOf('?') === -1 ? '?' : '&') +
+                                   'key=' + encodeURIComponent(apiKey);
+                        }
+                        return url;
+                    };
+
+                    var useRasterFallback = function() {
+                        if (fallbackEnabled) return;
+                        fallbackEnabled = true;
+
+                        fallbackUrl = addKey(fallbackUrl)
+                            .replace(/\{s\}/g, '{a-d}')
+                            .replace(/\{r\}/g, '');
+                        var fallbackLayer = new ol.layer.Tile({
+                            title: mapConfig.title || 'CARTO raster fallback',
+                            source: new ol.source.XYZ({
+                                url: fallbackUrl,
+                                attributions: attribution
+                            })
+                        });
+                        vectorGroup.getLayers().clear();
+                        vectorGroup.getLayers().push(fallbackLayer);
+
+                        if (window.console && window.console.warn) {
+                            window.console.warn(
+                                'CARTO vector basemap unavailable; raster fallback enabled.'
+                            );
+                        }
+                    };
+
+                    var monitorTileErrors = function(layer) {
+                        if (layer.getLayers) {
+                            layer.getLayers().forEach(monitorTileErrors);
+                            return;
+                        }
+                        var source = layer.getSource && layer.getSource();
+                        if (source && source.on) {
+                            source.on('tileloaderror', function() {
+                                tileErrorCount += 1;
+                                if (tileErrorCount >= 3) useRasterFallback();
+                            });
+                        }
+                    };
+
+                    if (!window.CkanCartoVector || !window.olms) {
+                        useRasterFallback();
+                        callback([vectorGroup]);
+                        return Promise.resolve([vectorGroup]);
+                    }
+
+                    var transformRequest = window.CkanCartoVector.transformRequest(
+                        apiKey,
+                        false
+                    );
+                    return window.CkanCartoVector.loadStyle({
+                        styleUrl: styleUrl,
+                        apiKey: apiKey
+                    }).then(function(style) {
+                        return window.olms.apply(vectorGroup, style, {
+                            styleUrl: styleUrl,
+                            transformRequest: transformRequest
+                        });
+                    }).then(function() {
+                        vectorGroup.set('title', mapConfig.title || 'CARTO vector');
+                        vectorGroup.set('type', 'base');
+                        monitorTileErrors(vectorGroup);
+                        return [vectorGroup];
+                    }, function() {
+                        useRasterFallback();
+                        return [vectorGroup];
+                    }).then(function(layers) {
+                        callback(layers);
+                        return layers;
+                    });
+
+                } else if (mapConfig.type == 'mapbox') {
                     // MapBox base map
                     if (!mapConfig['map_id'] || !mapConfig['access_token']) {
                       throw '[CKAN Map Widgets] You need to provide a map ID ([account].[handle]) and an access token when using a MapBox layer. ' +
@@ -250,6 +348,7 @@
                 } else if (mapConfig.type == 'custom') {
                     // Convert Leaflet-style URL placeholders that OL's XYZ source does not support:
                     //   {s} -> {a-d} (subdomains), {r} -> '' (retina tag)
+                    mapConfig.url = mapConfig.url || mapConfig.custom_url || mapConfig['custom.url'];
                     if (mapConfig.url) {
                         mapConfig.url = mapConfig.url.replace(/\{s\}/g, '{a-d}').replace(/\{r\}/g, '');
                     }
@@ -287,6 +386,21 @@
 
                 const baseMapLayer = baseMapLayerList[0];
 
+                var findBaseSource = function(layer) {
+                    if (layer && layer.getSource && layer.getSource()) {
+                        return layer.getSource();
+                    }
+                    if (layer && layer.getLayers) {
+                        var layers = layer.getLayers().getArray();
+                        for (var sourceIndex = 0; sourceIndex < layers.length; sourceIndex++) {
+                            var nestedSource = findBaseSource(layers[sourceIndex]);
+                            if (nestedSource) return nestedSource;
+                        }
+                    }
+                    return null;
+                };
+                var baseMapSource = findBaseSource(baseMapLayer);
+
                 var options = {
                     target: $('.map')[0],
                     layers: baseMapLayerList,
@@ -295,6 +409,7 @@
                         new ol.control.MousePosition( {
                             coordinateFormat: coordinateFormatter,
                         }),
+                        new ol.control.Attribution({collapsed: false}),
                         layerSwitcher
                     ],
                     loadingDiv: false,
@@ -304,7 +419,7 @@
                     overlays: overlays,
                     view: new ol.View({
                         // projection attr should be set when creating a baselayer
-                        projection: baseMapLayer.getSource().getProjection() || OL_HELPERS.Mercator,
+                        projection: (baseMapSource && baseMapSource.getProjection()) || OL_HELPERS.Mercator,
                         extent: baseMapLayer.getExtent(), /* TODO_OL4 is this equivalent to maxExtent? */
                         //center: [0,0],
                         //zoom: 4

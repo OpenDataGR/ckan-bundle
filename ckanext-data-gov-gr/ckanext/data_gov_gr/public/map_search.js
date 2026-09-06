@@ -24,6 +24,13 @@ document.addEventListener('DOMContentLoaded', function () {
       tile.setAttribute('role', 'presentation');
       tile.setAttribute('aria-hidden', 'true');
     });
+
+    const vectorCanvas = mapElement.querySelector('.maplibregl-canvas');
+    if (vectorCanvas) {
+      vectorCanvas.setAttribute('role', 'presentation');
+      vectorCanvas.setAttribute('aria-hidden', 'true');
+      vectorCanvas.setAttribute('tabindex', '-1');
+    }
   }
 
   function refreshMapSize() {
@@ -50,35 +57,75 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Επιλογή basemap από server-side config (εκτεθειμένο στο DOM)
     const basemapKey = (mapElement.dataset.basemap || 'carto_light_all').trim();
+    const cartoApiKey = (mapElement.dataset.cartoApiKey || '').trim();
+    const vectorStyleUrl = (mapElement.dataset.vectorStyleUrl || '/basemaps/carto-positron-el-no-maritime.json').trim();
+    const vectorFallbackBasemap = (mapElement.dataset.vectorFallbackBasemap || 'carto_light_all').trim();
 
-    function addBasemapByKey(key) {
+    function cartoTileUrl(url) {
+      if (!cartoApiKey) {
+        return url;
+      }
+
+      const separator = url.includes('?') ? '&' : '?';
+      return `${url}${separator}key=${encodeURIComponent(cartoApiKey)}`;
+    }
+
+    function rasterBasemapByKey(key) {
       switch (key) {
         case 'osm':
           return L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; OpenStreetMap contributors'
-          }).addTo(map);
+          });
 
         case 'carto_light_nolabels':
-          return L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
+          return L.tileLayer(cartoTileUrl('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png'), {
             attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
-          }).addTo(map);
+          });
 
         case 'carto_voyager_nolabels':
-          return L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
+          return L.tileLayer(cartoTileUrl('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png'), {
             attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
-          }).addTo(map);
+          });
 
         case 'esri_light_gray':
           return L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
             attribution: 'Tiles &copy; Esri'
-          }).addTo(map);
+          });
+
+        case 'eox_osm':
+          return L.tileLayer('https://tiles.maps.eox.at/wmts/1.0.0/osm_3857/default/g/{z}/{y}/{x}.jpg', {
+            attribution: '<a href="https://maps.eox.at">EOX::Maps</a> | Data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>, Rendering &copy; <a href="https://eox.at">EOX</a> and <a href="https://github.com/mapserver/basemaps">MapServer</a>'
+          });
 
         case 'carto_light_all':
         default:
-          return L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+          return L.tileLayer(cartoTileUrl('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'), {
             attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
-          }).addTo(map);
+          });
       }
+    }
+
+    function addBasemapByKey(key) {
+      if (key === 'carto_vector') {
+        const safeFallbackKey = vectorFallbackBasemap === 'carto_vector'
+          ? 'carto_light_all'
+          : vectorFallbackBasemap;
+
+        if (window.CkanCartoVector) {
+          return window.CkanCartoVector.addLeafletBasemap(map, {
+            styleUrl: vectorStyleUrl,
+            apiKey: cartoApiKey,
+            attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+            fallbackFactory: function () {
+              return rasterBasemapByKey(safeFallbackKey);
+            }
+          }).addTo(map);
+        }
+
+        return rasterBasemapByKey(safeFallbackKey).addTo(map);
+      }
+
+      return rasterBasemapByKey(key).addTo(map);
     }
 
     addBasemapByKey(basemapKey);

@@ -2865,9 +2865,7 @@ ol.proj.addProjection(createEPSG4326Proj('EPSG:4326:LONLAT', 'enu'));
                         type: isBaseLayer ? 'base' : undefined, // necessary for ol3-layerswitcher
                         source: new ol.source.XYZ({
                             url: urls,
-                            /* TODO
-                             attribution: mapConfig.attribution
-                             */
+                            attributions: mapConfig.attribution
                         })
                     });
 

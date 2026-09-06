@@ -323,6 +323,24 @@ def _get_vocab_cache_version():
 def map_search_basemap_key() -> str:
     return toolkit.config.get('ckanext.data_gov_gr.map_search.basemap', 'carto_light_all').strip()
 
+
+def map_search_carto_api_key() -> str:
+    return toolkit.config.get('ckanext.data_gov_gr.map_search.carto_api_key', '').strip()
+
+
+def map_search_vector_style_url() -> str:
+    return toolkit.config.get(
+        'ckanext.data_gov_gr.map_search.vector_style_url',
+        '/basemaps/carto-positron-el-no-maritime.json',
+    ).strip()
+
+
+def map_search_vector_fallback_basemap() -> str:
+    return toolkit.config.get(
+        'ckanext.data_gov_gr.map_search.vector_fallback_basemap',
+        'carto_light_all',
+    ).strip()
+
 # ---------------------------------------------------------------------------------------
 
 def decisions_menu_enabled() -> bool:
@@ -3581,6 +3599,9 @@ def get_helpers():
         "get_vocabulary_id_for_field": get_vocabulary_id_for_field,
         "google_analytics_snippet": google_analytics_snippet,
         'data_gov_gr_map_search_basemap': map_search_basemap_key,
+        'data_gov_gr_map_search_carto_api_key': map_search_carto_api_key,
+        'data_gov_gr_map_search_vector_style_url': map_search_vector_style_url,
+        'data_gov_gr_map_search_vector_fallback_basemap': map_search_vector_fallback_basemap,
         'decisions_menu_enabled': decisions_menu_enabled,
         "build_mqa_nav_icon": build_mqa_nav_icon,
         "get_mqa_visibility": get_mqa_visibility,

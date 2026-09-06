@@ -140,6 +140,11 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         - ``ckanext.data_gov_gr.dataset.spatial_coverage.default`` (απλή επιλογή προεπιλεγμένης χωρικής κάλυψης)
         - ``ckanext.data_gov_gr.dataset.spatial_coverage.map.enabled`` (show/hide spatial coverage map on dataset pages)
         - ``ckanext.data_gov_gr.dataset.spatial_coverage.map.position`` (position of the spatial coverage map on dataset pages)
+        - ``ckanext.data_gov_gr.map_search.basemap`` (basemap key for the dataset spatial-search map)
+        - ``ckanext.data_gov_gr.map_search.carto_api_key`` (optional CARTO API key for the dataset spatial-search map)
+        - ``ckanext.spatial.common_map.carto_vector.api_key`` (optional CARTO API key for resource previews and the spatial-coverage map)
+        - ``ckanext.data_gov_gr.map_search.vector_style_url`` (MapLibre Style JSON URL for CARTO vector search maps)
+        - ``ckanext.data_gov_gr.map_search.vector_fallback_basemap`` (raster fallback if CARTO vector rendering is unavailable)
         - ``ckanext.data_gov_gr.home.reuse_stats.view_all_url`` (home reuse stats button URL)
         - ``guides_base_url`` (external guides base URL)
         - ``ckanext.data_gov_gr.contact.gitbook_embed_items`` (contact page GitBook dropdown items as JSON)
@@ -229,6 +234,12 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
                 ignore_missing,
                 geoview_service_proxy_max_file_size_mb_validator,
             ],
+            # CARTO browser API keys (client-visible basemap keys, not server
+            # secrets). The search-map key drives the dataset spatial-search
+            # map; the common_map key drives resource previews and the dataset
+            # spatial-coverage map. Values here override the ini fallbacks.
+            'ckanext.data_gov_gr.map_search.carto_api_key': [ignore_missing, unicode_safe],
+            'ckanext.spatial.common_map.carto_vector.api_key': [ignore_missing, unicode_safe],
             DEFAULT_DATASET_POPULARITY_SORT_CONFIG: [ignore_missing, boolean_validator],
             'ckanext.matomo.consent_mode': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.header.logo_preset': [ignore_missing, unicode_safe],
@@ -293,6 +304,28 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         )
         declaration.declare(root.search.default_popularity_sort.enabled, "yes").set_description(
             "Use popularity (views_recent desc) as the default sort on the dataset search page."
+        )
+        declaration.declare(root.map_search.basemap, "carto_light_all").set_description(
+            "Basemap key for the dataset spatial-search map. Supported values: "
+            "carto_light_all, carto_light_nolabels, carto_voyager_nolabels, "
+            "carto_vector, osm, esri_light_gray, eox_osm."
+        )
+        declaration.declare(root.map_search.carto_api_key, "").set_description(
+            "Optional CARTO basemap API key used by CARTO layers in the dataset "
+            "spatial-search map. The key is exposed to the browser for tile requests."
+        )
+        declaration.declare(
+            root.map_search.vector_style_url,
+            "/basemaps/carto-positron-el-no-maritime.json",
+        ).set_description(
+            "Mapbox/MapLibre Style JSON URL used when the dataset search basemap "
+            "is carto_vector."
+        )
+        declaration.declare(
+            root.map_search.vector_fallback_basemap,
+            "carto_light_all",
+        ).set_description(
+            "Raster basemap key used when CARTO vector rendering or WebGL is unavailable."
         )
         declaration.declare(root.mqa.access_url_async_enabled, "no").set_description(
             "Enable asynchronous MQA access_url verification via Redis/RQ. Disabled by default."

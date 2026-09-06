@@ -205,6 +205,35 @@
           </p>
 
           <hr>
+          <h4>{{ _('Χάρτες (CARTO basemaps)') }}</h4>
+
+          {{ form.input(
+            'ckanext.data_gov_gr.map_search.carto_api_key',
+            id='field-ckanext.data_gov_gr.map_search.carto_api_key',
+            label=_('CARTO API key — χάρτης αναζήτησης'),
+            value=data.get('ckanext.data_gov_gr.map_search.carto_api_key', ''),
+            error=errors.get('ckanext.data_gov_gr.map_search.carto_api_key'),
+            placeholder='CARTO browser key',
+            classes=['control-medium']
+          ) }}
+          <p class="help-block" style="margin-top: -24px; margin-bottom: 16px">
+            {{ _('Κλειδί CARTO για τον χάρτη αναζήτησης συνόλων δεδομένων. Είναι browser-visible (basemap/browser key με domain restrictions), όχι server-side secret. Αν συμπληρωθεί, υπερισχύει της τιμής στο ini.') }}
+          </p>
+
+          {{ form.input(
+            'ckanext.spatial.common_map.carto_vector.api_key',
+            id='field-ckanext.spatial.common_map.carto_vector.api_key',
+            label=_('CARTO API key — προεπισκόπηση πόρων & χωρική κάλυψη'),
+            value=data.get('ckanext.spatial.common_map.carto_vector.api_key', ''),
+            error=errors.get('ckanext.spatial.common_map.carto_vector.api_key'),
+            placeholder='CARTO browser key',
+            classes=['control-medium']
+          ) }}
+          <p class="help-block" style="margin-top: -24px; margin-bottom: 16px">
+            {{ _('Κλειδί CARTO για τις προεπισκοπήσεις χάρτη σε πόρους (OpenLayers/Leaflet) και τον χάρτη χωρικής κάλυψης. Ίδιας φύσης browser key. Αν συμπληρωθεί, υπερισχύει της τιμής στο ini.') }}
+          </p>
+
+          <hr>
           <h4>{{ _('Header') }}</h4>
 
           {% set secretariat_logo_enabled = h.get_config_as_bool('ckanext.data_gov_gr.header.secretariat_logo.enabled', False) %}

@@ -173,6 +173,20 @@ Each instance of a view has the following configuration options that can overrid
 In addition to the basemap types described in `Common base layers for Map Widgets`_, the OpenLayers viewer supports several
 other basemap types, namely TMS, WMTS, WMS
 
+CARTO vector styles are supported in both the Leaflet-based previews and the
+OpenLayers viewer. The same configuration also enables the vector layer in
+``ckanext-spatial`` dataset maps::
+
+    ckanext.spatial.common_map.type = carto_vector
+    ckanext.spatial.common_map.carto_vector.style_url = https://basemaps.cartocdn.com/gl/positron-gl-style/style.json
+    ckanext.spatial.common_map.carto_vector.api_key = <your_carto_browser_key>
+    ckanext.spatial.common_map.carto_vector.fallback_url = https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png
+    ckanext.spatial.common_map.subdomains = abcd
+    ckanext.spatial.common_map.attribution = &copy; OpenStreetMap contributors &copy; CARTO
+
+If vector style loading or repeated vector tile requests fail, the viewer
+switches to the configured raster fallback while preserving resource overlays.
+
 TMS example (here in Mercator projection) ::
 
     ckanext.spatial.common_map.tms.url = <tms URL>

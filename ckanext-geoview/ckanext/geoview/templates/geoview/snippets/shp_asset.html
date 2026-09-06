@@ -7,5 +7,10 @@
     {% asset main_css[6:-4] %}
 {% endif %}
 
+{% set vector_map_config = h.get_common_map_config_shp() %}
 {% asset 'ckanext-geoview/shp_js' %}
+{% if vector_map_config.type == 'carto_vector' %}
+    {% asset 'ckanext-geoview/carto_vector_leaflet_js' %}
+    {% asset 'ckanext-geoview/carto_vector_leaflet_css' %}
+{% endif %}
 {% asset 'ckanext-geoview/shp_css' %}

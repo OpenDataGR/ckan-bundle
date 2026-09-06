@@ -25,4 +25,8 @@ e.g.
 </section>
 
 {% asset 'ckanext-spatial/spatial_query_js' %}
+{% if map_config.type == 'carto_vector' %}
+  {% asset 'ckanext-spatial/carto_vector_leaflet_js' %}
+  {% asset 'ckanext-spatial/carto_vector_leaflet_css' %}
+{% endif %}
 {% asset 'ckanext-spatial/spatial_query_css' %}

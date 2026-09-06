@@ -1,0 +1,10 @@
+--- maplibre-gl.js
++++ maplibre-gl.js
+@@ -4,6 +4,7 @@
+  */
+ (function (global, factory) {
+ typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
++typeof window !== 'undefined' ? (global = typeof globalThis !== 'undefined' ? globalThis : global || self, global.maplibregl = factory()) :
+ typeof define === 'function' && define.amd ? define(factory) :
+ (global = typeof globalThis !== 'undefined' ? globalThis : global || self, global.maplibregl = factory());
+ })(this, (function () { 'use strict';
