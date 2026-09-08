@@ -1,8 +1,5 @@
-import re
-
 import ckan.plugins as plugins
 import ckan.plugins.toolkit as toolkit
-from ckan.lib.jobs import DEFAULT_QUEUE_NAME
 from ckan.lib.plugins import DefaultTranslation
 
 from ckan import model
@@ -185,33 +182,17 @@ class DownloadallPlugin(plugins.SingletonPlugin, DefaultTranslation):
         return actions
 
 
-def enqueue_update_zip(dataset_name, dataset_id, operation,user=None ):
-    # skip task if the dataset is already queued
+def enqueue_update_zip(dataset_name, dataset_id, operation, user=None):
+    # Avoid duplicate notifications for the same dataset in one web request.
+    # Deduplication across requests is intentionally left to update_zip's
+    # skip_if_no_changes check so that enqueueing never scans the whole queue.
     queue = 'bulk'
     request_dataset_ids = _request_queued_dataset_ids()
     if request_dataset_ids is not None and dataset_id in request_dataset_ids:
-        log.debug('Already handled downloadall queue check for dataset in '
+        log.debug('Already enqueued downloadall job for dataset in '
                   'this request: {} {}'.format(dataset_name, dataset_id))
         return
 
-    jobs = toolkit.get_action('job_list')(
-        {'ignore_auth': True}, {'queues': [queue]})
-    if jobs:
-        for job in jobs:
-            if not job['title']:
-                continue
-            match = re.match(
-                r'DownloadAll \w+ "[^"]*" ([\w-]+)', job[u'title'])
-            if match:
-                queued_dataset_id = match.groups()[0]
-                if dataset_id == queued_dataset_id:
-                    log.info('Already queued dataset: {} {}'
-                             .format(dataset_name, dataset_id))
-                    if request_dataset_ids is not None:
-                        request_dataset_ids.add(dataset_id)
-                    return
-
-    # add this dataset to the queue
     log.debug(u'Queuing job update_zip: {} {}'
               .format(operation, dataset_name))
 

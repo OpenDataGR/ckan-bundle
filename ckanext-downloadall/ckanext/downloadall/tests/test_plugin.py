@@ -1,9 +1,63 @@
 """Tests for plugin.py."""
+import mock
 from nose.tools import assert_equal
 
 from ckan.tests import factories
 from ckan.tests import helpers
 from ckan import plugins as p
+from ckanext.downloadall import plugin as downloadall_plugin
+
+
+class TestEnqueueUpdateZip(object):
+    def test_enqueues_only_once_per_dataset_in_a_request(self):
+        request_dataset_ids = set()
+
+        with mock.patch.object(
+                downloadall_plugin, '_request_queued_dataset_ids',
+                return_value=request_dataset_ids), \
+                mock.patch.object(
+                    downloadall_plugin.toolkit, 'enqueue_job') as enqueue_job:
+            downloadall_plugin.enqueue_update_zip(
+                'dataset', 'dataset-id', 'changed', 'user')
+            downloadall_plugin.enqueue_update_zip(
+                'dataset', 'dataset-id', 'changed', 'user')
+
+        assert_equal(enqueue_job.call_count, 1)
+        assert_equal(request_dataset_ids, {'dataset-id'})
+
+    def test_enqueues_without_listing_existing_jobs(self):
+        request_dataset_ids = set()
+
+        with mock.patch.object(
+                downloadall_plugin, '_request_queued_dataset_ids',
+                return_value=request_dataset_ids), \
+                mock.patch.object(
+                    downloadall_plugin.toolkit, 'enqueue_job') as enqueue_job, \
+                mock.patch.object(
+                    downloadall_plugin.toolkit, 'get_action') as get_action:
+            downloadall_plugin.enqueue_update_zip(
+                'dataset', 'dataset-id', 'changed', 'user')
+
+        assert_equal(get_action.call_count, 0)
+        assert_equal(enqueue_job.call_count, 1)
+        enqueue_job.assert_called_once_with(
+            downloadall_plugin.update_zip,
+            ['dataset-id', 'user', True],
+            title=u'DownloadAll changed "dataset" dataset-id',
+            queue='bulk')
+
+    def test_enqueues_every_call_without_a_request_context(self):
+        with mock.patch.object(
+                downloadall_plugin, '_request_queued_dataset_ids',
+                return_value=None), \
+                mock.patch.object(
+                    downloadall_plugin.toolkit, 'enqueue_job') as enqueue_job:
+            downloadall_plugin.enqueue_update_zip(
+                'dataset', 'dataset-id', 'changed', None)
+            downloadall_plugin.enqueue_update_zip(
+                'dataset', 'dataset-id', 'changed', None)
+
+        assert_equal(enqueue_job.call_count, 2)
 
 
 class TestNotify(object):
