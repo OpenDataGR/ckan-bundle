@@ -137,13 +137,15 @@ def aggregate_qa_for_a_dataset(qa_objs):
     for qa in qa_objs:
         # openness_score takes the highest i.e. optimistic
         # openness_score_reason matches the status_id
-        if qa_dict['openness_score'] is None or \
-                qa.openness_score > qa_dict['openness_score']:
+        if qa.openness_score is not None and (
+                qa_dict['openness_score'] is None or
+                qa.openness_score > qa_dict['openness_score']):
             qa_dict['openness_score'] = qa.openness_score
             qa_dict['openness_score_reason'] = qa.openness_score_reason
         # updated is the newest of all the resources
-        if qa_dict['updated'] is None or \
-                qa.updated > qa_dict['updated']:
+        if qa.updated is not None and (
+                qa_dict['updated'] is None or
+                qa.updated > qa_dict['updated']):
             qa_dict['updated'] = qa.updated
 
     # If we found a QA object with MQA scores, use those scores directly
