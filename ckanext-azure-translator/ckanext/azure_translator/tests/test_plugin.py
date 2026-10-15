@@ -1,56 +1,107 @@
-"""
-Tests for plugin.py.
+from unittest.mock import Mock
 
-Tests are written using the pytest library (https://docs.pytest.org), and you
-should read the testing guidelines in the CKAN docs:
-https://docs.ckan.org/en/2.9/contributing/testing.html
+import pytest
+import requests
 
-To write tests for your extension you should install the pytest-ckan package:
-
-    pip install pytest-ckan
-
-This will allow you to use CKAN specific fixtures on your tests.
-
-For instance, if your test involves database access you can use `clean_db` to
-reset the database:
-
-    import pytest
-
-    from ckan.tests import factories
-
-    @pytest.mark.usefixtures("clean_db")
-    def test_some_action():
-
-        dataset = factories.Dataset()
-
-        # ...
-
-For functional tests that involve requests to the application, you can use the
-`app` fixture:
-
-    from ckan.plugins import toolkit
-
-    def test_some_endpoint(app):
-
-        url = toolkit.url_for('myblueprint.some_endpoint')
-
-        response = app.get(url)
-
-        assert response.status_code == 200
-
-
-To temporary patch the CKAN configuration for the duration of a test you can use:
-
-    import pytest
-
-    @pytest.mark.ckan_config("ckanext.myext.some_key", "some_value")
-    def test_some_action():
-        pass
-"""
 import ckanext.azure_translator.plugin as plugin
 
 
-@pytest.mark.ckan_config("ckan.plugins", "azure_translator")
-@pytest.mark.usefixtures("with_plugins")
-def test_plugin():
-    assert plugin_loaded("azure_translator")
+@pytest.fixture
+def translator_config(monkeypatch):
+    monkeypatch.setitem(
+        plugin.toolkit.config,
+        "azure.translate.subscription_key",
+        "test-subscription-key",
+    )
+    monkeypatch.setitem(
+        plugin.toolkit.config,
+        "azure.translate.endpoint",
+        "https://api.cognitive.microsofttranslator.com",
+    )
+    monkeypatch.setitem(
+        plugin.toolkit.config,
+        "azure.translate.region",
+        "westeurope",
+    )
+
+
+def test_translation_uses_tls_verification(monkeypatch, translator_config):
+    response = Mock()
+    response.json.return_value = [
+        {"translations": [{"text": "Open data", "to": "en"}]}
+    ]
+    post = Mock(return_value=response)
+    monkeypatch.setattr(plugin.requests, "post", post)
+
+    result = plugin.AzureTranslatorPlugin.azure_translate("Ανοικτά δεδομένα")
+
+    assert result == [{"translations": [{"text": "Open data", "to": "en"}]}]
+    post.assert_called_once()
+    url = post.call_args.args[0]
+    kwargs = post.call_args.kwargs
+    assert url == (
+        "https://api.cognitive.microsofttranslator.com/translate"
+        "?api-version=3.0&to=en"
+    )
+    assert kwargs["verify"] is True
+    assert kwargs["timeout"] == (5, 30)
+    assert (
+        kwargs["headers"]["Ocp-Apim-Subscription-Key"]
+        == "test-subscription-key"
+    )
+
+
+@pytest.mark.parametrize(
+    "endpoint",
+    [
+        "http://api.cognitive.microsofttranslator.com",
+        "api.cognitive.microsofttranslator.com",
+        "https://user:password@example.com",
+        "https://example.com?insecure=value",
+        "https://example.com#fragment",
+        "",
+        None,
+    ],
+)
+def test_translation_rejects_invalid_or_insecure_endpoint(
+    monkeypatch, translator_config, endpoint
+):
+    monkeypatch.setitem(plugin.toolkit.config, "azure.translate.endpoint", endpoint)
+    post = Mock()
+    monkeypatch.setattr(plugin.requests, "post", post)
+
+    with pytest.raises(RuntimeError, match="Azure Translator endpoint"):
+        plugin.AzureTranslatorPlugin.azure_translate("Ανοικτά δεδομένα")
+
+    post.assert_not_called()
+
+
+def test_trailing_slash_is_normalized(monkeypatch, translator_config):
+    monkeypatch.setitem(
+        plugin.toolkit.config,
+        "azure.translate.endpoint",
+        "https://api.cognitive.microsofttranslator.com/",
+    )
+    response = Mock()
+    response.json.return_value = []
+    post = Mock(return_value=response)
+    monkeypatch.setattr(plugin.requests, "post", post)
+
+    plugin.AzureTranslatorPlugin.azure_translate("Ανοικτά δεδομένα")
+
+    assert post.call_args.args[0].startswith(
+        "https://api.cognitive.microsofttranslator.com/translate?"
+    )
+
+
+def test_certificate_error_fails_closed(monkeypatch, translator_config):
+    post = Mock(
+        side_effect=requests.exceptions.SSLError("certificate verify failed")
+    )
+    monkeypatch.setattr(plugin.requests, "post", post)
+
+    with pytest.raises(RuntimeError, match="certificate verify failed"):
+        plugin.AzureTranslatorPlugin.azure_translate("Ανοικτά δεδομένα")
+
+    post.assert_called_once()
+    assert post.call_args.kwargs["verify"] is True

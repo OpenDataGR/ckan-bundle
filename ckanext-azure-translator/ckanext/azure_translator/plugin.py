@@ -1,6 +1,36 @@
+from urllib.parse import urlsplit
+
 import ckan.plugins as plugins
 import ckan.plugins.toolkit as toolkit
 import requests
+
+
+REQUEST_TIMEOUT = (5, 30)
+
+
+def _validated_https_endpoint(endpoint):
+    """Return a normalized Translator endpoint, rejecting insecure URLs."""
+    if not endpoint or not isinstance(endpoint, str):
+        raise ValueError("Azure Translator endpoint is not configured.")
+
+    endpoint = endpoint.strip().rstrip("/")
+    parsed = urlsplit(endpoint)
+
+    if (
+        parsed.scheme.lower() != "https"
+        or not parsed.hostname
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.query
+        or parsed.fragment
+    ):
+        raise ValueError(
+            "Azure Translator endpoint must be a valid HTTPS URL without "
+            "credentials, query parameters, or a fragment."
+        )
+
+    return endpoint
+
 
 class AzureTranslatorPlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IConfigurer)
@@ -49,7 +79,9 @@ class AzureTranslatorPlugin(plugins.SingletonPlugin):
         try:
             # Get values from config
             subscription_key = toolkit.config.get('azure.translate.subscription_key')
-            endpoint = toolkit.config.get('azure.translate.endpoint')
+            endpoint = _validated_https_endpoint(
+                toolkit.config.get('azure.translate.endpoint')
+            )
             region = toolkit.config.get('azure.translate.region')
 
             path = '/translate'
@@ -62,10 +94,13 @@ class AzureTranslatorPlugin(plugins.SingletonPlugin):
             }
 
             body = [{'Text': text}]
-            REQUEST_TIMEOUT = (5, 30)  # connection timeout, read timeout
-
-            # FIXME: Πρέπει να γίνεται έλεγχος του SSL
-            response = requests.post(constructed_url, headers=headers, json=body, timeout=REQUEST_TIMEOUT, verify=False)
+            response = requests.post(
+                constructed_url,
+                headers=headers,
+                json=body,
+                timeout=REQUEST_TIMEOUT,
+                verify=True,
+            )
             response.raise_for_status()
 
             result = response.json()

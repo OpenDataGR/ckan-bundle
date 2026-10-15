@@ -59,13 +59,16 @@ To install ckanext-azure-translator:
 
 ## Config settings
 
-None at present
+Configure the Azure Translator subscription key, HTTPS endpoint, and region:
 
-**TODO:** Document any optional config settings here. For example:
+    azure.translate.subscription_key = <subscription-key>
+    azure.translate.endpoint = https://api.cognitive.microsofttranslator.com
+    azure.translate.region = westeurope
 
-	# The minimum number of hours to wait before re-checking a resource
-	# (optional, default: 24).
-	ckanext.azure_translator.some_setting = some_default_value
+The endpoint must use HTTPS. TLS certificate verification is always enabled.
+If the deployment uses a private certificate authority, configure the trusted CA
+at the operating-system or Requests environment level (for example with
+`REQUESTS_CA_BUNDLE`) instead of disabling certificate verification.
 
 
 ## Developer installation
