@@ -905,6 +905,22 @@ def guard_against_duplicated_email(email: str):
         raise
 
 
+@contextmanager
+def guard_against_package_name_conflict():
+    try:
+        yield
+    except exc.IntegrityError as e:
+        constraint_name = getattr(
+            getattr(e.orig, "diag", None), "constraint_name", None
+        )
+        if constraint_name == "package_name_key":
+            model.Session.rollback()
+            raise ValidationError({
+                "name": [_("That URL is already in use.")]
+            })
+        raise
+
+
 def fresh_context(
     context: Context,
 ) -> Context:

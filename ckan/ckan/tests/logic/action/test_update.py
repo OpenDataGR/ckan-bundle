@@ -9,6 +9,7 @@ import sqlalchemy as sa
 
 import ckan.lib.app_globals as app_globals
 import ckan.logic as logic
+import ckan.logic.schema as schema_
 from ckan.logic.action.get import package_show as core_package_show
 import ckan.plugins as p
 import ckan.tests.factories as factories
@@ -437,6 +438,104 @@ class TestDatasetUpdate(object):
             helpers.call_action("package_show", id=dataset["id"])["name"]
             == stub.name
         )
+
+    def test_package_update_can_reuse_name_of_deleted_dataset(self):
+        deleted_dataset = factories.Dataset()
+        deleted_name = deleted_dataset["name"]
+        helpers.call_action("package_delete", id=deleted_dataset["id"])
+
+        active_dataset = factories.Dataset()
+        updated_dataset = helpers.call_action(
+            "package_update", id=active_dataset["id"], name=deleted_name
+        )
+
+        assert updated_dataset["name"] == deleted_name
+        deleted_dataset = helpers.call_action(
+            "package_show", id=deleted_dataset["id"]
+        )
+        assert deleted_dataset["name"] == deleted_dataset["id"]
+
+    def test_package_name_constraint_is_returned_as_validation_error(self):
+        dataset = factories.Dataset()
+        database_error = mock.MagicMock()
+        database_error.diag.constraint_name = "package_name_key"
+        integrity_error = sa.exc.IntegrityError(None, None, database_error)
+
+        with mock.patch(
+            "ckan.logic.action.update.model_save.package_dict_save",
+            side_effect=integrity_error,
+        ), mock.patch.object(model.Session, "rollback") as rollback:
+            with pytest.raises(logic.ValidationError) as error:
+                helpers.call_action("package_update", id=dataset["id"])
+
+        assert error.value.error_dict == {
+            "name": ["That URL is already in use."]
+        }
+        rollback.assert_called_once_with()
+
+    def test_unrelated_integrity_error_is_not_converted(self):
+        dataset = factories.Dataset()
+        database_error = mock.MagicMock()
+        database_error.diag.constraint_name = "other_constraint"
+        integrity_error = sa.exc.IntegrityError(None, None, database_error)
+
+        with mock.patch(
+            "ckan.logic.action.update.model_save.package_dict_save",
+            side_effect=integrity_error,
+        ), mock.patch.object(model.Session, "rollback") as rollback:
+            with pytest.raises(sa.exc.IntegrityError) as error:
+                helpers.call_action("package_update", id=dataset["id"])
+
+        assert error.value is integrity_error
+        rollback.assert_not_called()
+
+    def test_package_name_conflict_from_db_rolls_back_and_session_recovers(
+            self):
+        # End-to-end check of the ``package_name_key`` guard against a real
+        # PostgreSQL unique violation (not a mocked IntegrityError). This
+        # reproduces the production incident where a failed name change left
+        # the SQLAlchemy session in a broken transaction and every following
+        # request returned a 500 with PendingRollbackError.
+        existing_dataset = factories.Dataset()
+        dataset = factories.Dataset()
+
+        # Simulate the race the guard defends against: the name was free when
+        # the application-level validator ran, but is taken by the time the
+        # database flush happens. Dropping ``package_name_validator`` from the
+        # schema lets the request reach the database and hit the unique
+        # constraint for real.
+        schema = schema_.default_update_package_schema()
+        schema["name"] = [
+            validator for validator in schema["name"]
+            if getattr(validator, "__name__", "") != "package_name_validator"
+        ]
+
+        with pytest.raises(logic.ValidationError) as error:
+            helpers.call_action(
+                "package_update",
+                context={"schema": schema},
+                id=dataset["id"],
+                name=existing_dataset["name"],
+            )
+
+        assert error.value.error_dict == {
+            "name": ["That URL is already in use."]
+        }
+
+        # The conflicting update must not have gone through...
+        assert helpers.call_action(
+            "package_show", id=dataset["id"]
+        )["name"] == dataset["name"]
+        assert helpers.call_action(
+            "package_show", id=existing_dataset["id"]
+        )["name"] == existing_dataset["name"]
+
+        # ...and, crucially, the session must have been rolled back so the
+        # next database action succeeds without a worker restart.
+        updated = helpers.call_action(
+            "package_update", id=dataset["id"], notes="still working"
+        )
+        assert updated["notes"] == "still working"
 
     def test_title(self):
         user = factories.User()

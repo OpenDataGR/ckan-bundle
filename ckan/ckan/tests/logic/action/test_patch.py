@@ -27,6 +27,22 @@ class TestPatch(object):
         assert dataset2["name"] == stub.name
         assert dataset2["notes"] == "some test now"
 
+    def test_package_patch_can_reuse_name_of_deleted_dataset(self):
+        deleted_dataset = factories.Dataset()
+        deleted_name = deleted_dataset["name"]
+        helpers.call_action("package_delete", id=deleted_dataset["id"])
+
+        active_dataset = factories.Dataset()
+        updated_dataset = helpers.call_action(
+            "package_patch", id=active_dataset["id"], name=deleted_name
+        )
+
+        assert updated_dataset["name"] == deleted_name
+        deleted_dataset = helpers.call_action(
+            "package_show", id=deleted_dataset["id"]
+        )
+        assert deleted_dataset["name"] == deleted_dataset["id"]
+
     def test_package_patch_invalid_characters_in_resource_id(self):
         user = factories.User()
         dataset = factories.Dataset(user=user)

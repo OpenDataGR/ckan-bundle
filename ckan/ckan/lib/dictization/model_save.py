@@ -286,6 +286,27 @@ def relationship_list_save(
         relationship.state = 'deleted'
         relationship_list.append(relationship)
 
+
+def _rename_deleted_package_with_reused_name(
+        pkg_dict: dict[str, Any], package: 'model.Package',
+        context: Context) -> None:
+    requested_name = pkg_dict.get("name")
+    if not requested_name or requested_name == package.name:
+        return
+
+    model = context["model"]
+    session = context["session"]
+    deleted_package = session.query(model.Package).filter(
+        model.Package.name == requested_name,
+        model.Package.state == model.State.DELETED,
+        model.Package.id != package.id,
+    ).with_for_update().one_or_none()
+
+    if deleted_package:
+        deleted_package.name = deleted_package.id
+        session.flush([deleted_package])
+
+
 def package_dict_save(
         pkg_dict: dict[str, Any], context: Context,
         include_plugin_data: bool = False) -> 'model.Package':
@@ -293,6 +314,9 @@ def package_dict_save(
     package = context.get("package")
     if package:
         pkg_dict["id"] = package.id
+        _rename_deleted_package_with_reused_name(
+            pkg_dict, package, context
+        )
     Package = model.Package
 
     if 'metadata_created' in pkg_dict:

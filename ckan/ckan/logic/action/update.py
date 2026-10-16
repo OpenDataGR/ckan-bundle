@@ -228,6 +228,7 @@ def resource_view_reorder(
     return {'id': id, 'order': new_order}
 
 
+@logic.guard_against_package_name_conflict()
 def package_update(
         context: Context, data_dict: DataDict) -> ActionResult.PackageUpdate:
     '''Update a dataset (package).
