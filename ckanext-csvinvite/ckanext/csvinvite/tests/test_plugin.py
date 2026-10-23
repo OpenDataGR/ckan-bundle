@@ -47,6 +47,10 @@ To temporary patch the CKAN configuration for the duration of a test you can use
     def test_some_action():
         pass
 """
+import pytest
+
+from ckan.plugins import plugin_loaded
+
 import ckanext.csvinvite.plugin as plugin
 
 

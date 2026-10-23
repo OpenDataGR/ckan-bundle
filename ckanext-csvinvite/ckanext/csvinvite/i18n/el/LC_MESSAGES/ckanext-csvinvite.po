@@ -256,6 +256,18 @@ msgstr "μπορεί να δημιουργεί/επεξεργάζεται σύν
 msgid "full organization management"
 msgstr "πλήρης διαχείριση οργανισμού"
 
+#: ckanext/csvinvite/templates/csvinvite/admin_bulk_org_invite.html:160
+#: ckanext/csvinvite/templates/csvinvite/admin_bulk_org_sync.html:385
+#: ckanext/csvinvite/templates/csvinvite/admin_user_management.html:222
+msgid "Central Administrator, same permissions as admin"
+msgstr "Κεντρικός Διαχειριστής, ίδια δικαιώματα με τον admin"
+
+#: ckanext/csvinvite/templates/csvinvite/admin_bulk_org_invite.html:161
+#: ckanext/csvinvite/templates/csvinvite/admin_bulk_org_sync.html:386
+#: ckanext/csvinvite/templates/csvinvite/admin_user_management.html:223
+msgid "Data Governance Officer (DGO), same permissions as member"
+msgstr "Υπεύθυνος Χρήσης Δεδομένων (ΥΧΔ - DGO), ίδια δικαιώματα με το member"
+
 #: ckanext/csvinvite/templates/csvinvite/admin_bulk_org_invite.html:167
 msgid "Common issues"
 msgstr "Συνήθη προβλήματα"

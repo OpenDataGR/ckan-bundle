@@ -44,7 +44,7 @@ from urllib.parse import urlparse
 import re
 from sqlalchemy import or_
 
-from ckanext.data_gov_gr import views, cli, organization_stats
+from ckanext.data_gov_gr import views, cli, organization_stats, roles
 from ckanext.data_gov_gr.logic import validators, actions, auth
 from ckanext.data_gov_gr.logic.hvd_legislation import (
     DEFAULT_HVD_APPLICABLE_LEGISLATION,
@@ -120,6 +120,8 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         toolkit.add_resource("assets", "data_gov_gr")
 
         self._change_valid_name()
+        roles.register_org_roles()
+        roles.add_cascade_equivalents(config_)
 
     def update_config_schema(self, schema):
         """
@@ -427,11 +429,17 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         declaration.declare(key.ckanext.contact.support_faq.enabled, False).set_description(
             "Show the FAQ (GitBook embed) section on the contact/support page."
         )
+        declaration.declare(root.gitbook.space_id, "").set_description(
+            "GitBook space ID of the guides (structure/title for the guides print pages)."
+        )
+        declaration.declare(root.gitbook.api_token, "").set_description(
+            "GitBook API token used to read the guides space."
+        )
         declaration.declare(root.gitbook.pdf_auto_print, False).set_description(
-            "Auto-trigger the browser print dialog when opening the GitBook PDF page."
+            "Auto-trigger the browser print dialog when opening the guides print page (all guides)."
         )
         declaration.declare(root.gitbook.pages_cache_ttl, 86400).set_description(
-            "Redis cache TTL (seconds) for the GitBook pages list used in per-section PDF download. Default: 86400 (1 day)."
+            "Redis cache TTL (seconds) for GitBook data of the guides print pages: space tree (also the per-section dropdown), llms-full.txt and rendered pages. Default: 86400 (1 day)."
         )
         declaration.declare(root.gitbook.pdf_per_page_auto_print, True).set_description(
             "Auto-trigger the browser print dialog when downloading a single-section GitBook PDF."
@@ -1247,6 +1255,10 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
             'package_update': actions.package_update,
             'resource_create': actions.resource_create,
             'resource_update': actions.resource_update,
+            # Ρόλοι Κεντρικός Διαχειριστής / ΥΧΔ (chained actions)
+            'member_roles_list': actions.member_roles_list,
+            'member_create': actions.member_create,
+            'member_list': actions.member_list,
         }
 
         if not enable_internal_login():

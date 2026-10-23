@@ -254,14 +254,18 @@
             <div class="distribution-item">
               <div class="distribution-header">
                 <h4>{{ dist.name or _('Unnamed Resource') }}</h4>
-                <div class="distribution-format">{{ dist.format }}</div>
-                <div class="distribution-score {{ dist.quality_level }}">
-                  {{ dist.formatted_percentage }}
+                <div class="distribution-meta">
+                  {% if dist.format and dist.format|trim %}
+                    <div class="distribution-format">{{ dist.format }}</div>
+                  {% endif %}
+                  <div class="distribution-score {{ dist.quality_level }}">
+                    {{ dist.formatted_percentage }}
+                  </div>
+                  <button class="distribution-toggle" aria-expanded="false" aria-controls="distribution-details-{{ loop.index }}">
+                    <i class="fa fa-chevron-down"></i>
+                    <span class="sr-only">{{ _('Toggle details') }}</span>
+                  </button>
                 </div>
-                <button class="distribution-toggle" aria-expanded="false" aria-controls="distribution-details-{{ loop.index }}">
-                  <i class="fa fa-chevron-down"></i>
-                  <span class="sr-only">{{ _('Toggle details') }}</span>
-                </button>
               </div>
 
               <div id="distribution-details-{{ loop.index }}" class="distribution-details collapsed" style="display: none;">

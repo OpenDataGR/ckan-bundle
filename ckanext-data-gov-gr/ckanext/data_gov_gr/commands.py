@@ -7,9 +7,10 @@ from datetime import datetime
 from typing import Any, Iterable
 
 import ckan.plugins.toolkit as toolkit
+from ckan import model
 from ckan.model.system_info import set_system_info
 
-from ckanext.data_gov_gr import helpers
+from ckanext.data_gov_gr import helpers, roles
 from ckanext.data_gov_gr.logic import hvd_legislation
 
 log = logging.getLogger(__name__)
@@ -192,3 +193,50 @@ def backfill_hvd_applicable_legislation(
             )
 
     return stats
+
+
+def revert_org_roles(apply_changes: bool = False) -> list[dict[str, str]]:
+    """Μετατρέπει central_admin → admin και dgo → member.
+
+    Τρέχει πριν απενεργοποιηθεί ο κώδικας των ρόλων, αλλιώς τα μέλη με αυτούς
+    τους ρόλους μένουν χωρίς δικαιώματα στον φορέα.
+    """
+    rows = (
+        model.Session.query(model.Member, model.Group, model.User)
+        .join(model.Group, model.Group.id == model.Member.group_id)
+        .join(model.User, model.User.id == model.Member.table_id)
+        .filter(model.Member.table_name == 'user')
+        .filter(model.Member.state == 'active')
+        .filter(model.Member.capacity.in_(roles.NEW_ROLES))
+        .order_by(model.Group.name, model.User.name)
+        .all()
+    )
+    changes = [
+        {
+            'group_id': group.id,
+            'organization': group.name,
+            'is_organization': group.is_organization,
+            'user': user.name,
+            'current_role': member.capacity,
+            'new_role': roles.effective_role(member.capacity),
+        }
+        for member, group, user in rows
+    ]
+
+    if apply_changes:
+        context = _action_context()
+        for change in changes:
+            action = (
+                'organization_member_create'
+                if change['is_organization'] else 'group_member_create'
+            )
+            toolkit.get_action(action)(
+                toolkit.fresh_context(context),
+                {
+                    'id': change['group_id'],
+                    'username': change['user'],
+                    'role': change['new_role'],
+                },
+            )
+
+    return changes

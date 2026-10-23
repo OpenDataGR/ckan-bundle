@@ -34,6 +34,16 @@ CARTO (raster & vector) και στα σχετικά API keys (OD-814).
 > server-side secret. Η τιμή αποθηκεύεται plaintext στο `system_info`, κάτι
 > αποδεκτό ακριβώς επειδή το key είναι ούτως ή άλλως δημόσιο στον browser.
 
+> **Watermark — raster σήμερα, vector σύντομα:** Το «API KEY REQUIRED»
+> watermark εμφανίζεται **σήμερα μόνο στα raster** tiles· τα vector προς το
+> παρόν δεν επηρεάζονται. Η CARTO όμως δηλώνει ρητά ότι το requirement
+> **έρχεται και στα vector**. Επομένως το κενό key **δεν** είναι μόνιμη λύση:
+> (α) το raster fallback watermark-άρει ήδη τώρα χωρίς key, (β) η συμπεριφορά
+> στα vector μπορεί να αλλάξει ανά πάσα στιγμή, (γ) οι όροι της CARTO απαιτούν
+> key ούτως ή άλλως. Πηγές:
+> - <https://docs.carto.com/faqs/carto-basemaps> — «Only the raster basemaps are watermarked today. Vector is unaffected.»
+> - <https://carto.com/basemaps/apikey/> — «…it is coming to the vector basemaps as well.»
+
 ---
 
 ## 2. Χάρτης αναζήτησης — `ckanext.data_gov_gr.map_search.*`

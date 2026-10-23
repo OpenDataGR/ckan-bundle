@@ -2802,3 +2802,25 @@ msgstr ""
 #: ckanext/data_gov_gr/templates/admin/config.html
 msgid "Ορίζει ως προεπιλογή τις «Περισσότερες επισκέψεις». Ισχύει μόνο όταν είναι ενεργή και η εμφάνιση ταξινόμησης βάσει επισκεψιμότητας."
 msgstr ""
+
+# Ρόλοι μελών φορέα: Κεντρικός Διαχειριστής / ΥΧΔ - DGO
+msgid "Central Administrator"
+msgstr ""
+
+msgid "Data Governance Officer (DGO)"
+msgstr ""
+
+msgid "Same permissions as the Admin. Denotes the officially designated Central Administrator of the organization."
+msgstr ""
+
+msgid "Can add/edit and delete datasets, as well as manage organization members."
+msgstr ""
+
+msgid "Can add and edit datasets, but not manage organization members."
+msgstr ""
+
+msgid "Can view the organization's private datasets, but not add new datasets."
+msgstr ""
+
+msgid "Same permissions as the Member. Denotes the officially designated Data Governance Officer of the organization."
+msgstr ""

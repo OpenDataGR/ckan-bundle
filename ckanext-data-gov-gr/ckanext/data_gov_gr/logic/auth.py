@@ -8,6 +8,8 @@ import ckan.model as model
 import ckan.plugins.toolkit as toolkit
 from ckanext.keycloak.helpers import enable_internal_login
 
+from ckanext.data_gov_gr import roles
+
 
 def _dataset_activity_stream_visibility_is_restricted() -> bool:
     return toolkit.asbool(
@@ -37,7 +39,7 @@ def _user_can_view_dataset_activity_stream(
         return False
 
     user_role = authz.users_role_for_group_or_org(package.owner_org, user_name)
-    return bool(user_role and user_role.lower() == "admin")
+    return roles.is_admin_capacity(user_role)
 
 
 def _user_can_view_organization_activity_stream(
@@ -59,7 +61,7 @@ def _user_can_view_organization_activity_stream(
         return False
 
     user_role = authz.users_role_for_group_or_org(organization.id, user_name)
-    return bool(user_role and user_role.lower() == "admin")
+    return roles.is_admin_capacity(user_role)
 
 
 def organization_list_with_user_extras_auth(context, data_dict):

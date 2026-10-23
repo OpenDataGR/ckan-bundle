@@ -251,6 +251,18 @@ msgstr ""
 msgid "full organization management"
 msgstr ""
 
+#: ckanext/csvinvite/templates/csvinvite/admin_bulk_org_invite.html:160
+#: ckanext/csvinvite/templates/csvinvite/admin_bulk_org_sync.html:385
+#: ckanext/csvinvite/templates/csvinvite/admin_user_management.html:222
+msgid "Central Administrator, same permissions as admin"
+msgstr ""
+
+#: ckanext/csvinvite/templates/csvinvite/admin_bulk_org_invite.html:161
+#: ckanext/csvinvite/templates/csvinvite/admin_bulk_org_sync.html:386
+#: ckanext/csvinvite/templates/csvinvite/admin_user_management.html:223
+msgid "Data Governance Officer (DGO), same permissions as member"
+msgstr ""
+
 #: ckanext/csvinvite/templates/csvinvite/admin_bulk_org_invite.html:167
 msgid "Common issues"
 msgstr ""

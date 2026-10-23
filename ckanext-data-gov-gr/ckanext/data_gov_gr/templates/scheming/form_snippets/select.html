@@ -69,6 +69,23 @@
   {%- set options = filtered_options -%}
 {%- endif -%}
 
+{#- Σε νέο σύνολο ανοιχτών δεδομένων τα δικαιώματα πρόσβασης κλειδώνουν στο «Δημόσιο» (χωρίς κενή επιλογή) -#}
+{%- set public_access_right = 'http://publications.europa.eu/resource/authority/access-right/PUBLIC' -%}
+{%- set public_options = options|selectattr('value', 'equalto', public_access_right)|list -%}
+{#- Μόνο σε νέα εγγραφή (χωρίς id) τύπου dataset και μόνο αν το «Δημόσιο» υπάρχει στο λεξιλόγιο -#}
+{%- set lock_public = field.field_name == 'access_rights'
+    and access_rights_type == 'open'
+    and (object_type or data.get('type', 'dataset')) == 'dataset'
+    and not data.get('id')
+    and public_options -%}
+{%- set select_attrs = dict({"class": "form-control form-select"}, **(field.get('form_attrs', {}))) -%}
+{%- if lock_public -%}
+  {%- set options = public_options -%}
+  {%- set option_selected = public_access_right -%}
+  {#- Το disabled select δεν υποβάλλεται, η τιμή στέλνεται από το hidden input -#}
+  {%- do select_attrs.update({'disabled': 'disabled'}) -%}
+{%- endif -%}
+
 {% call form.select(
     field.field_name,
     id='field-' + field.field_name,
@@ -77,9 +94,12 @@
     selected=option_selected,
     error=errors[field.field_name],
     classes=field.classes if 'classes' in field else ['control-medium'],
-    attrs=dict({"class": "form-control form-select"}, **(field.get('form_attrs', {}))),
+    attrs=select_attrs,
     is_required=h.scheming_field_required(field)
     )
 %}
+    {%- if lock_public -%}
+      {{ form.hidden(field.field_name, public_access_right) }}
+    {%- endif -%}
     {%- snippet 'scheming/form_snippets/help_text.html', field=field -%}
 {% endcall %}

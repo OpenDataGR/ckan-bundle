@@ -214,29 +214,27 @@ Optional settings:
     # Μπορεί επίσης να αλλάξει από το /ckan-admin/config → Οδηγοί (GitBook).
     ckanext.contact.support_faq.enabled = false
 
-    # GitBook PDF export — Space ID και API token.
+    # Λήψη οδηγών σε PDF — Space ID και API token του GitBook.
     # Απαιτούνται και τα δύο για να εμφανιστεί το κουμπί «Λήψη PDF» στη σελίδα /more.
+    # Η σελίδα εκτύπωσης φτιάχνεται από την πύλη: 
+    # δομή και τίτλος από το GitBook API, περιεχόμενο από
+    # το δημόσιο {guides_base_url}/llms-full.txt (άρα χρειάζεται και το guides_base_url).
+    # Το PDF βγαίνει από τον browser («Εκτύπωση / Αποθήκευση ως PDF»).
     # (προαιρετικό, default: κενό)
     ckanext.data_gov_gr.gitbook.space_id = <GitBook Space ID>
     ckanext.data_gov_gr.gitbook.api_token = <GitBook API Token>
 
-    # Μέγιστος αριθμός σελίδων που φορτώνονται στο GitBook PDF.
-    # Προστίθεται ως παράμετρος limit στο URL του GitBook, ώστε να
-    # περιλαμβάνονται όλες οι σελίδες και όχι μόνο οι πρώτες.
-    # (προαιρετικό, default: 1000)
-    ckanext.data_gov_gr.gitbook.pdf_page_limit = 1000
-
     # Αυτόματο άνοιγμα print dialog κατά τη λήψη PDF οδηγών.
     # Όταν είναι false (default), το κουμπί «Λήψη PDF» ανοίγει σε νέα καρτέλα
-    # τη σελίδα PDF του GitBook (με limit παράμετρο), και ο χρήστης εκτυπώνει χειροκίνητα.
-    # Όταν είναι true, ο server κατεβάζει τη σελίδα, ενσωματώνει auto-print JavaScript,
-    # και ανοίγει αυτόματα το print dialog του browser μετά από 2 δευτερόλεπτα.
+    # τη σελίδα εκτύπωσης, και ο χρήστης πατά «Εκτύπωση / Αποθήκευση ως PDF».
+    # Όταν είναι true, το print dialog ανοίγει αυτόματα 2 δευτερόλεπτα μετά τη φόρτωση.
     # (προαιρετικό, default: false)
     # Μπορεί επίσης να αλλάξει από το /ckan-admin/config → Οδηγοί (GitBook).
     ckanext.data_gov_gr.gitbook.pdf_auto_print = false
 
-    # Χρόνος αποθήκευσης (TTL) σε δευτερόλεπτα για τη Redis cache της λίστας
-    # σελίδων GitBook που εμφανίζεται στο dropdown «Λήψη οδηγού ανά ενότητα».
+    # Χρόνος αποθήκευσης (TTL) σε δευτερόλεπτα στη Redis για τη δομή του GitBook
+    # space (και dropdown «Λήψη οδηγού ανά ενότητα»), το llms-full.txt και τις
+    # έτοιμες σελίδες εκτύπωσης.
     # (προαιρετικό, default: 86400 — 1 ημέρα)
     ckanext.data_gov_gr.gitbook.pages_cache_ttl = 86400
 

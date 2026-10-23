@@ -119,3 +119,37 @@ def backfill_hvd_applicable_legislation(
                 '- ERROR {package}: {error}'.format(**error),
                 fg='red',
             )
+
+
+@data_gov_gr.command(
+    'revert-org-roles',
+    help='Μετατρέπει Κεντρικούς Διαχειριστές σε Διαχειριστές και ΥΧΔ σε Μέλη '
+         '(πριν απενεργοποιηθούν οι ρόλοι).'
+)
+@click.option(
+    '--apply',
+    'apply_changes',
+    is_flag=True,
+    help='Εφαρμόζει τις αλλαγές. Χωρίς αυτό γίνεται μόνο dry-run.',
+)
+def revert_org_roles(apply_changes):
+    try:
+        changes = commands.revert_org_roles(apply_changes=apply_changes)
+    except Exception as e:
+        raise click.ClickException(str(e))
+
+    for change in changes:
+        click.echo(
+            '- {organization}: {user} {current_role} -> {new_role}'.format(
+                **change)
+        )
+
+    mode = 'apply' if apply_changes else 'dry-run'
+    click.secho(
+        'Organization roles revert ({mode}): {count} memberships'.format(
+            mode=mode, count=len(changes)),
+        fg='green' if apply_changes else 'yellow',
+        bold=True,
+    )
+    if not apply_changes:
+        click.echo('Dry-run only. No memberships were written.')

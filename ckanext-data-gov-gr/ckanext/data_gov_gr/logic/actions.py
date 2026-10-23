@@ -31,7 +31,7 @@ from ckan.common import _, request
 import ckan.logic.schema
 from ckan.logic import _validate
 import ckan.lib.helpers as h
-from ckanext.data_gov_gr import organization_stats
+from ckanext.data_gov_gr import organization_stats, roles
 from ckanext.data_gov_gr.logic.hvd_legislation import (
     HVD_CATEGORY_FORM_PRESENT_FIELD,
     sync_package_hvd_applicable_legislation,
@@ -190,12 +190,35 @@ def _drop_read_only_relationship_fields(data_dict: Dict[str, Any]) -> None:
     data_dict.pop('relationships_as_object', None)
 
 
+
+PUBLIC_ACCESS_RIGHTS = 'http://publications.europa.eu/resource/authority/access-right/PUBLIC'
+
+
+def _default_access_rights_public(context: Context, data_dict: Dict[str, Any]) -> None:
+    """
+    Στη δημιουργία dataset μέσω API, αν δεν δοθεί access_rights (ή είναι κενό),
+    μπαίνει το «Δημόσιο», όπως κλειδώνει και η φόρμα νέου συνόλου ανοιχτών δεδομένων.
+
+    Εφαρμόζεται μόνο όταν το context έχει api_version: κλήσεις API, αλλά και
+    harvesters του ckanext-harvest/spatial (που ήδη βάζουν PUBLIC). Η φόρμα στο UI
+    δεν το έχει, οπότε η φόρμα προστατευόμενων δεδομένων δεν επηρεάζεται.
+    """
+    if not context.get('api_version'):
+        return
+    if (data_dict.get('type') or 'dataset') != 'dataset':
+        return
+    if _is_blank(data_dict.get('access_rights')):
+        data_dict['access_rights'] = PUBLIC_ACCESS_RIGHTS
+
+
 @toolkit.chained_action
 def package_create(original_action, context, data_dict):
     """
-    Συγχρονίζει την HVD εφαρμοστέα νομοθεσία στη δημιουργία dataset/data-service.
+    Συγχρονίζει την HVD εφαρμοστέα νομοθεσία στη δημιουργία dataset/data-service
+    και, μέσω API, βάζει προεπιλογή «Δημόσιο» στο access_rights του dataset.
     """
     data_dict.pop(HVD_CATEGORY_FORM_PRESENT_FIELD, None)
+    _default_access_rights_public(context, data_dict)
     sync_package_hvd_applicable_legislation(data_dict)
     return original_action(context, data_dict)
 
@@ -242,6 +265,61 @@ def resource_update(original_action, context, data_dict):
 
     _ensure_access_and_download_urls(data_dict, current=current)
     return original_action(context, data_dict)
+
+
+@toolkit.chained_action
+@toolkit.side_effect_free
+def member_roles_list(original_action, context, data_dict):
+    """
+    Οι ρόλοι Κεντρικός Διαχειριστής / ΥΧΔ αφορούν μόνο φορείς, όχι ομάδες.
+    """
+    role_options = original_action(context, data_dict)
+    if data_dict.get('group_type', 'organization') == 'group':
+        role_options = [
+            role for role in role_options
+            if role['value'] not in roles.NEW_ROLES
+        ]
+    return role_options
+
+
+@toolkit.chained_action
+def member_create(original_action, context, data_dict):
+    """
+    Όπως ο Διαχειριστής στο core, ο Κεντρικός Διαχειριστής δεν μπορεί να
+    αλλάξει τον δικό του ρόλο.
+    """
+    if (data_dict.get('object_type') == 'user'
+            and data_dict.get('capacity') != roles.CENTRAL_ADMIN):
+        group = model.Group.get(data_dict.get('id'))
+        member_user = model.User.get(data_dict.get('object'))
+        current_user = model.User.get(context.get('user'))
+        if (group and member_user and current_user
+                and member_user.id == current_user.id):
+            member = model.Session.query(model.Member).\
+                filter(model.Member.table_name == 'user').\
+                filter(model.Member.table_id == member_user.id).\
+                filter(model.Member.group_id == group.id).\
+                order_by(model.Member.state.asc()).first()
+            if member and member.capacity == roles.CENTRAL_ADMIN:
+                raise toolkit.NotAuthorized(
+                    "Administrators cannot revoke their own admin status")
+    return original_action(context, data_dict)
+
+
+@toolkit.chained_action
+@toolkit.side_effect_free
+def member_list(original_action, context, data_dict):
+    """
+    Η αναζήτηση με ``capacity='admin'`` (π.χ. ειδοποιήσεις harvest, emails
+    αναφορών) επιστρέφει και τους Κεντρικούς Διαχειριστές.
+    """
+    members = original_action(context, data_dict)
+    if data_dict.get('capacity') == 'admin':
+        members = members + original_action(
+            toolkit.fresh_context(context),
+            dict(data_dict, capacity=roles.CENTRAL_ADMIN),
+        )
+    return members
 
 
 # Define some shortcuts
@@ -339,6 +417,7 @@ def user_organization_capacity(context: Dict[str, Any], data_dict: Dict[str, Any
     result = {
         'is_member': False,
         'capacity': None,
+        'role': None,
         'user_found': False
     }
 
@@ -357,7 +436,10 @@ def user_organization_capacity(context: Dict[str, Any], data_dict: Dict[str, Any
                 plugin_extras = user_info.get('plugin_extras', {})
                 if plugin_extras.get('sub') == sub:
                     result['is_member'] = True
-                    result['capacity'] = user.get('capacity')
+                    # capacity: admin/editor/member όπως πριν, για συμβατότητα.
+                    # role: ο πραγματικός ρόλος (π.χ. central_admin, dgo).
+                    result['capacity'] = roles.effective_role(user.get('capacity'))
+                    result['role'] = user.get('capacity')
                     result['user_found'] = True
                     break
 
@@ -535,12 +617,7 @@ def user_invite_waiting_keycloak_user(context: Context,
             raise ValidationError(message)
 
     # Role στα ελληνικά
-    role_translations = {
-        'member': 'Μέλος',
-        'editor': 'Συντάκτης',
-        'admin': 'Διαχειριστής'
-    }
-    role_gr = role_translations.get(data['role'], data['role'])
+    role_gr = roles.ROLE_LABELS_EL.get(data['role'], data['role'])
 
     if send_email:
         h.flash_success(_('Το email ένταξης με ρόλο "{0}" στάλθηκε επιτυχώς στο {1}. Μόλις ο χρήστης '
@@ -565,12 +642,7 @@ def _send_invite_email_waiting_keycloak_user(user, group_dict, role):
     org_url = f"{site_url}/organization/{org_name_for_url}" if org_name_for_url else ''
 
     # Role στα ελληνικά
-    role_translations = {
-        'member': 'μέλος',
-        'editor': 'συντάκτης',
-        'admin': 'διαχειριστής'
-    }
-    role_gr = role_translations.get(role, role)
+    role_gr = roles.ROLE_LABELS_EL_LOWER.get(role, role)
 
     site_name = toolkit.config.get('ckan.site_title', '')
 
@@ -627,12 +699,7 @@ def _send_registration_notification_email(recipient_email, group_dict, role):
     org_url = group_dict.get('url', '')
 
     # Role στα ελληνικά
-    role_translations = {
-        'member': 'μέλος',
-        'editor': 'συντάκτης',
-        'admin': 'διαχειριστής'
-    }
-    role_gr = role_translations.get(role, role)
+    role_gr = roles.ROLE_LABELS_EL_LOWER.get(role, role)
     site_name = toolkit.config.get('ckan.site_title', '')
 
     # Template variables
@@ -708,17 +775,12 @@ def check_user_org_permission(context: Dict[str, Any], data_dict: Dict[str, Any]
             'user_id': user.id
         }
 
-    # Έλεγχος δικαιωμάτων εκδότη στον οργανισμό
+    # Έλεγχος δικαιωμάτων εκδότη στον οργανισμό: κάθε ρόλος με create_dataset
+    # (editor, admin, central_admin)
     has_permission = authz._has_user_permission_for_groups(
         user.id,
         'create_dataset',  # Permission που χρειάζεται ένας εκδότης
         [organization_id],
-        capacity='editor'  # Ελέγχουμε συγκεκριμένα για editor role
-    ) or authz._has_user_permission_for_groups(
-        user.id,
-        'create_dataset',
-        [organization_id],
-        capacity='admin'  # Ή admin role
     )
 
     return {

@@ -19,6 +19,7 @@ from ckanext.csvinvite.logic.bulk_sysadmin import (
 from ckan.lib.redis import connect_to_redis, is_redis_available
 import ckan.plugins.toolkit as toolkit
 import ckan.model as model
+import ckan.authz as authz
 from flask import Blueprint, request, render_template, Response, session
 from sqlalchemy import func
 
@@ -156,7 +157,11 @@ def _normalize_role(role):
     if not role:
         return "member"
     role = role.strip().lower()
-    return role if role in ("member", "editor", "admin") else "member"
+    # Δεκτές και οι ελληνικές ονομασίες (π.χ. «Κεντρικός Διαχειριστής»)
+    role = CAPACITY_LABEL_MAP.get(role, role)
+    # Όλοι οι ρόλοι που γνωρίζει το CKAN, μαζί με όσους καταχωρούν
+    # extensions (π.χ. central_admin, dgo από το data_gov_gr)
+    return role if role in authz.ROLE_PERMISSIONS else "member"
 
 
 def _call_user_invite(context, org_id, email, role):
@@ -328,9 +333,18 @@ CAPACITY_LABEL_MAP = {
     "εκδότης": "editor",
     "συντάκτης": "editor",
     "μέλος": "member",
+    "κεντρικός διαχειριστής": "central_admin",
+    "υπεύθυνος χρήσης δεδομένων (υχδ - dgo)": "dgo",
+    "υπεύθυνος χρήσης δεδομένων": "dgo",
+    "υχδ - dgo": "dgo",
+    "υχδ": "dgo",
+    "central administrator": "central_admin",
+    "data governance officer (dgo)": "dgo",
     "admin": "admin",
     "editor": "editor",
     "member": "member",
+    "central_admin": "central_admin",
+    "dgo": "dgo",
 }
 
 def _capacity_from_member_list_item(item):

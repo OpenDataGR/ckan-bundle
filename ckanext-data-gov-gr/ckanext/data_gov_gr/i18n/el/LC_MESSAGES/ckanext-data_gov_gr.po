@@ -1326,3 +1326,25 @@ msgstr "Εμφάνιση Ελεγκτή HVD"
 
 msgid "Εμφανίζει κάρτα στη σελίδα Εργαλεία (/more) για on-demand έλεγχο RDF metadata βάσει DCAT-AP HVD και των ευρωπαϊκών SHACL σχημάτων. Απαιτεί εγκατεστημένο και ενεργοποιημένο το plugin hvd_validator."
 msgstr "Εμφανίζει κάρτα στη σελίδα Εργαλεία (/more) για on-demand έλεγχο RDF metadata βάσει DCAT-AP HVD και των ευρωπαϊκών SHACL σχημάτων. Απαιτεί εγκατεστημένο και ενεργοποιημένο το plugin hvd_validator."
+
+# Ρόλοι μελών φορέα: Κεντρικός Διαχειριστής / ΥΧΔ - DGO
+msgid "Central Administrator"
+msgstr "Κεντρικός Διαχειριστής"
+
+msgid "Data Governance Officer (DGO)"
+msgstr "Υπεύθυνος Χρήσης Δεδομένων (ΥΧΔ - DGO)"
+
+msgid "Same permissions as the Admin. Denotes the officially designated Central Administrator of the organization."
+msgstr "Ίδια δικαιώματα με τον Διαχειριστή. Δηλώνει τον επίσημα ορισμένο Κεντρικό Διαχειριστή του οργανισμού."
+
+msgid "Can add/edit and delete datasets, as well as manage organization members."
+msgstr "Μπορεί να προσθέσει/επεξεργαστεί και να διαγράψει σύνολα δεδομένων καθώς και να διαχειριστεί τα μέλη του οργανισμού."
+
+msgid "Can add and edit datasets, but not manage organization members."
+msgstr "Μπορεί να προσθέσει/επεξεργαστεί σύνολα δεδομένων αλλά όχι και να διαχειριστεί τα μέλη του οργανισμού."
+
+msgid "Can view the organization's private datasets, but not add new datasets."
+msgstr "Μπορεί να δει τα ιδιωτικά σύνολα δεδομένων του οργανισμού στον οποίο ανήκει, αλλά όχι να προσθέσει νέα."
+
+msgid "Same permissions as the Member. Denotes the officially designated Data Governance Officer of the organization."
+msgstr "Ίδια δικαιώματα με το Μέλος. Δηλώνει τον επίσημα ορισμένο Υπεύθυνο Χρήσης Δεδομένων (ΥΧΔ - DGO) του οργανισμού."

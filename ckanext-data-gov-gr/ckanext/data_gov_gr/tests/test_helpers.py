@@ -6,9 +6,189 @@ import pytest
 from ckanext.data_gov_gr import helpers
 
 
+_DASHBOARD_ACTIVITY_COUNT_CONFIG = (
+    "ckanext.data_gov_gr.header.dashboard_activity_count.enabled"
+)
+_HARVEST_FREQUENCY_EXCLUDE_CONFIG = (
+    "ckanext.data_gov_gr.harvest.frequency_exclude"
+)
+
+
 def _spatial_extent(pkg):
     value = helpers.data_gov_gr_dataset_spatial_extent(pkg)
     return json.loads(value) if value else None
+
+
+@pytest.mark.parametrize("config_value", [None, "false"])
+def test_new_activities_skips_original_helper_when_disabled(
+    monkeypatch, config_value
+):
+    if config_value is None:
+        monkeypatch.delitem(
+            helpers.toolkit.config,
+            _DASHBOARD_ACTIVITY_COUNT_CONFIG,
+            raising=False,
+        )
+    else:
+        monkeypatch.setitem(
+            helpers.toolkit.config,
+            _DASHBOARD_ACTIVITY_COUNT_CONFIG,
+            config_value,
+        )
+
+    calls = []
+
+    def next_helper():
+        calls.append(True)
+        return 7
+
+    assert helpers.data_gov_gr_new_activities(next_helper) == 0
+    assert calls == []
+
+
+def test_new_activities_delegates_to_original_helper_when_enabled(monkeypatch):
+    monkeypatch.setitem(
+        helpers.toolkit.config,
+        _DASHBOARD_ACTIVITY_COUNT_CONFIG,
+        "true",
+    )
+    calls = []
+
+    def next_helper():
+        calls.append(True)
+        return 7
+
+    assert helpers.data_gov_gr_new_activities(next_helper) == 7
+    assert calls == [True]
+
+
+def test_new_activities_helper_is_registered_as_chained_helper(monkeypatch):
+    monkeypatch.setattr(
+        helpers.plugins,
+        "plugin_loaded",
+        lambda plugin_name: plugin_name == "activity",
+    )
+    registered_helpers = helpers.get_helpers()
+
+    assert (
+        registered_helpers["new_activities"]
+        is helpers.data_gov_gr_new_activities
+    )
+    assert helpers.data_gov_gr_new_activities.chained_helper is True
+
+
+def test_new_activities_helper_is_not_registered_without_activity(monkeypatch):
+    monkeypatch.setattr(
+        helpers.plugins,
+        "plugin_loaded",
+        lambda plugin_name: False,
+    )
+
+    assert "new_activities" not in helpers.get_helpers()
+
+
+@pytest.mark.ckan_config("ckan.plugins", "activity data_gov_gr")
+@pytest.mark.usefixtures("with_plugins")
+def test_new_activities_wraps_activity_helper_with_staging_plugin_order(
+    monkeypatch,
+):
+    from ckan.lib.helpers import helper_functions
+
+    monkeypatch.setitem(
+        helpers.toolkit.config,
+        _DASHBOARD_ACTIVITY_COUNT_CONFIG,
+        "false",
+    )
+
+    assert helper_functions["new_activities"]() == 0
+
+
+def test_harvest_frequencies_returns_upstream_options_without_exclusions(
+    monkeypatch,
+):
+    monkeypatch.delitem(
+        helpers.toolkit.config,
+        _HARVEST_FREQUENCY_EXCLUDE_CONFIG,
+        raising=False,
+    )
+    upstream_options = [
+        {"text": "Manual", "value": "MANUAL"},
+        {"text": "Always", "value": "ALWAYS"},
+    ]
+    calls = []
+
+    def next_helper():
+        calls.append(True)
+        return upstream_options
+
+    assert helpers.harvest_frequencies(next_helper) == upstream_options
+    assert calls == [True]
+
+
+def test_harvest_frequencies_filters_configured_values(monkeypatch):
+    monkeypatch.setitem(
+        helpers.toolkit.config,
+        _HARVEST_FREQUENCY_EXCLUDE_CONFIG,
+        " always, weekly ",
+    )
+    upstream_options = [
+        {"text": "Manual", "value": "MANUAL"},
+        {"text": "Weekly", "value": "WEEKLY"},
+        {"text": "Always", "value": "ALWAYS"},
+    ]
+
+    assert helpers.harvest_frequencies(lambda: upstream_options) == [
+        {"text": "Manual", "value": "MANUAL"},
+    ]
+
+
+def test_harvest_frequencies_helper_is_registered_as_chained_helper(monkeypatch):
+    monkeypatch.setattr(
+        helpers.plugins,
+        "plugin_loaded",
+        lambda plugin_name: plugin_name == "harvest",
+    )
+    registered_helpers = helpers.get_helpers()
+
+    assert (
+        registered_helpers["harvest_frequencies"]
+        is helpers.harvest_frequencies
+    )
+    assert helpers.harvest_frequencies.chained_helper is True
+
+
+def test_harvest_frequencies_helper_is_not_registered_without_harvest(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        helpers.plugins,
+        "plugin_loaded",
+        lambda plugin_name: False,
+    )
+
+    assert "harvest_frequencies" not in helpers.get_helpers()
+
+
+@pytest.mark.ckan_config("ckan.plugins", "harvest data_gov_gr")
+@pytest.mark.usefixtures("with_plugins")
+def test_harvest_frequencies_wraps_harvest_helper_with_staging_plugin_order(
+    monkeypatch,
+):
+    from ckan.lib.helpers import helper_functions
+
+    monkeypatch.setitem(
+        helpers.toolkit.config,
+        _HARVEST_FREQUENCY_EXCLUDE_CONFIG,
+        "ALWAYS",
+    )
+
+    values = [
+        option["value"]
+        for option in helper_functions["harvest_frequencies"]()
+    ]
+
+    assert "ALWAYS" not in values
+    assert values == ["MANUAL", "MONTHLY", "WEEKLY", "BIWEEKLY", "DAILY"]
 
 
 def test_map_search_carto_api_key_defaults_to_empty(monkeypatch):

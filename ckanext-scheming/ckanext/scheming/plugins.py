@@ -400,27 +400,22 @@ def expand_form_composite(data, fieldnames):
     fieldnames -= set(data)
     if not fieldnames:
         return
-    indexes = {}
-    for key in sorted(data):
-        if '-' not in key:
+    # Ομαδοποίηση ανά πεδίο και αριθμητική ταξινόμηση δεικτών, ώστε το
+    # "field-10-..." να μπαίνει μετά το "field-2-..." και τα κενά από
+    # ομάδες που αφαιρέθηκαν να συμπτύσσονται
+    groups = {}
+    for key in list(data):
+        parts = key.split('-', 2)
+        if len(parts) < 3 or parts[0] not in fieldnames:
             continue
-        parts = key.split('-')
-        if parts[0] not in fieldnames:
-            continue
-        if parts[1] not in indexes:
-            indexes[parts[1]] = len(indexes)
-        comp = data.setdefault(parts[0], [])
-        parts[1] = indexes[parts[1]]
         try:
-            try:
-                comp[int(parts[1])]['-'.join(parts[2:])] = data[key]
-                del data[key]
-            except IndexError:
-                comp.append({})
-                comp[int(parts[1])]['-'.join(parts[2:])] = data[key]
-                del data[key]
-        except (IndexError, ValueError):
-            pass  # best-effort only
+            index = int(parts[1])
+        except ValueError:
+            continue  # best-effort only
+        group = groups.setdefault(parts[0], {}).setdefault(index, {})
+        group[parts[2]] = data.pop(key)
+    for field, by_index in groups.items():
+        data[field] = [by_index[i] for i in sorted(by_index)]
 
 
 

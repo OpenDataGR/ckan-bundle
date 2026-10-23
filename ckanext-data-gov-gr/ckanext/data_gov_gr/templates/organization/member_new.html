@@ -54,7 +54,7 @@
       {% endif %}
     </div>
 
-    {% if user and user.name == c.user and user_role == 'admin' %}
+    {% if user and user.name == c.user and user_role in ['admin', 'central_admin'] %}
       {% set format_attrs = {'data-module': 'autocomplete', 'disabled': 'disabled'} %}
       {{ form.select('role', label=_('Role'), options=roles, selected=user_role, error='', attrs=format_attrs) }}
       {{ form.hidden('role', value=user_role) }}
@@ -77,4 +77,23 @@
     </div>
   </form>
   {% endblock %}
+{% endblock %}
+
+{% block secondary_content %}
+  {% if organization %}
+    {% snippet 'organization/snippets/info.html', organization=organization %}
+  {% endif %}
+  <div class="module module-narrow module-shallow">
+    <h2 class="module-heading">
+      <i class="fa fa-lg fa-info-circle"></i>
+      {{ _('What are roles?') }}
+    </h2>
+    <div class="module-content">
+      <p><strong>{{ _('Central Administrator') }}:</strong> {{ _('Same permissions as the Admin. Denotes the officially designated Central Administrator of the organization.') }}</p>
+      <p><strong>{{ _('Admin') }}:</strong> {{ _('Can add/edit and delete datasets, as well as manage organization members.') }}</p>
+      <p><strong>{{ _('Editor') }}:</strong> {{ _('Can add and edit datasets, but not manage organization members.') }}</p>
+      <p><strong>{{ _('Member') }}:</strong> {{ _("Can view the organization's private datasets, but not add new datasets.") }}</p>
+      <p><strong>{{ _('Data Governance Officer (DGO)') }}:</strong> {{ _('Same permissions as the Member. Denotes the officially designated Data Governance Officer of the organization.') }}</p>
+    </div>
+  </div>
 {% endblock %}

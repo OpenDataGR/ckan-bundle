@@ -355,7 +355,7 @@
       <ul style="margin-bottom: 10px;">
         <li><code>org</code>: {{ _('organization id or name/slug') }}</li>
         <li><code>username</code>/<code>email</code>: {{ _('at least one should be provided to identify the user') }}</li>
-        <li><code>role</code>: {{ _('member/editor/admin') }}</li>
+        <li><code>role</code>: <code>member</code>, <code>editor</code>, <code>admin</code>, <code>central_admin</code>, <code>dgo</code></li>
       </ul>
 
       <p class="muted" style="margin-bottom: 6px;">
@@ -382,6 +382,8 @@ open-team,user3,,admin</pre>
         <li><strong>member</strong>: {{ _('basic access') }}</li>
         <li><strong>editor</strong>: {{ _('can create/edit datasets') }}</li>
         <li><strong>admin</strong>: {{ _('full organization management') }}</li>
+        <li><strong>central_admin</strong>: {{ _('Central Administrator, same permissions as admin') }}</li>
+        <li><strong>dgo</strong>: {{ _('Data Governance Officer (DGO), same permissions as member') }}</li>
       </ul>
     </div>
   </div>

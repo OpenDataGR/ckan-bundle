@@ -82,15 +82,30 @@ Each operation expects a specific set of CSV columns. All CSV files must use com
 
 ### Accepted roles
 
-Roles are case-insensitive. The following values are accepted:
+Roles are case-insensitive and surrounding whitespace is ignored. The
+following values and aliases are accepted:
 
-| Role | Aliases (Greek) |
-| --- | --- |
-| `admin` | `διαχειριστής` |
-| `editor` | `εκδότης`, `συντάκτης` |
-| `member` | `μέλος` |
+| Role | Permissions | Accepted aliases |
+| --- | --- | --- |
+| `admin` | Full organization management | `διαχειριστής` |
+| `editor` | Create and edit datasets | `εκδότης`, `συντάκτης` |
+| `member` | Basic organization access | `μέλος` |
+| `central_admin` | Same permissions as `admin` | `central administrator`, `κεντρικός διαχειριστής` |
+| `dgo` | Same permissions as `member` | `data governance officer (dgo)`, `υπεύθυνος χρήσης δεδομένων (υχδ - dgo)`, `υπεύθυνος χρήσης δεδομένων`, `υχδ - dgo`, `υχδ` |
 
-If `role` is omitted or empty, it defaults to `member`.
+If `role` is omitted or empty, it defaults to `member`. An unrecognized role
+also falls back to `member`.
+
+`central_admin` and `dgo` are extension-defined CKAN roles. In the data.gov.gr
+deployment they are registered by the `data_gov_gr` plugin, so both plugins
+must be enabled:
+
+```ini
+ckan.plugins = ... data_gov_gr csvinvite
+```
+
+The order of these two plugins is not functionally significant, but listing
+`data_gov_gr` first makes the provider/consumer relationship explicit.
 
 ### Encoding
 

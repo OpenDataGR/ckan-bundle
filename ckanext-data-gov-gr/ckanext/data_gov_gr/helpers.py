@@ -7,6 +7,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from html import unescape as html_unescape
 from datetime import datetime, timedelta, date as date_cls
+import ckan.plugins as plugins
 import ckan.plugins.toolkit as toolkit
 from ckan import model
 from ckan.common import g, asbool
@@ -19,7 +20,7 @@ from typing import (cast, Union)
 from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import aliased, joinedload
 
-from ckanext.data_gov_gr import organization_stats
+from ckanext.data_gov_gr import gitbook_print, organization_stats
 from ckanext.data_gov_gr.logic import hvd_legislation
 from ckanext.data_gov_gr.stats import DataGovStats
 try:
@@ -1421,11 +1422,10 @@ def get_contact_gitbook_embed_items():
 
 def has_gitbook_pdf_export():
     """
-    Check whether the GitBook PDF export configuration is complete.
+    Check whether the GitBook guides PDF configuration is complete
+    (space_id, api_token και guides_base_url, όπως τα θέλουν τα views).
     """
-    space_id = get_config_value('ckanext.data_gov_gr.gitbook.space_id')
-    token = get_config_value('ckanext.data_gov_gr.gitbook.api_token')
-    return bool(space_id and token)
+    return gitbook_print.get_settings() is not None
 
 
 def _localize_data_service_label(text):
@@ -3501,15 +3501,17 @@ def _parse_csv_config(value: str) -> set[str]:
         if part.strip()
     }
 
-def harvest_frequencies():
-    from ckanext.harvest.model import UPDATE_FREQUENCIES
-
+@toolkit.chained_helper
+def harvest_frequencies(next_helper):
     excluded = _parse_csv_config(
         toolkit.config.get("ckanext.data_gov_gr.harvest.frequency_exclude", "")
     )
 
-    freqs = [f for f in UPDATE_FREQUENCIES if f.upper() not in excluded]
-    return [{"text": toolkit._(f.title()), "value": f} for f in freqs]
+    return [
+        option
+        for option in next_helper()
+        if str(option.get("value", "")).upper() not in excluded
+    ]
 
 # ---------------------------------------------------------------------------------------
 
@@ -3544,7 +3546,8 @@ def should_skip_tables_view_render(resource, resource_view):
 
 # ---------------------------------------------------------------------------------------
 
-def data_gov_gr_new_activities():
+@toolkit.chained_helper
+def data_gov_gr_new_activities(next_helper):
     """Optionally disable per-page dashboard activity counting in the header."""
     if not get_config_as_bool(
         'ckanext.data_gov_gr.header.dashboard_activity_count.enabled',
@@ -3552,13 +3555,7 @@ def data_gov_gr_new_activities():
     ):
         return 0
 
-    try:
-        from ckanext.activity.helpers import new_activities as activity_new_activities
-    except Exception:
-        log.debug('Unable to load CKAN activity new_activities helper.', exc_info=True)
-        return 0
-
-    return activity_new_activities()
+    return next_helper()
 
 # ---------------------------------------------------------------------------------------
 
@@ -3587,13 +3584,12 @@ def rendered_resource_view(resource_view, resource, package, *args, **kwargs):
 # ---------------------------------------------------------------------------------------
 
 def get_helpers():
-    return {
+    registered_helpers = {
         'noindex_nofollow_enabled': noindex_nofollow_enabled,
         "is_url_field": is_url_field,
         "get_allowed_view_types": get_allowed_view_types,
         "should_skip_tables_view_render": should_skip_tables_view_render,
         "rendered_resource_view": rendered_resource_view,
-        "new_activities": data_gov_gr_new_activities,
         "vocabulary_facet_item_label": vocabulary_facet_item_label,
         "vocabulary_facet_title": vocabulary_facet_title,
         "get_vocabulary_id_for_field": get_vocabulary_id_for_field,
@@ -3661,6 +3657,13 @@ def get_helpers():
         'get_contact_gitbook_embed_items': get_contact_gitbook_embed_items,
         'extract_iframe_from_html': extract_iframe_from_html,
         'get_stat_data': get_stat_data,
-        "harvest_frequencies": harvest_frequencies,
         'dump_json': dump_json,
     }
+
+    if plugins.plugin_loaded("activity"):
+        registered_helpers["new_activities"] = data_gov_gr_new_activities
+
+    if plugins.plugin_loaded("harvest"):
+        registered_helpers["harvest_frequencies"] = harvest_frequencies
+
+    return registered_helpers
