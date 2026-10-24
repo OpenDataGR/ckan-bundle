@@ -529,10 +529,8 @@ def test_bulk_org_sync_export_rows_preserve_new_roles():
     [
         "import_members.html",
         "sync_members.html",
-        "snippets/bulk_invite_sidebar.html",
         "admin_bulk_org_invite.html",
         "admin_bulk_org_sync.html",
-        "admin_user_management.html",
     ],
 )
 def test_role_help_templates_document_new_roles(template):
@@ -541,6 +539,45 @@ def test_role_help_templates_document_new_roles(template):
 
     assert CENTRAL_ADMIN in content
     assert DGO in content
+
+
+def test_shared_role_help_documents_roles_and_equivalent_permissions():
+    template_path = (
+        Path(views.__file__).parent
+        / "templates"
+        / "csvinvite"
+        / "snippets"
+        / "roles_permissions.html"
+    )
+    content = template_path.read_text(encoding="utf-8")
+
+    assert "Member" in content
+    assert "Editor" in content
+    assert "Admin" in content
+    assert CENTRAL_ADMIN in content
+    assert DGO in content
+    assert "same permissions as admin" in content
+    assert "same permissions as member" in content
+
+
+@pytest.mark.parametrize(
+    "template",
+    [
+        "admin_user_management.html",
+        "snippets/bulk_invite_sidebar.html",
+        "snippets/bulk_sync_sidebar.html",
+    ],
+)
+def test_role_help_consumers_include_shared_role_help(template):
+    template_path = (
+        Path(views.__file__).parent
+        / "templates"
+        / "csvinvite"
+        / template
+    )
+    content = template_path.read_text(encoding="utf-8")
+
+    assert "{% include 'csvinvite/snippets/roles_permissions.html' %}" in content
 
 
 def test_data_gov_gr_role_registry_integrates_with_normalizer(monkeypatch):

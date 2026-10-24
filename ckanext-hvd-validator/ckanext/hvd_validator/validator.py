@@ -1,14 +1,17 @@
-import ipaddress
 import logging
-import socket
 import threading
 from pathlib import Path
-from urllib.parse import urljoin, urlparse
 
 import pyshacl
 import rdflib
-import requests
 from ckan.plugins import toolkit
+
+from ckanext.hvd_validator.safe_fetch import (
+    UnsafeFetchUrl,
+    is_blocked_ip,
+    resolve_and_validate_target,
+    safe_get,
+)
 
 log = logging.getLogger(__name__)
 
@@ -69,74 +72,27 @@ _LICENSE_VOCAB_MARKERS = ("skos:exactMatch", "owl:sameAs", "skos:broadMatch")
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-class UnsafeFetchUrl(ValueError):
-    pass
-
-
 class FetchResponseTooLarge(ValueError):
     pass
 
 
 def _is_blocked_ip(ip_address: str) -> bool:
-    ip = ipaddress.ip_address(ip_address)
-    return any(
-        (
-            ip.is_private,
-            ip.is_loopback,
-            ip.is_link_local,
-            ip.is_multicast,
-            ip.is_reserved,
-            ip.is_unspecified,
-        )
-    )
+    return is_blocked_ip(ip_address)
 
 
-def _validate_fetch_url(url: str) -> None:
-    parsed = urlparse(url)
-    if parsed.scheme not in {"http", "https"}:
-        raise UnsafeFetchUrl("Only HTTP(S) URLs can be fetched.")
-
-    hostname = parsed.hostname
-    if not hostname:
-        raise UnsafeFetchUrl("URL hostname is missing.")
-
-    hostname = hostname.strip().lower().rstrip(".")
-    if hostname == "localhost" or "." not in hostname:
-        raise UnsafeFetchUrl("Local hostnames cannot be fetched.")
-
-    try:
-        addr_infos = socket.getaddrinfo(hostname, parsed.port, type=socket.SOCK_STREAM)
-    except socket.gaierror as exc:
-        raise UnsafeFetchUrl("URL hostname could not be resolved.") from exc
-
-    resolved_ips = {info[4][0] for info in addr_infos}
-    if not resolved_ips:
-        raise UnsafeFetchUrl("URL hostname did not resolve to an IP address.")
-
-    for resolved_ip in resolved_ips:
-        if _is_blocked_ip(resolved_ip):
-            raise UnsafeFetchUrl("URL resolves to a blocked network address.")
+def _validate_fetch_url(url: str):
+    """Compatibility wrapper returning the validated, pinned target."""
+    return resolve_and_validate_target(url)
 
 
 def _safe_get(url: str, *, timeout, headers, stream: bool = False):
-    current_url = url
-    for _ in range(_MAX_REDIRECTS + 1):
-        _validate_fetch_url(current_url)
-        response = requests.get(
-            current_url,
-            timeout=timeout,
-            headers=headers,
-            allow_redirects=False,
-            stream=stream,
-        )
-        if response.is_redirect:
-            location = response.headers.get("Location")
-            if not location:
-                raise UnsafeFetchUrl("Redirect response is missing a Location header.")
-            current_url = urljoin(current_url, location)
-            continue
-        return response
-    raise UnsafeFetchUrl("Too many redirects while fetching URL.")
+    return safe_get(
+        url,
+        timeout=timeout,
+        headers=headers,
+        stream=stream,
+        max_redirects=_MAX_REDIRECTS,
+    )
 
 
 def _read_limited_response_text(response, max_bytes: int = _MAX_FETCH_BYTES) -> str:
@@ -166,11 +122,14 @@ def _read_limited_response_text(response, max_bytes: int = _MAX_FETCH_BYTES) -> 
 
 def _safe_get_text(url: str, *, timeout, headers):
     response = _safe_get(url, timeout=timeout, headers=headers, stream=True)
-    response.raise_for_status()
-    return (
-        _read_limited_response_text(response),
-        response.headers,
-    )
+    try:
+        response.raise_for_status()
+        return (
+            _read_limited_response_text(response),
+            response.headers,
+        )
+    finally:
+        response.close()
 
 
 def _vocab_refs(graph: rdflib.Graph) -> list[rdflib.URIRef]:

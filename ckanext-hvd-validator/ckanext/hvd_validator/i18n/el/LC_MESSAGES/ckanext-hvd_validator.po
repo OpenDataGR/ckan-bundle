@@ -90,6 +90,7 @@ msgstr "Προειδοποιήσεις"
 msgid "License"
 msgstr "Άδεια"
 
+msgctxt "license status"
 msgid "Open"
 msgstr "Ανοικτή"
 

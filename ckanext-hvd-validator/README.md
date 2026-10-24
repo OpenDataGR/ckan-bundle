@@ -181,8 +181,22 @@ User-Agent: CKAN-HVD-Validator/1.0
 Πριν από κάθε external HTTP request εφαρμόζεται SSRF guard. Επιτρέπονται μόνο
 `http` και `https` URLs, γίνεται DNS resolution του hostname, και μπλοκάρονται
 targets που δείχνουν σε private, loopback, link-local, multicast, reserved ή
-unspecified IP addresses. Τα redirects ακολουθούνται χειροκίνητα και κάθε
-redirect target περνάει από τον ίδιο έλεγχο πριν γίνει request.
+unspecified IP addresses. Αν μία DNS απάντηση περιέχει έστω και μία μη δημόσια
+IP, απορρίπτεται ολόκληρος ο προορισμός.
+
+Η πραγματική TCP σύνδεση γίνεται αποκλειστικά σε μία από τις IP που ελέγχθηκαν
+στο συγκεκριμένο DNS resolution. Δεν γίνεται δεύτερο hostname resolution κατά
+το connect. Για HTTPS διατηρείται το αρχικό hostname για TLS SNI και certificate
+verification, ενώ μετά το connect ελέγχεται ότι η peer IP ανήκει στο validated
+set. Αν η πρώτη δημόσια IP αποτύχει, δοκιμάζεται μόνο επόμενη IP από το ίδιο
+validated set.
+
+Τα redirects ακολουθούνται χειροκίνητα. Η προηγούμενη response κλείνει και κάθε
+redirect target κάνει νέο, ανεξάρτητο DNS validation και pinned connection. Το
+HTTP transport δεν κληρονομεί `HTTP_PROXY` ή `HTTPS_PROXY`, επειδή ένας μη
+ελεγχόμενος proxy θα ακύρωνε την εγγύηση για την πραγματική peer σύνδεση.
+Υποστηρίζονται τα standard `REQUESTS_CA_BUNDLE` και `CURL_CA_BUNDLE` για
+περιβάλλοντα που χρειάζονται custom trust store.
 
 Τα external fetches διαβάζονται με όριο response body 2 MiB. Αν ένα optional
 vocabulary response ξεπεράσει το όριο, αγνοείται και το validation συνεχίζει με

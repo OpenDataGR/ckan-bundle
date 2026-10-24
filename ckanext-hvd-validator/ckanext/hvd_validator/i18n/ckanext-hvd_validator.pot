@@ -89,6 +89,7 @@ msgstr ""
 msgid "License"
 msgstr ""
 
+msgctxt "license status"
 msgid "Open"
 msgstr ""
 

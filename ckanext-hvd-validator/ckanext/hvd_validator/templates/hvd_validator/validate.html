@@ -165,7 +165,7 @@
             <div class="label">{{ _('License') }}</div>
             <div class="value" style="font-size: 16px;">
               {% if result.license_status == 'open' %}
-                <span style="color: #28a745;">{{ _('Open') }}</span>
+                <span style="color: #28a745;">{{ pgettext('license status', 'Open') }}</span>
               {% elif result.license_status == 'missing' %}
                 <span style="color: #dc3545;">{{ _('Missing') }}</span>
               {% else %}

@@ -206,24 +206,7 @@
   {% endif %}
 
   {% if show_bulk_org_invite or show_bulk_org_sync %}
-    <div class="module module-narrow module-shallow">
-      <h2 class="module-heading">
-        <i class="fa fa-shield"></i>
-        {{ _('Roles & permissions') }}
-      </h2>
-      <div class="module-content">
-        <p>
-          {{ _('Roles define what a user can do within an organization. Make sure the role value in the CSV is valid.') }}
-        </p>
-        <ul>
-          <li><strong>Member</strong>: {{ _('basic access') }}</li>
-          <li><strong>Editor</strong>: {{ _('edit content') }}</li>
-          <li><strong>Admin</strong>: {{ _('full organization management') }}</li>
-          <li><strong>central_admin</strong>: {{ _('Central Administrator, same permissions as admin') }}</li>
-          <li><strong>dgo</strong>: {{ _('Data Governance Officer (DGO), same permissions as member') }}</li>
-        </ul>
-      </div>
-    </div>
+    {% include 'csvinvite/snippets/roles_permissions.html' %}
   {% endif %}
 
   {% if show_bulk_org_invite or show_bulk_org_sync or show_bulk_user_delete %}

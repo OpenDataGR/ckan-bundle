@@ -12,8 +12,6 @@
 
     <p class="muted" style="margin-bottom: 8px;">
       <strong>{{ _('CSV headers:') }}</strong> <code>email</code>, <code>role</code>
-      <br/>
-      <strong>{{ _('Roles:') }}</strong> <code>member</code>, <code>editor</code>, <code>admin</code>, <code>central_admin</code>, <code>dgo</code>
     </p>
 
     <hr style="margin: 10px 0;"/>
@@ -23,6 +21,8 @@
     </p>
   </div>
 </div>
+
+{% include 'csvinvite/snippets/roles_permissions.html' %}
 
 <div class="module module-narrow module-shallow">
   <h2 class="module-heading">
