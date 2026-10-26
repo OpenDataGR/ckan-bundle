@@ -24,6 +24,7 @@ openlayers_js:
     - js/carto_vector.js
     - js/vendor/ol-helpers/ol-helpers.js
     - js/vendor/ol-helpers/ol-layer-switcher.js
+    - js/feature_highlight.js
     - js/ol_preview.js
 openlayers_css:
   output: ckanext-geoview/%(version)s_openlayers.css

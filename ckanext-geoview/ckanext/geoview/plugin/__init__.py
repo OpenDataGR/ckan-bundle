@@ -108,6 +108,24 @@ class GeoViewBase(p.SingletonPlugin):
             "fetch for OGC services such as WMS, WFS and WMTS."
         )
         declare_once(
+            geoview.service_proxy.connect_timeout,
+            "10",
+            "Maximum seconds allowed to establish an upstream geoview "
+            "service-proxy connection. Values above 60 are capped."
+        )
+        declare_once(
+            geoview.service_proxy.read_timeout,
+            "90",
+            "Maximum seconds to wait between bytes from an upstream geoview "
+            "service. Values above 300 are capped."
+        )
+        declare_once(
+            geoview.service_proxy.max_redirects,
+            "10",
+            "Maximum number of independently validated redirects followed by "
+            "the geoview service proxy. Values above 20 are capped."
+        )
+        declare_once(
             ol_viewer.proxy_wms_getmap,
             "False",
             "If true, WMS GetMap tile requests are sent through the CKAN "

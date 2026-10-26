@@ -1,4 +1,4 @@
-/* global ckan, OL_HELPERS, ol, $, preload_resource */
+/* global ckan, CKAN_GEOVIEW_FEATURE_HIGHLIGHT, OL_HELPERS, ol, $, preload_resource */
 // Openlayers preview module
 
 (function() {
@@ -434,19 +434,15 @@
                 );
 
                 map.highlightStyle = this.highlightStyle;
-                let selected = null;
-                map.on('pointermove', function (e) {
-                    if (selected !== null) {
-                        selected.setStyle(undefined);
-                        selected = null;
+                CKAN_GEOVIEW_FEATURE_HIGHLIGHT.install(
+                    map,
+                    map.highlightStyle,
+                    function(layer) {
+                        // Vector-tile basemap hits are RenderFeature objects
+                        // without setStyle(). Highlight only vector overlays.
+                        return layer instanceof ol.layer.Vector;
                     }
-
-                    map.forEachFeatureAtPixel(e.pixel, function (f) {
-                        selected = f;
-                        f.setStyle(map.highlightStyle);
-                        return true;
-                    });
-                });
+                );
 
                 // force a reload of all vector sources on projection change
                 map.getView().on('change:projection', function() {

@@ -1,7 +1,7 @@
 # CARTO basemaps — Configuration
 
 Παραμετροποίηση των υποβάθρων (basemaps) χάρτη στο data.gov.gr, με έμφαση στο
-CARTO (raster & vector) και στα σχετικά API keys (OD-814).
+CARTO (raster & vector) και στα σχετικά API keys (OD-814, OD-831).
 
 Οι χάρτες υπάρχουν σε **τρία σημεία**:
 
@@ -44,6 +44,55 @@ CARTO (raster & vector) και στα σχετικά API keys (OD-814).
 > - <https://docs.carto.com/faqs/carto-basemaps> — «Only the raster basemaps are watermarked today. Vector is unaffected.»
 > - <https://carto.com/basemaps/apikey/> — «…it is coming to the vector basemaps as well.»
 
+### Vector tiles v2 (OD-831)
+
+Τα vector tiles `carto.streets/v1` (OpenMapTiles schema) είναι **legacy**: δεν
+παίρνουν πλέον ενημερώσεις δεδομένων (τελευταία έκδοση `20251215-01`) και θα
+αποσυρθούν. Μέχρι το OD-831 φιλοξενούσαμε τοπικό αντίγραφο του Positron style
+(`/basemaps/carto-positron-el-no-maritime.json`) που έδειχνε στο v1. Η CARTO
+προειδοποιεί ότι τα URLs μέσα σε ένα τέτοιο αντίγραφο αλλάζουν, οπότε μπορεί να
+σπάσει ανά πάσα στιγμή. Γι' αυτό το αρχείο **αφαιρέθηκε**.
+
+Πλέον όλοι οι χάρτες φορτώνουν απευθείας το **έτοιμο style της CARTO**
+(`https://basemaps.cartocdn.com/gl/positron-gl-style/style.json`), που
+χρησιμοποιεί το `carto.streets/v2` (Protomaps schema). Το `carto_vector.js`
+προσθέτει το `?key=` και προσαρμόζει το style στον browser (`prepareStyle`).
+Έτσι οι ενημερώσεις δεδομένων και οι αλλαγές URLs της CARTO εφαρμόζονται χωρίς
+δική μας παρέμβαση.
+
+Προσαρμογές του `prepareStyle` στο v2:
+
+- **Labels:** η έκφραση της CARTO (`name:en` κάτω από zoom 13, τοπικό όνομα
+  πάνω από αυτό) αντικαθίσταται με τη σειρά του v1 σε όλα τα zoom: `name:el`,
+  τοπικό όνομα (`name` μαζί με `name2`/`name3`, για ονόματα με μικτό αλφάβητο),
+  `name:en`. Αλλιώς ελληνικά μέρη χωρίς `name:el` στο OSM θα έβγαιναν στα
+  αγγλικά σε μικρά zoom (π.χ. «Pagasetic Gulf»). Labels χωρίς όνομα (π.χ.
+  αριθμοί σπιτιών) μένουν όπως είναι. Τα ονόματα έρχονται από το OpenStreetMap
+  και δεν μεταφράζονται.
+- **Γραμμή κατοχής στην Κύπρο:** τα layers `boundaries` εξαιρούν τις γραμμές με
+  `brk_a3 = B20` (Natural Earth, Βόρεια Κύπρος), που στο v2 σχεδιάζονται ως
+  σύνορο χώρας σε μικρά zoom. Το v1 δεν τις σχεδίαζε. Τα υπόλοιπα σύνορα (π.χ.
+  Δυτική Όχθη, Γάζα, Κοσσυφοπέδιο) μένουν όπως τα δίνει η CARTO, όπως και στο v1.
+- **Βόρεια Κύπρος:** τα layers `places` εξαιρούν το `wikidata = Q23681`, ώστε να
+  μην εμφανίζεται label χώρας για τα κατεχόμενα. Το v1 δεν είχε τέτοιο feature.
+- **Θαλάσσια σύνορα:** το v2 δεν έχει θαλάσσια σύνορα χωρών ούτε πεδίο
+  `maritime`. Τα όρια περιφερειών και περιφερειακών ενοτήτων όμως περνούν και
+  από τη θάλασσα (π.χ. ανάμεσα σε Πάρο και Νάξο). Δεν φαίνονται, γιατί το style
+  της CARTO σχεδιάζει τα `boundary_county`/`boundary_state` κάτω από το
+  αδιαφανές layer `water`. Το φίλτρο `maritime` εφαρμόζεται μόνο σε custom
+  styles του v1.
+
+Στην αναζήτηση το `carto_vector.js` φορτώνεται με `?v=` (`search.html`), ώστε
+μετά από deploy να μη μένει στον browser παλιό αντίγραφο. Σε κάθε αλλαγή του
+αρχείου ανεβαίνει και ο αριθμός.
+
+Οι γραμμές `.../vector_style_url` και `.../carto_vector.style_url` που δείχνουν
+στο `/basemaps/carto-positron-el-no-maritime.json` πρέπει να **αφαιρεθούν** από
+τα ini, ώστε να ισχύσει το default. Το αρχείο δεν υπάρχει πια, οπότε με αυτές
+τις γραμμές ο χάρτης πέφτει σε raster.
+
+Πηγή: <https://docs.carto.com/faqs/carto-basemaps#are-the-v1-vectortiles-still-updated>
+
 ---
 
 ## 2. Χάρτης αναζήτησης — `ckanext.data_gov_gr.map_search.*`
@@ -52,14 +101,14 @@ CARTO (raster & vector) και στα σχετικά API keys (OD-814).
 | --- | --- | :---: | --- |
 | `ckanext.data_gov_gr.map_search.basemap` | `carto_light_all` | — | Basemap key. Τιμές: `carto_light_all`, `carto_light_nolabels`, `carto_voyager_nolabels`, `carto_vector`, `osm`, `esri_light_gray`, `eox_osm`. |
 | `ckanext.data_gov_gr.map_search.carto_api_key` | `` (κενό) | ✅ | Προαιρετικό CARTO API key για τα CARTO layers της αναζήτησης. Browser-visible. |
-| `ckanext.data_gov_gr.map_search.vector_style_url` | `/basemaps/carto-positron-el-no-maritime.json` | — | MapLibre Style JSON όταν `basemap = carto_vector`. |
+| `ckanext.data_gov_gr.map_search.vector_style_url` | `https://basemaps.cartocdn.com/gl/positron-gl-style/style.json` | — | MapLibre Style JSON όταν `basemap = carto_vector`. |
 | `ckanext.data_gov_gr.map_search.vector_fallback_basemap` | `carto_light_all` | — | Raster basemap key όταν το vector/WebGL δεν είναι διαθέσιμο. |
 
 ```ini
 # Παράδειγμα (αναζήτηση με CARTO vector)
 ckanext.data_gov_gr.map_search.basemap = carto_vector
 ckanext.data_gov_gr.map_search.carto_api_key = YOUR_CARTO_KEY
-ckanext.data_gov_gr.map_search.vector_style_url = /basemaps/carto-positron-el-no-maritime.json
+# vector_style_url: παραλείπεται, ώστε να ισχύει το default (upstream CARTO style)
 ckanext.data_gov_gr.map_search.vector_fallback_basemap = carto_light_all
 ```
 
@@ -85,7 +134,7 @@ ckanext.data_gov_gr.map_search.vector_fallback_basemap = carto_light_all
 ```ini
 # Παράδειγμα (κοινός χάρτης με CARTO vector)
 ckanext.spatial.common_map.type = carto_vector
-ckanext.spatial.common_map.carto_vector.style_url = https://basemaps.cartocdn.com/gl/positron-gl-style/style.json
+# carto_vector.style_url: παραλείπεται, ώστε να ισχύει το default (upstream CARTO style)
 ckanext.spatial.common_map.carto_vector.api_key = YOUR_CARTO_KEY
 ckanext.spatial.common_map.carto_vector.fallback_url = https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png
 ckanext.spatial.common_map.subdomains = abcd
@@ -106,7 +155,7 @@ ckanext.spatial.common_map.attribution = &copy; OpenStreetMap contributors &copy
 ```ini
 # --- Κοινός χάρτης: spatial coverage + resource views (Leaflet & OpenLayers) ---
 ckanext.spatial.common_map.type = carto_vector
-ckanext.spatial.common_map.carto_vector.style_url = /basemaps/carto-positron-el-no-maritime.json
+# carto_vector.style_url: παραλείπεται, ώστε να ισχύει το default (upstream CARTO style)
 ckanext.spatial.common_map.carto_vector.fallback_url = https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png
 ckanext.spatial.common_map.carto_vector.api_key =
 # Raster fallback + attribution (όταν αποτύχει το vector layer)
@@ -116,7 +165,7 @@ ckanext.spatial.common_map.attribution = &copy; OpenStreetMap contributors &copy
 
 # --- Χάρτης αναζήτησης datasets ---
 ckanext.data_gov_gr.map_search.basemap = carto_vector
-ckanext.data_gov_gr.map_search.vector_style_url = /basemaps/carto-positron-el-no-maritime.json
+# vector_style_url: παραλείπεται, ώστε να ισχύει το default (upstream CARTO style)
 ckanext.data_gov_gr.map_search.vector_fallback_basemap = carto_light_all
 ckanext.data_gov_gr.map_search.carto_api_key =
 ```

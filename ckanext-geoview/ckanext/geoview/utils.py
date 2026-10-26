@@ -2,12 +2,13 @@
 
 import json
 import logging
-from six.moves.urllib.parse import urlencode, urlsplit, parse_qs
+from six.moves.urllib.parse import parse_qsl, urlencode, urlsplit
 
 import requests
 
 from ckan import plugins as p
 from ckan.plugins import toolkit
+from ckanext.geoview import safe_http
 
 log = logging.getLogger(__name__)
 
@@ -17,6 +18,12 @@ GEOJSON_MAX_COORDINATES = 400000
 
 
 SERVICE_PROXY_MAX_FILE_SIZE_MB = 3
+SERVICE_PROXY_CONNECT_TIMEOUT = 10
+SERVICE_PROXY_READ_TIMEOUT = 90
+SERVICE_PROXY_MAX_REDIRECTS = 10
+SERVICE_PROXY_MAX_CONNECT_TIMEOUT = 60
+SERVICE_PROXY_MAX_READ_TIMEOUT = 300
+SERVICE_PROXY_MAX_REDIRECT_LIMIT = 20
 CHUNK_SIZE = 512
 
 # HTTP request parameters that may conflict with OGC services
@@ -49,11 +56,11 @@ def _plain_text_response(status_code, body):
     return response
 
 
-def _service_proxy_too_large_response(max_file_size, actual_size, url):
+def _service_proxy_too_large_response(max_file_size, actual_size):
     message = (
         "Content is too large to be proxied. Allowed file size: {allowed}, "
-        "Content-Length: {actual}. Url: {url}"
-    ).format(allowed=max_file_size, actual=actual_size, url=url)
+        "Content-Length: {actual}."
+    ).format(allowed=max_file_size, actual=actual_size)
     return _plain_text_response(409, message)
 
 
@@ -92,46 +99,91 @@ def proxy_service_resource(request, context, data_dict):
     return proxy_service_url(request, url)
 
 
-def proxy_service_url(req, url):
-
-    parts = urlsplit(url)
-    if not parts.scheme or not parts.netloc:
-        toolkit.abort(409, detail="Invalid URL.")
-
+def _prepare_service_proxy_request(req, url):
+    method = req.environ["REQUEST_METHOD"]
     try:
-        method = req.environ["REQUEST_METHOD"]
+        parts = urlsplit(url)
+        hostname = parts.hostname
+        port = parts.port
+    except (TypeError, ValueError) as exc:
+        raise safe_http.UnsafeProxyUrl("URL is malformed.") from exc
+    if not parts.scheme or not parts.netloc:
+        raise safe_http.UnsafeProxyUrl("URL is missing a scheme or host.")
+    if not hostname:
+        raise safe_http.UnsafeProxyUrl("URL hostname is missing.")
+    if port is not None and not 1 <= port <= 65535:
+        raise safe_http.UnsafeProxyUrl("URL port is invalid.")
+    parts = _force_http_for_configured_hosts(parts)
+    params = parse_qsl(parts.query, keep_blank_values=True)
 
-        parts = _force_http_for_configured_hosts(parts)
-        params = parse_qs(parts.query)
+    if not p.toolkit.asbool(
+        toolkit.config.get(
+            "ckanext.geoview.forward_ogc_request_params", "False"
+        )
+    ):
+        # Remove conflicting parameters from the stored resource URL.  The
+        # viewer's current OGC parameters are appended below unchanged.
+        params = [
+            (key, value)
+            for key, value in params
+            if key.lower() not in OGC_EXCLUDED_PARAMS
+        ]
+        parts = parts._replace(query=urlencode(params))
 
-        if not p.toolkit.asbool(
-            toolkit.config.get(
-                "ckanext.geoview.forward_ogc_request_params", "False"
-            )
-        ):
-            # remove query parameters that may conflict with OGC protocols
-            for key in dict(params):
-                if key.lower() in OGC_EXCLUDED_PARAMS:
-                    del params[key]
-            parts = parts._replace(query=urlencode(params))
+    parts = parts._replace(fragment="")
+    url = parts.geturl()
 
-        parts = parts._replace(fragment="")  # remove potential fragment
-        url = parts.geturl()
-        if method == "POST":
-            length = int(req.environ["CONTENT_LENGTH"])
-            headers = {"Content-Type": req.environ["CONTENT_TYPE"]}
-            body = req.body
-            r = requests.post(url, data=body, headers=headers, stream=True)
-        else:
-            r = requests.get(url, params=req.query_string, stream=True)
+    headers = {}
+    body = None
+    if method == "POST":
+        content_type = req.environ.get("CONTENT_TYPE")
+        if content_type:
+            headers["Content-Type"] = content_type
+        body = req.get_data() if hasattr(req, "get_data") else req.body
+    else:
+        method = "GET"
+        query_string = req.query_string
+        if isinstance(query_string, bytes):
+            query_string = query_string.decode("latin-1")
+        if query_string:
+            separator = "&" if urlsplit(url).query else "?"
+            url = "{0}{1}{2}".format(url, separator, query_string)
 
-        # log.info('Request: {req}'.format(req=r.request.url))
-        # log.info('Request Headers: {h}'.format(h=r.request.headers))
+    return method, url, headers, body
+
+
+def proxy_service_url(req, url):
+    upstream_response = None
+    try:
+        method, url, headers, body = _prepare_service_proxy_request(req, url)
+
+        upstream_response = safe_http.safe_request(
+            method,
+            url,
+            headers=headers,
+            body=body,
+            timeout=(
+                get_service_proxy_connect_timeout(),
+                get_service_proxy_read_timeout(),
+            ),
+            max_redirects=get_service_proxy_max_redirects(),
+        )
 
         max_file_size = get_service_proxy_max_file_size()
-        cl = r.headers.get("content-length")
-        if cl and int(cl) > max_file_size:
-            return _service_proxy_too_large_response(max_file_size, cl, url)
+        content_length = upstream_response.headers.get("content-length")
+        try:
+            declared_size = int(content_length) if content_length else None
+        except (TypeError, ValueError):
+            declared_size = None
+        if declared_size is not None and declared_size > max_file_size:
+            log.warning(
+                "Geoview service proxy rejected an oversized response from %s",
+                _hostname_for_log(url),
+            )
+            return _service_proxy_too_large_response(
+                max_file_size,
+                declared_size,
+            )
         if toolkit.check_ckan_version("2.9"):
             from flask import make_response
 
@@ -139,37 +191,67 @@ def proxy_service_url(req, url):
         else:
             response = toolkit.response
 
-        response.content_type = r.headers["content-type"]
-        response.charset = r.encoding
+        response.content_type = upstream_response.headers.get(
+            "content-type", "application/octet-stream"
+        )
+        if upstream_response.encoding:
+            response.charset = upstream_response.encoding
 
         length = 0
-        for chunk in r.iter_content(chunk_size=CHUNK_SIZE):
+        for chunk in upstream_response.iter_content(chunk_size=CHUNK_SIZE):
+            length += len(chunk)
+            if length > max_file_size:
+                log.warning(
+                    "Geoview service proxy stopped an oversized stream from %s",
+                    _hostname_for_log(url),
+                )
+                return _service_proxy_too_large_response(max_file_size, length)
+
             if toolkit.check_ckan_version("2.9"):
                 response.data += chunk
             else:
                 response.body_file.write(chunk)
-            length += len(chunk)
 
-            if length >= max_file_size:
-                return _service_proxy_too_large_response(max_file_size, length, url)
-
-    except requests.exceptions.HTTPError as error:
-        details = "Could not proxy resource. Server responded with %s %s" % (
-            error.response.status_code,
-            error.response.reason,
+    except safe_http.UnsafeProxyUrl as error:
+        log.warning(
+            "Geoview service proxy blocked host %s: %s",
+            _hostname_for_log(url),
+            error,
         )
-        toolkit.abort(409, detail=details)
+        toolkit.abort(
+            409,
+            detail="Could not proxy resource because the upstream URL is not allowed.",
+        )
+    except requests.exceptions.Timeout:
+        log.warning(
+            "Geoview service proxy timed out while contacting host %s",
+            _hostname_for_log(url),
+        )
+        toolkit.abort(
+            504,
+            detail="Could not proxy resource because the connection timed out.",
+        )
     except requests.exceptions.ConnectionError as error:
-        details = (
-            """Could not proxy resource because a
-                            connection error occurred. %s"""
-            % error
+        log.warning(
+            "Geoview service proxy could not connect to host %s: %s",
+            _hostname_for_log(url),
+            error,
         )
-        toolkit.abort(502, detail=details)
-    except requests.exceptions.Timeout as error:
-        details = "Could not proxy resource because the connection timed out."
-        toolkit.abort(504, detail=details)
+        toolkit.abort(
+            502,
+            detail="Could not proxy resource because an upstream connection error occurred.",
+        )
+    finally:
+        if upstream_response is not None:
+            upstream_response.close()
     return response
+
+
+def _hostname_for_log(url):
+    try:
+        return urlsplit(url).hostname or "<missing>"
+    except (TypeError, ValueError):
+        return "<invalid>"
 
 
 def get_common_map_config():
@@ -227,7 +309,31 @@ def get_service_proxy_max_file_size():
     return max_file_size_mb * 1024 * 1024
 
 
-def _get_positive_int_config(config_key, default):
+def get_service_proxy_connect_timeout():
+    return _get_positive_int_config(
+        "ckanext.geoview.service_proxy.connect_timeout",
+        SERVICE_PROXY_CONNECT_TIMEOUT,
+        SERVICE_PROXY_MAX_CONNECT_TIMEOUT,
+    )
+
+
+def get_service_proxy_read_timeout():
+    return _get_positive_int_config(
+        "ckanext.geoview.service_proxy.read_timeout",
+        SERVICE_PROXY_READ_TIMEOUT,
+        SERVICE_PROXY_MAX_READ_TIMEOUT,
+    )
+
+
+def get_service_proxy_max_redirects():
+    return _get_positive_int_config(
+        "ckanext.geoview.service_proxy.max_redirects",
+        SERVICE_PROXY_MAX_REDIRECTS,
+        SERVICE_PROXY_MAX_REDIRECT_LIMIT,
+    )
+
+
+def _get_positive_int_config(config_key, default, maximum=None):
     value = toolkit.config.get(config_key)
     if value is None or (hasattr(value, "strip") and not value.strip()):
         return default
@@ -237,7 +343,11 @@ def _get_positive_int_config(config_key, default):
     except (TypeError, ValueError):
         return default
 
-    return value if value > 0 else default
+    if value <= 0:
+        return default
+    if maximum is not None:
+        return min(value, maximum)
+    return value
 
 
 def get_openlayers_viewer_config():

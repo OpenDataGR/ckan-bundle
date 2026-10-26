@@ -58,7 +58,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // Επιλογή basemap από server-side config (εκτεθειμένο στο DOM)
     const basemapKey = (mapElement.dataset.basemap || 'carto_light_all').trim();
     const cartoApiKey = (mapElement.dataset.cartoApiKey || '').trim();
-    const vectorStyleUrl = (mapElement.dataset.vectorStyleUrl || '/basemaps/carto-positron-el-no-maritime.json').trim();
+    const vectorStyleUrl = (mapElement.dataset.vectorStyleUrl || '').trim();
     const vectorFallbackBasemap = (mapElement.dataset.vectorFallbackBasemap || 'carto_light_all').trim();
 
     function cartoTileUrl(url) {

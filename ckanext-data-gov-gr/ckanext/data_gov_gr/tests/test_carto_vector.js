@@ -89,7 +89,22 @@ const prepared = helper.prepareStyle({
       type: 'line',
       'source-layer': 'boundary',
       filter: ['all', ['==', 'admin_level', 2], ['==', 'maritime', 1]]
-    }
+    },
+    {
+      type: 'symbol',
+      'source-layer': 'places',
+      filter: ['==', ['get', 'kind'], 'country'],
+      layout: {
+        'text-field': [
+          'step', ['zoom'],
+          ['coalesce', ['get', 'name:en'], ['get', 'name']],
+          13,
+          ['case', ['has', 'name2'], ['concat', ['get', 'name'], ' ', ['get', 'name2']], ['get', 'name']]
+        ]
+      }
+    },
+    {type: 'symbol', 'source-layer': 'buildings', layout: {'text-field': ['get', 'addr_housenumber']}},
+    {type: 'line', 'source-layer': 'boundaries', filter: ['==', ['get', 'kind_detail'], 2]}
   ]
 });
 
@@ -101,23 +116,35 @@ assert.deepStrictEqual(
   JSON.parse(JSON.stringify(prepared.layers[1].filter)),
   ['all', ['==', 'admin_level', 2], ['==', 'maritime', 0]]
 );
-
-const style = JSON.parse(
-  fs.readFileSync(
-    path.join(publicDirectory, 'basemaps', 'carto-positron-el-no-maritime.json'),
-    'utf8'
-  )
+assert.deepStrictEqual(
+  JSON.parse(JSON.stringify(prepared.layers[2].layout['text-field'])),
+  [
+    'coalesce',
+    ['get', 'name:el'],
+    [
+      'case',
+      ['has', 'name3'], ['concat', ['get', 'name'], ' ', ['get', 'name2'], ' ', ['get', 'name3']],
+      ['has', 'name2'], ['concat', ['get', 'name'], ' ', ['get', 'name2']],
+      ['get', 'name']
+    ],
+    ['get', 'name:en']
+  ],
+  'CARTO v2 labels must prefer name:el, then the local name, then name:en at every zoom'
 );
-const boundaryLayers = style.layers.filter(
-  (layer) => layer['source-layer'] === 'boundary'
+assert.deepStrictEqual(
+  JSON.parse(JSON.stringify(prepared.layers[2].filter)),
+  ['all', ['==', ['get', 'kind'], 'country'], ['!=', ['get', 'wikidata'], 'Q23681']],
+  'CARTO v2 must not label Northern Cyprus as a country'
 );
-assert(boundaryLayers.length > 0, 'The style must contain boundary layers');
-boundaryLayers.forEach((layer) => {
-  assert(
-    JSON.stringify(layer.filter).includes('["==","maritime",0]'),
-    `${layer.id} must exclude maritime boundaries`
-  );
-});
+assert.deepStrictEqual(
+  JSON.parse(JSON.stringify(prepared.layers[4].filter)),
+  ['all', ['==', ['get', 'kind_detail'], 2], ['!=', ['get', 'brk_a3'], 'B20']],
+  'CARTO v2 must not draw the Northern Cyprus (B20) boundaries'
+);
+assert.deepStrictEqual(
+  JSON.parse(JSON.stringify(prepared.layers[3].layout['text-field'])),
+  ['get', 'addr_housenumber']
+);
 
 sandbox.L = {
   layerGroup: function () {

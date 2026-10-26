@@ -22,6 +22,7 @@
     "url": "git+https://github.com/ckan/ckanext-geoview.git"
   },
   "scripts": {
+    "test": "node --test tests/js/*.test.js",
     "update-libs": "./update-js-libs.sh"
   },
   "keywords": [],

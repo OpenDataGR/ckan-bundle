@@ -6,8 +6,10 @@ for convenience.
 import logging
 from urllib.parse import urlencode, urlparse, urlunparse
 
+import requests
 from owslib.etree import etree
 from owslib.fes import PropertyIsEqualTo, SortBy, SortProperty
+from owslib.util import Authentication
 
 log = logging.getLogger(__name__)
 
@@ -15,9 +17,9 @@ class CswError(Exception):
     pass
 
 class OwsService(object):
-    def __init__(self, endpoint=None):
+    def __init__(self, endpoint=None, **kw):
         if endpoint is not None:
-            self._ows(endpoint)
+            self._ows(endpoint, **kw)
 
     def __call__(self, args):
         return getattr(self, args.operation)(**self._xmd(args))
@@ -50,7 +52,7 @@ class OwsService(object):
         if not hasattr(self, "__ows_obj__"):
             if endpoint is None:
                 raise ValueError("Must specify a service endpoint")
-            self.__ows_obj__ = self._Implementation(endpoint)
+            self.__ows_obj__ = self._Implementation(endpoint, **kw)
         return self.__ows_obj__
 
     def getcapabilities(self, debug=False, **kw):
@@ -68,9 +70,17 @@ class CswService(OwsService):
     """
     from owslib.catalogue.csw2 import CatalogueServiceWeb as _Implementation
 
-    def __init__(self, endpoint=None):
-        super(CswService, self).__init__(endpoint)
+    def __init__(self, endpoint=None, verify=True):
+        self.verify = verify
+        self._session = requests.Session()
+        self._session.verify = verify
+        auth = Authentication(verify=verify)
+        super(CswService, self).__init__(endpoint, auth=auth)
         self.sortby = SortBy([SortProperty('dc:identifier')])
+
+    def http_get(self, url, timeout=30, **kw):
+        """Make a GET request using this CSW source's TLS policy."""
+        return self._session.get(url, timeout=timeout, **kw)
 
     def getrecords(self, qtype=None, keywords=[],
                    typenames="csw:Record", esn="brief",
@@ -149,13 +159,11 @@ class CswService(OwsService):
                             initial_params['constraintLanguage'] = 'CQL_TEXT'
                             initial_params['constraint'] = cql
 
-                        import requests
-                        from urllib.parse import urlencode, urlparse, urlunparse
                         url_parts = urlparse(self._ows(**kw).url)
                         url = urlunparse(
                             (url_parts.scheme, url_parts.netloc, url_parts.path, '', urlencode(initial_params), ''))
 
-                        response = requests.get(url, verify=False, timeout=30)
+                        response = self.http_get(url, timeout=30)
                         response.raise_for_status()
 
                         from lxml import etree as lxml_etree
@@ -237,7 +245,6 @@ class CswService(OwsService):
                                   keywords=[], page=10, outputschema="gmd",
                                   startposition=0, cql=None, **kw):
         """Alternative implementation using GET requests instead of POST"""
-        import requests
         from lxml import etree as lxml_etree
 
         # Βασικά parameters
@@ -269,8 +276,7 @@ class CswService(OwsService):
         log.info('Making CSW GET request: %s', url)
 
         try:
-            # Απενεργοποίηση SSL verification
-            response = requests.get(url, verify=False, timeout=30)
+            response = self.http_get(url, timeout=30)
             response.raise_for_status()
 
             # Parse XML response

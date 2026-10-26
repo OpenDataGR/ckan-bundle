@@ -5,6 +5,10 @@
   var DEFAULT_RASTER_URL = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
   var DEFAULT_ATTRIBUTION = '&copy; OpenStreetMap contributors &copy; CARTO';
   var CARTO_URL = /^https?:\/\/(?:[^/?#]+\.)*cartocdn\.com(?::\d+)?(?:[/?#]|$)/i;
+  // Η «Τουρκική Δημοκρατία της Βόρειας Κύπρου» στο v2: brk_a3 (Natural Earth)
+  // στα σύνορα και wikidata στο country label.
+  var NORTHERN_CYPRUS_BRK_A3 = 'B20';
+  var NORTHERN_CYPRUS_WIKIDATA = 'Q23681';
 
   function addApiKey(url, apiKey) {
     if (!url || !apiKey || !CARTO_URL.test(url) || /(?:[?&])key=/.test(url)) {
@@ -34,6 +38,47 @@
     ];
   }
 
+  // v2 (Protomaps schema): ίδια σειρά με το v1, δηλαδή name:el, τοπικό όνομα,
+  // αγγλικό. Τα name2/name3 κρατούν τα κομμάτια ονομάτων με μικτό αλφάβητο.
+  function greekLocalNameExpression() {
+    return [
+      'coalesce',
+      ['get', 'name:el'],
+      [
+        'case',
+        ['has', 'name3'],
+        ['concat', ['get', 'name'], ' ', ['get', 'name2'], ' ', ['get', 'name3']],
+        ['has', 'name2'],
+        ['concat', ['get', 'name'], ' ', ['get', 'name2']],
+        ['get', 'name']
+      ],
+      ['get', 'name:en']
+    ];
+  }
+
+  // Τα v2 labels της CARTO διαλέγουν ανάμεσα σε name, name:en, name2, name3
+  // ανάλογα με το zoom (π.χ. name:en κάτω από 13). Όσα διαβάζουν όνομα
+  // αντικαθίστανται ολόκληρα· τα υπόλοιπα (π.χ. αριθμοί σπιτιών) μένουν.
+  function referencesNameProperty(expression) {
+    if (!Array.isArray(expression)) {
+      return false;
+    }
+
+    if (
+      expression[0] === 'get' &&
+      typeof expression[1] === 'string' &&
+      /^name(?:$|[:_0-9])/.test(expression[1])
+    ) {
+      return true;
+    }
+
+    return expression.some(referencesNameProperty);
+  }
+
+  function withCondition(filter, condition) {
+    return Array.isArray(filter) && filter.length ? ['all', filter, condition] : condition;
+  }
+
   function isNameToken(value) {
     return value === '{name}' || value === '{name_en}' || value === '{name:el}';
   }
@@ -57,24 +102,20 @@
     var maritimeFilter = ['==', 'maritime', 0];
     var result;
 
-    if (!Array.isArray(filter) || !filter.length) {
-      return maritimeFilter;
+    if (!Array.isArray(filter) || filter[0] !== 'all') {
+      return withCondition(filter, maritimeFilter);
     }
 
-    if (filter[0] === 'all') {
-      result = filter.filter(function (part, index) {
-        return !(
-          index > 0 &&
-          Array.isArray(part) &&
-          part.length > 1 &&
-          part[1] === 'maritime'
-        );
-      });
-      result.push(maritimeFilter);
-      return result;
-    }
-
-    return ['all', filter, maritimeFilter];
+    result = filter.filter(function (part, index) {
+      return !(
+        index > 0 &&
+        Array.isArray(part) &&
+        part.length > 1 &&
+        part[1] === 'maritime'
+      );
+    });
+    result.push(maritimeFilter);
+    return result;
   }
 
   function prepareStyle(style) {
@@ -84,16 +125,35 @@
     prepared.metadata['data-gov-gr:hide-maritime-boundaries'] = true;
 
     (prepared.layers || []).forEach(function (layer) {
-      if (
-        layer.type === 'symbol' &&
-        layer.layout &&
-        isNameField(layer.layout['text-field'])
-      ) {
-        layer.layout['text-field'] = greekNameExpression();
+      if (layer.type === 'symbol' && layer.layout) {
+        if (isNameField(layer.layout['text-field'])) {
+          layer.layout['text-field'] = greekNameExpression();
+        } else if (referencesNameProperty(layer.layout['text-field'])) {
+          layer.layout['text-field'] = greekLocalNameExpression();
+        }
       }
 
+      // Legacy v1 (OpenMapTiles): τα θαλάσσια σύνορα έχουν maritime=1. Το v2
+      // δεν έχει το πεδίο· τα θαλάσσια τμήματα των διοικητικών ορίων του
+      // σχεδιάζονται κάτω από τη θάλασσα στο style της CARTO και δεν φαίνονται.
       if (layer['source-layer'] === 'boundary') {
         layer.filter = nonMaritimeFilter(layer.filter);
+      }
+
+      // v2: χωρίς γραμμή κατοχής και label χώρας για τα κατεχόμενα στην
+      // Κύπρο, όπως στο v1. Τα υπόλοιπα σύνορα μένουν όπως τα δίνει η CARTO.
+      if (layer['source-layer'] === 'boundaries') {
+        layer.filter = withCondition(
+          layer.filter,
+          ['!=', ['get', 'brk_a3'], NORTHERN_CYPRUS_BRK_A3]
+        );
+      }
+
+      if (layer['source-layer'] === 'places') {
+        layer.filter = withCondition(
+          layer.filter,
+          ['!=', ['get', 'wikidata'], NORTHERN_CYPRUS_WIKIDATA]
+        );
       }
     });
 

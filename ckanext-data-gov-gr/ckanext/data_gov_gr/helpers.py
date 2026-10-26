@@ -332,7 +332,7 @@ def map_search_carto_api_key() -> str:
 def map_search_vector_style_url() -> str:
     return toolkit.config.get(
         'ckanext.data_gov_gr.map_search.vector_style_url',
-        '/basemaps/carto-positron-el-no-maritime.json',
+        'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
     ).strip()
 
 

@@ -134,6 +134,14 @@ class CSWHarvester(SpatialHarvester, SingletonPlugin):
             obj.save()
             ids.append(obj.id)
 
+        log.info(
+            '[CSW] Gather completed: total=%d new=%d change=%d delete=%d',
+            len(ids),
+            len(new),
+            len(change),
+            len(delete),
+        )
+
         if len(ids) == 0:
             self._save_gather_error('No records received from the CSW server', harvest_job)
             return None
@@ -144,6 +152,7 @@ class CSWHarvester(SpatialHarvester, SingletonPlugin):
 
         # Check harvest object status
         status = self._get_object_extra(harvest_object, 'status')
+        progress = self._log_fetch_progress(harvest_object, status=status)
 
         if status == 'delete':
             # No need to fetch anything, just pass to the import stage
@@ -170,6 +179,7 @@ class CSWHarvester(SpatialHarvester, SingletonPlugin):
         try:
             self._setup_csw_client(url)
         except Exception as e:
+            self._log_fetch_failed(harvest_object, progress, 'contacting CSW server')
             self._save_object_error('Error contacting the CSW server: %s' % e,
                                     harvest_object)
             return False
@@ -179,6 +189,7 @@ class CSWHarvester(SpatialHarvester, SingletonPlugin):
         # ΠΡΟΣΘΗΚΗ: Έλεγχος αν το identifier είναι πραγματικό GUID ή error message
         if 'Start position' in identifier or 'greater than' in identifier:
             log.warning('Skipping invalid identifier (error message): %s', identifier)
+            self._log_fetch_failed(harvest_object, progress, 'invalid identifier')
             self._save_object_error('Invalid identifier (error message): %s' % identifier, harvest_object)
             return False
 
@@ -194,6 +205,7 @@ class CSWHarvester(SpatialHarvester, SingletonPlugin):
                 record = self._get_record_by_id_using_get(identifier, self.output_schema())
 
             if record is None:
+                self._log_fetch_failed(harvest_object, progress, 'empty CSW record')
                 self._save_object_error('Empty record for GUID %s' % identifier, harvest_object)
                 return False
 
@@ -201,7 +213,7 @@ class CSWHarvester(SpatialHarvester, SingletonPlugin):
                 # Save the fetch contents in the HarvestObject
                 # Contents come from csw_client already declared and encoded as utf-8
                 # Remove original XML declaration
-                content = re.sub('<\?xml(.*)\?>', '', record['xml'])
+                content = re.sub(r'<\?xml(.*)\?>', '', record['xml'])
 
                 # NEW: heal common ISO19139 invalid patterns from upstream CSW
                 content = self._heal_iso19139_common_issues(content)
@@ -209,16 +221,112 @@ class CSWHarvester(SpatialHarvester, SingletonPlugin):
                 harvest_object.content = content.strip()
                 harvest_object.save()
             except Exception as e:
+                self._log_fetch_failed(harvest_object, progress, 'saving XML')
                 self._save_object_error('Error saving the harvest object for GUID %s [%r]' % \
                                         (identifier, e), harvest_object)
                 return False
 
             log.debug('XML content saved (len %s)', len(record['xml']))
+            self._log_fetch_completed(
+                harvest_object,
+                progress,
+                byte_count=len(record['xml'].encode('utf-8')),
+            )
             return True
 
         except Exception as e:
+            self._log_fetch_failed(harvest_object, progress, 'retrieving CSW record')
             self._save_object_error('Error getting the CSW record with GUID %s' % identifier, harvest_object)
             return False
+
+    def _log_fetch_progress(self, harvest_object, status=None):
+        """Log best-effort per-job CSW fetch progress.
+
+        ``fetch_finished`` is set by the harvest runner after ``fetch_stage``
+        returns. Therefore ``processed + 1`` represents the current object. As
+        with the WMS harvester progress log, parallel workers may emit lines
+        out of order or with the same position.
+        """
+        log = logging.getLogger(__name__ + '.CSW.fetch')
+        try:
+            job_id = getattr(harvest_object, 'harvest_job_id', None)
+            if not job_id:
+                return None
+
+            if not hasattr(self, '_job_total_cache'):
+                self._job_total_cache = {}
+
+            if job_id not in self._job_total_cache:
+                total = (
+                    model.Session.query(HarvestObject)
+                    .filter(HarvestObject.harvest_job_id == job_id)
+                    .count()
+                )
+                self._job_total_cache[job_id] = total
+
+            total = self._job_total_cache[job_id]
+            processed = (
+                model.Session.query(HarvestObject)
+                .filter(HarvestObject.harvest_job_id == job_id)
+                .filter(HarvestObject.fetch_finished.isnot(None))
+                .count()
+            )
+
+            current = min(processed + 1, total) if total else processed + 1
+            if status is None:
+                status = self._get_object_extra(harvest_object, 'status')
+            status = status or 'unknown'
+            guid = getattr(harvest_object, 'guid', '?')
+            package_id = getattr(harvest_object, 'package_id', None) or '-'
+
+            log.info(
+                '[CSW] Processing %d/%d: status=%s guid=%s package_id=%s',
+                current,
+                total,
+                status,
+                guid,
+                package_id,
+            )
+            return {
+                'current': current,
+                'total': total,
+                'status': status,
+            }
+        except Exception:
+            log.debug('[CSW] Could not log fetch progress', exc_info=True)
+            return None
+
+    def _log_fetch_completed(self, harvest_object, progress, byte_count):
+        """Log successful XML retrieval without affecting the fetch result."""
+        log = logging.getLogger(__name__ + '.CSW.fetch')
+        try:
+            if not progress:
+                return
+            log.info(
+                '[CSW] Fetched %d/%d: guid=%s bytes=%d',
+                progress['current'],
+                progress['total'],
+                getattr(harvest_object, 'guid', '?'),
+                byte_count,
+            )
+        except Exception:
+            log.debug('[CSW] Could not log fetch completion', exc_info=True)
+
+    def _log_fetch_failed(self, harvest_object, progress, reason):
+        """Log a failed XML retrieval without masking the original failure."""
+        log = logging.getLogger(__name__ + '.CSW.fetch')
+        try:
+            if not progress:
+                return
+            log.warning(
+                '[CSW] Failed %d/%d: guid=%s reason=%s',
+                progress['current'],
+                progress['total'],
+                getattr(harvest_object, 'guid', '?'),
+                reason,
+            )
+        except Exception:
+            log.debug('[CSW] Could not log fetch failure', exc_info=True)
 
     def _heal_iso19139_common_issues(self, xml_string: str) -> str:
         """
@@ -394,7 +502,6 @@ class CSWHarvester(SpatialHarvester, SingletonPlugin):
     # ΠΡΟΣΘΗΚΗ: Νέα μέθοδος για GET-based getrecordbyid
     def _get_record_by_id_using_get(self, identifier, outputschema="gmd"):
         """Alternative implementation using GET requests for getrecordbyid"""
-        import requests
         from urllib.parse import urlencode, urlparse, urlunparse
         from lxml import etree as lxml_etree
 
@@ -421,7 +528,7 @@ class CSWHarvester(SpatialHarvester, SingletonPlugin):
         log.info('Making CSW GET request for record: %s', url)
 
         try:
-            response = requests.get(url, verify=False, timeout=30)
+            response = self.csw.http_get(url, timeout=30)
             response.raise_for_status()
 
             # Parse XML response
@@ -460,13 +567,10 @@ class CSWHarvester(SpatialHarvester, SingletonPlugin):
 
     def _setup_csw_client(self, url):
         """
-        Initializes the CSW client with optional SSL verification bypass.
+        Initialize the CSW client with a per-source TLS verification policy.
 
-        SSL verification can be disabled per harvest source by setting:
+        TLS certificate verification can be disabled per harvest source by setting:
         "disable_ssl_verification": true in the harvest source configuration.
-
-        This method uses temporary monkey patching to disable SSL verification
-        only during CSW client creation, then restores normal behavior.
 
         Args:
             url (str): The CSW server URL
@@ -476,59 +580,26 @@ class CSWHarvester(SpatialHarvester, SingletonPlugin):
 
         Sets:
             self.csw: The configured CSW client
-            self._custom_session: Requests session with SSL settings (or None)
         """
-        import requests
-        import urllib3
-
         log = logging.getLogger(__name__ + '.CSW.setup')
 
-        # STEP 1: Parse harvest source configuration for SSL verification setting
         disable_ssl_verification = False
         if hasattr(self, 'source_config') and self.source_config:
             disable_ssl_verification = self.source_config.get('disable_ssl_verification', False)
-            # Handle string values: "true", "1", "yes", "on" -> True
             if isinstance(disable_ssl_verification, str):
-                disable_ssl_verification = disable_ssl_verification.lower() in ('true', '1', 'yes', 'on')
+                disable_ssl_verification = disable_ssl_verification.strip().lower() in (
+                    'true', '1', 'yes', 'on'
+                )
+            else:
+                disable_ssl_verification = bool(disable_ssl_verification)
 
+        verify_tls = not disable_ssl_verification
         if disable_ssl_verification:
-            log.warning('SSL verification disabled for CSW client: %s', url)
-
-            # STEP 2: Suppress SSL warnings to avoid log pollution
-            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
-            # STEP 3: Create a dedicated requests Session with SSL verification disabled
-            # This session is stored for potential future use in custom GET requests
-            session = requests.Session()
-            session.verify = False  # Disable SSL certificate verification
-            self._custom_session = session
-
-            # STEP 4: Store original requests functions for restoration
-            original_request = requests.request
-
-            # Create temporary patched function that always disables SSL verification
-            def temp_patched_request(*args, **kwargs):
-                kwargs['verify'] = False
-                return original_request(*args, **kwargs)
-
-            # STEP 5: Apply temporary monkey patch
-            # This affects ONLY the CSW client creation process
-            requests.request = temp_patched_request
-
-            try:
-                # STEP 6: Create CSW client while monkey patch is active
-                # The client will be created with SSL verification disabled
-                self.csw = CswService(url)
-                log.info('CSW client created with SSL verification disabled')
-
-            finally:
-                # STEP 7: CRITICAL - Restore original functions immediately
-                # This ensures other parts of CKAN are not affected by our changes
-                requests.request = original_request
-                log.debug('Restored original requests functions after CSW client creation')
-
+            log.warning(
+                'TLS certificate verification explicitly disabled for CSW source: %s',
+                url,
+            )
         else:
-            # STEP 8: Normal SSL-enabled initialization
-            log.info('SSL verification enabled for CSW client: %s', url)
-            self.csw = CswService(url)
-            self._custom_session = None
+            log.info('TLS certificate verification enabled for CSW source: %s', url)
+
+        self.csw = CswService(url, verify=verify_tls)

@@ -214,12 +214,12 @@ def test_map_search_carto_api_key_helper_is_registered():
     )
 
 
-def test_map_search_vector_style_url_defaults_to_local_style(monkeypatch):
+def test_map_search_vector_style_url_defaults_to_carto_style(monkeypatch):
     config_key = "ckanext.data_gov_gr.map_search.vector_style_url"
     monkeypatch.delitem(helpers.toolkit.config, config_key, raising=False)
 
     assert helpers.map_search_vector_style_url() == (
-        "/basemaps/carto-positron-el-no-maritime.json"
+        "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json"
     )
 
 

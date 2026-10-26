@@ -318,7 +318,7 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         )
         declaration.declare(
             root.map_search.vector_style_url,
-            "/basemaps/carto-positron-el-no-maritime.json",
+            "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
         ).set_description(
             "Mapbox/MapLibre Style JSON URL used when the dataset search basemap "
             "is carto_vector."

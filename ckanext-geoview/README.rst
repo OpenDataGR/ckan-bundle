@@ -307,6 +307,21 @@ Note that this relies on the resource ``size`` field being set (ie it will only 
 
 Μπορείτε να χρησιμοποιήσετε την επιλογή ``ckanext.geoview.service_proxy.max_file_size_mb`` για να ορίσετε το μέγιστο μέγεθος απόκρισης, σε MB, που θα ανακτά το geoview service proxy για OGC services όπως WMS, WFS και WMTS. Η προεπιλογή είναι 3 MB.
 
+Το service proxy ελέγχει τον δικτυακό προορισμό κάθε request και redirect και
+επιτρέπει μόνο δημόσιες διευθύνσεις HTTP/HTTPS. Τα timeouts και το όριο των
+redirects μπορούν να ρυθμιστούν ως εξής::
+
+    ckanext.geoview.service_proxy.connect_timeout = 10
+    ckanext.geoview.service_proxy.read_timeout = 90
+    ckanext.geoview.service_proxy.max_redirects = 10
+    ckanext.geoview.service_proxy.max_file_size_mb = 3
+
+Το ``read_timeout`` είναι ο μέγιστος χρόνος αναμονής μεταξύ διαδοχικών bytes
+και όχι συνολικό χρονικό όριο ολόκληρης της απόκρισης. Κάθε redirect
+επανελέγχεται πριν ακολουθηθεί. Η ρύθμιση ``force_http_hosts`` εξακολουθεί να
+εφαρμόζεται μόνο στο αρχικό resource URL· ο τελικός HTTP προορισμός πρέπει και
+πάλι να επιλύεται αποκλειστικά σε δημόσιες IP διευθύνσεις.
+
 
 
 
