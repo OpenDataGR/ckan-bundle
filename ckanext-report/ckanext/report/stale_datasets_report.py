@@ -397,12 +397,6 @@ def _report_data(table, counts, total_organizations=None):
     return data
 
 
-def _index_report_data(table, counts):
-    data = _report_data(table, counts, total_organizations=len(table))
-    data['_requires_post_access_filter'] = True
-    return data
-
-
 def stale_datasets_index():
     '''Returns stale dataset counts grouped by organization.'''
     today = date.today()
@@ -434,7 +428,7 @@ def stale_datasets_index():
             ('stale_percentage', counts['stale_percentage']),
         )))
 
-    return _index_report_data(table, total_counts)
+    return _report_data(table, total_counts, total_organizations=len(table))
 
 
 def stale_datasets_for_organization(organization):
@@ -484,79 +478,6 @@ def _aggregate_rows(table):
     )
 
 
-def _package_is_visible(pkg, context, package_access_cache):
-    package_id = getattr(pkg, 'id', None) or getattr(pkg, 'name', None)
-    if not package_id:
-        return False
-
-    cached_access = package_access_cache.get(package_id)
-    if cached_access is not None:
-        return cached_access
-
-    try:
-        import ckan.logic as logic
-    except Exception:
-        package_access_cache[package_id] = False
-        return False
-
-    try:
-        if hasattr(toolkit, 'fresh_context'):
-            action_context = toolkit.fresh_context(context or {})
-        else:
-            action_context = dict(context or {})
-        logic.check_access('package_show', action_context, {'id': package_id})
-    except toolkit.NotAuthorized:
-        package_access_cache[package_id] = False
-    except Exception:
-        package_access_cache[package_id] = False
-    else:
-        package_access_cache[package_id] = True
-
-    return package_access_cache[package_id]
-
-
-def _visible_packages(packages, context, package_access_cache):
-    for pkg in packages:
-        if _package_is_visible(pkg, context, package_access_cache):
-            yield pkg
-
-
-def _access_filtered_stale_datasets_index(context):
-    today = date.today()
-    total_counts = _empty_counts()
-    table = []
-    package_access_cache = {}
-
-    orgs = model.Session.query(model.Group) \
-        .filter(model.Group.type == 'organization') \
-        .filter(model.Group.state == 'active') \
-        .order_by(model.Group.title, model.Group.name)
-
-    for org in orgs:
-        packages = _active_datasets_query() \
-            .filter(model.Package.owner_org == org.id)
-        counts = _counts_for_packages(
-            _visible_packages(packages, context, package_access_cache),
-            today
-        )
-        if counts['total_packages'] == 0:
-            continue
-
-        _merge_counts(total_counts, counts)
-        counts = _counts_with_percentage(counts)
-        table.append(OrderedDict((
-            ('organization_name', org.name),
-            ('organization_title', _organization_title(org)),
-            ('total_packages', counts['total_packages']),
-            ('num_stale', counts['num_stale']),
-            ('num_ok', counts['num_ok']),
-            ('num_na', counts['num_na']),
-            ('stale_percentage', counts['stale_percentage']),
-        )))
-
-    return _report_data(table, total_counts, total_organizations=len(table))
-
-
 def _status_code_from_row(row):
     if not isinstance(row, dict):
         return STATUS_NA
@@ -597,8 +518,10 @@ def _status_code_from_row(row):
 def stale_datasets_post_access_filter(data, context):
     table = data.get('table', [])
 
+    # Οι γραμμές ανά οργανισμό είναι συγκεντρωτικές και μένουν όπως παρήχθησαν,
+    # όπως στην Ποιότητα Μεταδεδομένων· η σημαία υπάρχει μόνο σε παλιά cached δεδομένα
     if data.pop('_requires_post_access_filter', None) or _aggregate_rows(table):
-        return _access_filtered_stale_datasets_index(context)
+        return data
 
     counts = _empty_counts()
     for row in table:

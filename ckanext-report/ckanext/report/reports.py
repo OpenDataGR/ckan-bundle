@@ -2,6 +2,8 @@
 Working examples - simple tag report.
 '''
 
+from sqlalchemy import and_, func
+
 from ckan import model
 
 try:
@@ -25,7 +27,77 @@ def _organization_title(pkg, cache):
     return cache[owner_org]
 
 
-def tagless_report(organization):
+def _active_package_tag_join():
+    # Όταν αφαιρείται ετικέτα, το CKAN κρατά την εγγραφή package_tag με
+    # state='deleted', οπότε μετρώνται μόνο οι ενεργές
+    return and_(model.PackageTag.package_id == model.Package.id,
+                model.PackageTag.state == 'active')
+
+
+def tagless_report(organization=None):
+    '''
+    Για όλους τους οργανισμούς επιστρέφει συγκεντρωτικά στοιχεία ανά
+    οργανισμό· για συγκεκριμένο οργανισμό, μία γραμμή ανά σύνολο δεδομένων.
+    '''
+    if not organization:
+        return tagless_index()
+    return tagless_for_organization(organization)
+
+
+def tagless_index():
+    '''
+    Συγκεντρωτικά στοιχεία ετικετών ανά οργανισμό, με ένα μόνο ερώτημα στη
+    βάση αντί να φορτώνονται όλα τα σύνολα δεδομένων στον πίνακα.
+    '''
+    # Ίδιο κριτήριο με την προβολή οργανισμού: χωρίς ετικέτες είναι όσα δεν
+    # έχουν καμία ενεργή εγγραφή package_tag
+    num_tags = func.count(model.PackageTag.id)
+    q = model.Session.query(model.Group.id, model.Group.name,
+                            model.Group.title, num_tags) \
+             .join(model.Package, model.Package.owner_org == model.Group.id) \
+             .outerjoin(model.PackageTag, _active_package_tag_join()) \
+             .filter(model.Group.type == 'organization') \
+             .filter(model.Group.state == 'active') \
+             .filter(model.Package.state == 'active')
+    q = lib.filter_datasets_only(q) \
+        .group_by(model.Group.id, model.Package.id)
+
+    rows_by_org = OrderedDict()
+    for org_id, org_name, org_title, pkg_num_tags in q:
+        row = rows_by_org.get(org_id)
+        if row is None:
+            row = rows_by_org[org_id] = OrderedDict((
+                ('organization_name', org_name),
+                ('organization_title', org_title or org_name),
+                ('num_packages', 0),
+                ('tagless_count', 0),
+            ))
+        row['num_packages'] += 1
+        if not pkg_num_tags:
+            row['tagless_count'] += 1
+
+    table = list(rows_by_org.values())
+    for row in table:
+        row['tagged_count'] = row['num_packages'] - row['tagless_count']
+        row['packages_without_tags_percent'] = lib.percent(
+            row['tagless_count'], row['num_packages'])
+    # Πρώτα οι οργανισμοί με τα περισσότερα σύνολα δεδομένων χωρίς ετικέτες
+    table.sort(key=lambda row: (-row['tagless_count'],
+                                row['organization_title'].lower()))
+
+    num_packages = sum(row['num_packages'] for row in table)
+    tagless_count = sum(row['tagless_count'] for row in table)
+    return {
+        'table': table,
+        'total_organizations': len(table),
+        'num_packages': num_packages,
+        'tagless_count': tagless_count,
+        'tagged_count': num_packages - tagless_count,
+        'packages_without_tags_percent': lib.percent(tagless_count, num_packages),
+    }
+
+
+def tagless_for_organization(organization):
     '''
     Produces a report on packages without tags.
     Returns something like this:
@@ -41,27 +113,18 @@ def tagless_report(organization):
          'average_tags_per_package': 3.5,
         }
     '''
-    # Find the packages without tags (excluding showcases)
-    q = model.Session.query(model.Package) \
-             .outerjoin(model.PackageTag) \
-             .filter(model.PackageTag.id == None)  # noqa: E711
+    # Ενεργά σύνολα δεδομένων του οργανισμού (χωρίς showcases, harvest sources κ.λπ.)
+    datasets = model.Session.query(model.Package) \
+                    .filter(model.Package.state == 'active')
+    datasets = lib.filter_datasets_only(datasets)
+    datasets = lib.filter_by_organizations(datasets, organization, False)
 
-    # Filter to include only active datasets (excluding harvest sources)
-    q = q.filter(model.Package.state == 'active')
-    q = lib.filter_datasets_only(q)
-
-    if organization:
-        q = lib.filter_by_organizations(q, organization, False)
-
+    # Find the packages without tags
+    q = datasets.outerjoin(model.PackageTag, _active_package_tag_join()) \
+                .filter(model.PackageTag.id == None)  # noqa: E711
     tagless_names = set(pkg.name for pkg in q.all())
 
-    # Average number of tags per package
-    q = model.Session.query(model.Package)
-    q = q.filter(model.Package.state == 'active')
-    q = lib.filter_datasets_only(q)
-    if organization:
-        q = lib.filter_by_organizations(q, organization, False)
-    packages = q.all()
+    packages = datasets.all()
     num_packages = len(packages)
     organization_cache = {}
 
@@ -78,13 +141,8 @@ def tagless_report(organization):
                                    (row['title'] or '').lower(),
                                    row['name']))
 
-    q = model.Session.query(model.Package)
-    q = q.filter(model.Package.state == 'active')
-    q = lib.filter_datasets_only(q)
-    if organization:
-        q = lib.filter_by_organizations(q, organization, False)
-    q = q.join(model.PackageTag)
-    num_taggings = q.count()
+    # Average number of tags per package
+    num_taggings = datasets.join(model.PackageTag, _active_package_tag_join()).count()
     if num_packages:
         average_tags_per_package = round(float(num_taggings) / num_packages, 1)
     else:
@@ -126,7 +184,7 @@ from ckan.plugins import toolkit
 tagless_report_info = {
     'name': 'tagless-datasets',
     'title': u'Κάλυψη ετικετών συνόλων δεδομένων',
-    'description': u'Σύνοψη ανά σύνολο δεδομένων για την ύπαρξη ετικετών.',
+    'description': u'Σύνοψη ανά οργανισμό και ανά σύνολο δεδομένων για την ύπαρξη ετικετών.',
     'option_defaults': OrderedDict((('organization', None),
                                     )),
     'option_combinations': tagless_report_option_combinations,

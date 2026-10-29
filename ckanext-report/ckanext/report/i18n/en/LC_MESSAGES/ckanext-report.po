@@ -90,6 +90,9 @@ msgstr "Datasets which have no tags."
 msgid "Organizations"
 msgstr "Organizations"
 
+msgid "Organizations with datasets"
+msgstr "Organizations with datasets"
+
 msgid "Total datasets"
 msgstr "Total datasets"
 

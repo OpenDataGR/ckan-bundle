@@ -330,6 +330,9 @@ msgstr "Η πληροφορία δεν είναι διαθέσιμη (π.χ. δ�
 msgid "Organizations"
 msgstr "Οργανισμοί"
 
+msgid "Organizations with datasets"
+msgstr "Οργανισμοί με σύνολα δεδομένων"
+
 msgid "Total datasets"
 msgstr "Σύνολο συνόλων δεδομένων"
 

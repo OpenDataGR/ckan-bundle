@@ -130,9 +130,10 @@ def dataset_notes(pkg):
 
 
 def percent(numerator, denominator):
+    '''Ποσοστό με ένα δεκαδικό ψηφίο, ώστε π.χ. το 0,67% να μη φαίνεται 0%.'''
     if denominator == 0:
         return 100 if numerator else 0
-    return int((numerator * 100.0) / denominator)
+    return round((numerator * 100.0) / denominator, 1)
 
 
 def make_csv_from_dicts(rows):

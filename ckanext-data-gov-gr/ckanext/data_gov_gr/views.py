@@ -40,7 +40,7 @@ GITBOOK_FULL_PRINT_DELAY_MS = 2000
 GITBOOK_PRINT_TEMPLATE = 'data_gov_gr/gitbook/print.html'
 
 
-def _require_sysadmin_for_stats():
+def _require_sysadmin():
     if not current_user.is_authenticated:
         return redirect(toolkit.url_for('user.login', came_from=request.full_path))
 
@@ -52,6 +52,18 @@ def _require_sysadmin_for_stats():
         toolkit.check_access('sysadmin', context, {})
     except NotAuthorized:
         abort(403, toolkit._('User not authorized to view page'))
+    return None
+
+
+@blueprint.before_app_request
+def restrict_organization_admins_page():
+    """
+    Η σελίδα /organization/admins/<id> του core δεν κάνει έλεγχο δικαιωμάτων
+    και δείχνει τους διαχειριστές του οργανισμού σε όλους· επιτρέπεται μόνο
+    σε sysadmin. Τα μέλη βλέπουν τους διαχειριστές τους στο tab «Μέλη».
+    """
+    if request.endpoint == 'organization.admins':
+        return _require_sysadmin()
     return None
 
 
@@ -407,7 +419,7 @@ def stats_top_tags():
 
 @blueprint.route('/stats/top-creators')
 def stats_top_creators():
-    auth_response = _require_sysadmin_for_stats()
+    auth_response = _require_sysadmin()
     if auth_response:
         return auth_response
     stats = DataGovStats()

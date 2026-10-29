@@ -3378,7 +3378,7 @@ def get_stat_data(stat_id, raw_data=None, variant='full'):
             'data': {
                 'xAxisType': 'time',
                 'series': [
-                    {'name': _('Total datasets'), 'data': points},
+                    {'name': _('Total Number of Packages'), 'data': points},
                 ],
             },
             'link': link,

@@ -9,6 +9,11 @@ data - επιπλέον τιμές της αναφοράς, ως λεξικό
 {% set dataset_read_route = 'dataset.read' if ckan_29_or_higher else 'dataset_read' %}
 {% set tagless_count = data['tagless_count'] if data['tagless_count'] is not none else 0 %}
 {% set tagged_count = data['tagged_count'] if data['tagged_count'] is not none else 0 %}
+{# Η συγκεντρωτική προβολή αναγνωρίζεται από πεδίο που βάζει μόνο ο υπολογισμός της, ώστε
+   παλιά cached δεδομένα «όλων των οργανισμών» (ανά σύνολο δεδομένων) να εμφανίζονται ακόμη
+   ως λίστα μέχρι να ανανεωθεί η αναφορά #}
+{% set is_index = 'total_organizations' in data %}
+{% set card_col = 'col-md-3' if is_index else 'col-md-4' %}
 
 <style>
   .pagination > li > a,
@@ -65,19 +70,44 @@ data - επιπλέον τιμές της αναφοράς, ως λεξικό
   .summary-metrics .well p {
     margin-bottom: 0;
   }
+  th.sortable {
+    cursor: pointer;
+    user-select: none;
+    padding-right: 20px !important;
+  }
+  th.sortable:hover {
+    background-color: #eaeaea;
+  }
+  th.sortable .sort-icon {
+    margin-left: 5px;
+    color: #999;
+    font-size: 12px;
+  }
+  th.sortable.sort-asc .sort-icon,
+  th.sortable.sort-desc .sort-icon {
+    color: #333;
+  }
   div.pull-right {
     margin-top: 15px !important;
   }
 </style>
 
 <div class="row summary-metrics">
-  <div class="col-md-4">
+  {% if is_index %}
+  <div class="col-md-3">
+    <div class="well text-center">
+      <h2>{{ data['total_organizations'] }}</h2>
+      <p>{% trans %}Organizations with datasets{% endtrans %}</p>
+    </div>
+  </div>
+  {% endif %}
+  <div class="{{ card_col }}">
     <div class="well text-center">
       <h2>{{ data['num_packages'] if data['num_packages'] is not none else table|length }}</h2>
       <p>{% trans %}Total datasets{% endtrans %}</p>
     </div>
   </div>
-  <div class="col-md-4">
+  <div class="{{ card_col }}">
     <div class="well text-center" style="border-left: 4px solid #d9534f;">
       <h2 style="color: #d9534f;">{{ tagless_count }}</h2>
       <p>
@@ -88,7 +118,7 @@ data - επιπλέον τιμές της αναφοράς, ως λεξικό
       </p>
     </div>
   </div>
-  <div class="col-md-4">
+  <div class="{{ card_col }}">
     <div class="well text-center" style="border-left: 4px solid #5cb85c;">
       <h2 style="color: #5cb85c;">{{ tagged_count }}</h2>
       <p>Σύνολα δεδομένων με ετικέτες</p>
@@ -99,17 +129,32 @@ data - επιπλέον τιμές της αναφοράς, ως λεξικό
 <div style="margin-bottom: 15px;">
   <div style="margin-bottom: 10px;">
     <div class="btn-group" role="group">
-      <button type="button" class="btn btn-default active" data-filter="all">
-        Όλα ({{ table|length }})
-      </button>
-      <button type="button" class="btn btn-default" data-filter="missing">
-        <i class="fa fa-exclamation-triangle text-danger"></i>
-        Χωρίς ετικέτες ({{ tagless_count }})
-      </button>
-      <button type="button" class="btn btn-default" data-filter="ok">
-        <i class="fa fa-check text-success"></i>
-        Με ετικέτες ({{ tagged_count }})
-      </button>
+      {% if is_index %}
+        {% set orgs_with_tagless = table|selectattr('tagless_count')|list|length %}
+        <button type="button" class="btn btn-default active" data-filter="all">
+          Όλοι ({{ table|length }})
+        </button>
+        <button type="button" class="btn btn-default" data-filter="missing">
+          <i class="fa fa-exclamation-triangle text-danger"></i>
+          Με σύνολα χωρίς ετικέτες ({{ orgs_with_tagless }})
+        </button>
+        <button type="button" class="btn btn-default" data-filter="ok">
+          <i class="fa fa-check text-success"></i>
+          Όλα τα σύνολα με ετικέτες ({{ table|length - orgs_with_tagless }})
+        </button>
+      {% else %}
+        <button type="button" class="btn btn-default active" data-filter="all">
+          Όλα ({{ table|length }})
+        </button>
+        <button type="button" class="btn btn-default" data-filter="missing">
+          <i class="fa fa-exclamation-triangle text-danger"></i>
+          Χωρίς ετικέτες ({{ tagless_count }})
+        </button>
+        <button type="button" class="btn btn-default" data-filter="ok">
+          <i class="fa fa-check text-success"></i>
+          Με ετικέτες ({{ tagged_count }})
+        </button>
+      {% endif %}
     </div>
   </div>
   <div>
@@ -124,7 +169,58 @@ data - επιπλέον τιμές της αναφοράς, ως λεξικό
 </div>
 
 <div class="report-table-wrapper">
-<table class="table table-bordered table-condensed" id="report-table" style="width: 100%; margin-top: 8px;">
+{% if is_index %}
+{# ==================== Συγκεντρωτική προβολή (όλοι οι οργανισμοί) ==================== #}
+<table class="table table-bordered table-condensed" id="report-table"
+       data-label-all="οργανισμών" data-label-of="οργανισμούς"
+       style="width: 100%; margin-top: 8px;">
+    <thead>
+      <tr>
+        <th class="sortable" data-sort="organization">
+          Οργανισμός
+          <i class="fa fa-sort sort-icon"></i>
+        </th>
+        <th class="sortable" data-sort="datasets" data-sort-type="number">
+          {% trans %}Datasets{% endtrans %}
+          <i class="fa fa-sort sort-icon"></i>
+        </th>
+        {# Η αρχική ταξινόμηση από τον server είναι φθίνουσα σε αυτή τη στήλη #}
+        <th class="sortable sort-desc" data-sort="tagless" data-sort-type="number">
+          Χωρίς ετικέτες
+          <i class="fa fa-sort-down sort-icon"></i>
+        </th>
+        <th class="sortable" data-sort="tagged" data-sort-type="number">
+          Με ετικέτες
+          <i class="fa fa-sort sort-icon"></i>
+        </th>
+        <th class="sortable" data-sort="percent" data-sort-type="number">
+          % χωρίς ετικέτες
+          <i class="fa fa-sort sort-icon"></i>
+        </th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in table %}
+        <tr class="{% if row.tagless_count > 0 %}filter-missing{% else %}filter-ok{% endif %}"
+            data-sort-organization="{{ row.organization_title|lower }}"
+            data-sort-datasets="{{ row.num_packages }}"
+            data-sort-tagless="{{ row.tagless_count }}"
+            data-sort-tagged="{{ row.tagged_count }}"
+            data-sort-percent="{{ row.packages_without_tags_percent }}">
+          <td>{{ h.link_to(row.organization_title, h.report__relative_url_for(organization=row.organization_name)) }}</td>
+          <td>{{ row.num_packages }}</td>
+          <td>{{ row.tagless_count }}</td>
+          <td>{{ row.tagged_count }}</td>
+          <td>{{ row.packages_without_tags_percent }}%</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+</table>
+{% else %}
+{# ==================== Αναλυτική προβολή (ένας οργανισμός) ==================== #}
+<table class="table table-bordered table-condensed" id="report-table"
+       data-label-all="συνόλων δεδομένων" data-label-of="σύνολα δεδομένων"
+       style="width: 100%; margin-top: 8px;">
     <thead>
       <tr>
         <th>{% trans %}Dataset{% endtrans %}</th>
@@ -150,6 +246,7 @@ data - επιπλέον τιμές της αναφοράς, ως λεξικό
       {% endfor %}
     </tbody>
 </table>
+{% endif %}
 </div>
 
 <nav class="text-center" id="tagless-pagination-nav" style="margin-top: 25px;">
@@ -161,13 +258,63 @@ data - επιπλέον τιμές της αναφοράς, ως λεξικό
 (function() {
   'use strict';
 
-  var ROWS_SELECTOR = '#report-table tbody tr';
+  var table = document.getElementById('report-table');
+  var sortHeaders = Array.prototype.slice.call(table.querySelectorAll('th.sortable'));
   var currentFilter = 'all';
   var perPage = 20;
   var currentPage = 1;
+  // Η συγκεντρωτική προβολή έρχεται ήδη ταξινομημένη από τον server
+  var initialSortHeader = table.querySelector('th.sortable.sort-desc');
+  var currentSort = {
+    column: initialSortHeader ? initialSortHeader.getAttribute('data-sort') : null,
+    direction: 'desc'
+  };
+
+  function sortRows(th) {
+    var column = th.getAttribute('data-sort');
+    var sortType = th.getAttribute('data-sort-type') || 'string';
+    if (currentSort.column === column) {
+      currentSort.direction = (currentSort.direction === 'asc') ? 'desc' : 'asc';
+    } else {
+      currentSort.column = column;
+      currentSort.direction = 'asc';
+    }
+
+    var tbody = table.querySelector('tbody');
+    var rows = getAllRows();
+    rows.sort(function(a, b) {
+      var valA = a.getAttribute('data-sort-' + column) || '';
+      var valB = b.getAttribute('data-sort-' + column) || '';
+      var result = (sortType === 'number')
+        ? (parseFloat(valA) || 0) - (parseFloat(valB) || 0)
+        : valA.localeCompare(valB, 'el');
+      return (currentSort.direction === 'desc') ? -result : result;
+    });
+    rows.forEach(function(row) {
+      tbody.appendChild(row);
+    });
+
+    updateSortHeaders();
+    currentPage = 1;
+    render();
+  }
+
+  function updateSortHeaders() {
+    sortHeaders.forEach(function(th) {
+      var icon = th.querySelector('.sort-icon');
+      th.classList.remove('sort-asc', 'sort-desc');
+      icon.className = 'fa sort-icon';
+      if (th.getAttribute('data-sort') === currentSort.column) {
+        th.classList.add('sort-' + currentSort.direction);
+        icon.classList.add(currentSort.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down');
+      } else {
+        icon.classList.add('fa-sort');
+      }
+    });
+  }
 
   function getAllRows() {
-    return Array.prototype.slice.call(document.querySelectorAll(ROWS_SELECTOR));
+    return Array.prototype.slice.call(table.querySelectorAll('tbody tr'));
   }
 
   function getFilteredRows() {
@@ -249,12 +396,12 @@ data - επιπλέον τιμές της αναφοράς, ως λεξικό
 
     var info = document.getElementById('tagless-pagination-info');
     if (perPage === 'all') {
-      info.textContent = 'Εμφάνιση ' + totalRows + ' συνόλων δεδομένων';
+      info.textContent = 'Εμφάνιση ' + totalRows + ' ' + table.getAttribute('data-label-all');
     } else {
       var showStart = totalRows > 0 ? startIdx + 1 : 0;
       var showEnd = Math.min(endIdx, totalRows);
       info.textContent = 'Εμφάνιση ' + showStart + '-' + showEnd +
-        ' από ' + totalRows + ' σύνολα δεδομένων';
+        ' από ' + totalRows + ' ' + table.getAttribute('data-label-of');
     }
 
     renderPaginationButtons(totalPages);
@@ -276,6 +423,12 @@ data - επιπλέον τιμές της αναφοράς, ως λεξικό
       currentFilter = this.getAttribute('data-filter');
       currentPage = 1;
       render();
+    });
+  });
+
+  sortHeaders.forEach(function(th) {
+    th.addEventListener('click', function() {
+      sortRows(this);
     });
   });
 

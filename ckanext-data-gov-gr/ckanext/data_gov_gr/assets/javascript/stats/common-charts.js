@@ -103,13 +103,22 @@
     var labelWidth = Math.min(variant === 'preview' ? 160 : 260, Math.max(110, Math.floor(containerWidth * labelRatio)));
     var gridLeftPx;
     var gridRightPx;
+    var gridTop;
+    var gridBottom;
     if (variant === 'preview') {
       // In preview cards, keep bars aligned and avoid containLabel pushing the grid.
       gridLeftPx = labelWidth + 12;
       gridRightPx = 28;
+      gridTop = '6%';
+      gridBottom = '8%';
     } else {
-      gridLeftPx = labelWidth + 24;
+      // Το containLabel κρατά ήδη χώρο για τις ετικέτες, οπότε αριστερά αρκεί ένα μικρό περιθώριο.
+      // Σταθερά pixels πάνω/κάτω: με εκατοντάδες οργανισμούς το ύψος ξεπερνά τα 17.000px
+      // και τα ποσοστά άφηναν κενό πάνω από 1.000px πριν από την πρώτη μπάρα.
+      gridLeftPx = 24;
       gridRightPx = 40;
+      gridTop = 16;
+      gridBottom = 24;
     }
 
     var normalizedSeries = series.map(function (s) {
@@ -136,8 +145,8 @@
       grid: {
         left: gridLeftPx,
         right: gridRightPx,
-        bottom: '8%',
-        top: '6%',
+        bottom: gridBottom,
+        top: gridTop,
         containLabel: true
       },
       xAxis: {
