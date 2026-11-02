@@ -286,6 +286,27 @@ def _apply_post_access_filter(report, data, context):
     return maybe_data if maybe_data is not None else data
 
 
+def _load_report_packages(package_refs, chunk_size=500):
+    '''
+    Φορτώνει με λίγα queries τα σύνολα του πίνακα (με id ή name), αντί για ένα
+    ή δύο SQL ανά γραμμή μέσα από το Package.get του package_show auth.
+    Επιστρέφει dict ref -> Package· όπως στο Package.get, το id έχει
+    προτεραιότητα έναντι του name.
+    '''
+    from ckan import model
+
+    refs = list(package_refs)
+    packages = {}
+    for i in range(0, len(refs), chunk_size):
+        chunk = refs[i:i + chunk_size]
+        query = model.Session.query(model.Package).filter(
+            model.Package.id.in_(chunk) | model.Package.name.in_(chunk))
+        for package in query:
+            packages.setdefault(package.name, package)
+            packages[package.id] = package
+    return packages
+
+
 def filter_report_data_by_package_show_access(data, context, report=None):
     '''
     Filters report rows that reference datasets, keeping only rows
@@ -310,20 +331,44 @@ def filter_report_data_by_package_show_access(data, context, report=None):
         return data
 
     try:
+        import ckan.authz as authz
+        import ckan.lib.plugins as lib_plugins
         import ckan.logic as logic
+        import ckan.logic.auth.get as core_auth_get
         from ckan.plugins import toolkit
     except Exception:
         # If CKAN isn't fully available (eg during imports), avoid breaking.
         return data
 
+    package_refs = [_extract_package_id_from_report_row(row) for row in table]
+    packages = _load_report_packages(set(filter(None, package_refs)))
+    # Με το package_show auth του core το αποτέλεσμα εξαρτάται μόνο από τα
+    # permission labels του συνόλου (όπως και στο package_search), οπότε αρκεί
+    # ένας έλεγχος ανά ομάδα labels αντί για έναν ανά σύνολο (κάθε έλεγχος
+    # συνδεδεμένου χρήστη τρέχει το organization_list_for_user). Αν κάποιο
+    # plugin αλλάζει το package_show auth, ο έλεγχος γίνεται ανά σύνολο.
+    auth_functions = getattr(authz, '_AuthFunctions', None)
+    group_by_labels = (auth_functions is not None and
+                       auth_functions.get('package_show') is core_auth_get.package_show)
+    permission_labels = lib_plugins.get_permission_labels()
+
     filtered = []
     package_access_cache = {}
-    for row in table:
-        package_id = _extract_package_id_from_report_row(row)
+    for row, package_id in zip(table, package_refs):
         if not package_id:
             filtered.append(row)
             continue
-        cached_access = package_access_cache.get(package_id)
+        package = packages.get(package_id)
+        access_key = package_id if package is None else package.id
+        is_label_group = False
+        if package is not None and group_by_labels:
+            try:
+                access_key = tuple(sorted(permission_labels.get_dataset_labels(package)))
+                is_label_group = True
+            except Exception:
+                # Χωρίς labels ο έλεγχος γίνεται μόνο για αυτό το σύνολο
+                pass
+        cached_access = package_access_cache.get(access_key)
         if cached_access is True:
             filtered.append(row)
             continue
@@ -334,15 +379,20 @@ def filter_report_data_by_package_show_access(data, context, report=None):
                 action_context = toolkit.fresh_context(context)
             else:
                 action_context = dict(context)
-            logic.check_access('package_show', action_context, {'id': package_id})
+            # Με το id το Package.get βρίσκει το ήδη φορτωμένο σύνολο χωρίς SQL
+            logic.check_access('package_show', action_context,
+                               {'id': package.id if package is not None else package_id})
         except toolkit.NotAuthorized:
-            package_access_cache[package_id] = False
+            package_access_cache[access_key] = False
             continue
         except Exception:
             # Treat unexpected failures (eg deleted datasets) as not visible.
-            package_access_cache[package_id] = False
+            # Δεν αποθηκεύεται για όλη την ομάδα labels, ώστε ένα απρόσμενο
+            # σφάλμα να κρύβει μόνο αυτή τη γραμμή
+            if not is_label_group:
+                package_access_cache[access_key] = False
             continue
-        package_access_cache[package_id] = True
+        package_access_cache[access_key] = True
         filtered.append(row)
 
     was_filtered = len(filtered) != len(table)
