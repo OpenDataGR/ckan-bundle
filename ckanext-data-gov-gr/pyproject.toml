@@ -16,7 +16,12 @@ classifiers = [
 ]
 
 keywords = [ "CKAN", ]
-dependencies = []
+dependencies = [
+    # Καθαρισμός HTML περιγραφών (html_sanitizer.py). Το CKAN 2.11.7 απαιτεί
+    # το ίδιο (nh3==0.3.6)· στο CKAN 2.11.3-2.11.6 εγκαθίσταται από εδώ.
+    # Όριο <0.4: το _finalize_iframes βασίζεται στη μορφή εξόδου της 0.3.x.
+    "nh3>=0.3.6,<0.4",
+]
 
 [project.urls]
 Homepage = "https://github.com//ckanext-data-gov-gr"
@@ -29,6 +34,7 @@ ekan_dcat_harvester = "ckanext.data_gov_gr.harvesters.ekan_dcat_harvester:EkanDc
 dkan_ckan_harvester = "ckanext.data_gov_gr.harvesters.dkan_ckan_harvester:DkanCkanHarvester"
 bank_of_greece_harvester = "ckanext.data_gov_gr.harvesters.bank_of_greece_harvester:BankOfGreeceHarvester"
 apd_kritis_harvester = "ckanext.data_gov_gr.harvesters.apd_kritis_harvester:ApdKritisHarvester"
+pod_datajson_harvester = "ckanext.data_gov_gr.harvesters.pod_datajson_harvester:PodDataJsonHarvester"
 wms_capabilities_harvester = "ckanext.data_gov_gr.harvesters.wms_harvester:WmsCapabilitiesHarvester"
 oai_pmh_dcat_harvester = "ckanext.data_gov_gr.harvesters.oai_pmh_dcat_harvester:OaiPmhDcatHarvester"
 data_gov_gr_spatial="ckanext.data_gov_gr.plugin:DataGovGrSpatialHarvesterPlugin"
@@ -40,6 +46,7 @@ EkanDcatHarvester = "ckanext.data_gov_gr.harvesters.ekan_dcat_harvester:EkanDcat
 DkanCkanHarvester = "ckanext.data_gov_gr.harvesters.dkan_ckan_harvester:DkanCkanHarvester"
 BankOfGreeceHarvester = "ckanext.data_gov_gr.harvesters.bank_of_greece_harvester:BankOfGreeceHarvester"
 ApdKritisHarvester = "ckanext.data_gov_gr.harvesters.apd_kritis_harvester:ApdKritisHarvester"
+PodDataJsonHarvester = "ckanext.data_gov_gr.harvesters.pod_datajson_harvester:PodDataJsonHarvester"
 WmsCapabilitiesHarvester = "ckanext.data_gov_gr.harvesters.wms_harvester:WmsCapabilitiesHarvester"
 OaiPmhDcatHarvester = "ckanext.data_gov_gr.harvesters.oai_pmh_dcat_harvester:OaiPmhDcatHarvester"
 

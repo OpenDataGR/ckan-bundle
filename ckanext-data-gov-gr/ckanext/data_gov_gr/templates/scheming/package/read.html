@@ -1,5 +1,13 @@
 {% ckan_extends %}
 
+{# Περιγραφή dataset (finding MSA-2026-002-012).
+   Το block του scheming αποδίδεται όπως είναι (render_markdown με
+   allow_html=True) και η έξοδός του περνά πάντα από τον server-side
+   sanitizer (allowlist, iframe μόνο από εγκεκριμένα domains). #}
+{% block package_notes %}
+  {{ h.data_gov_gr_sanitize_html(super()) }}
+{% endblock %}
+
 {% block package_additional_info %}
   {{ super() }}
 

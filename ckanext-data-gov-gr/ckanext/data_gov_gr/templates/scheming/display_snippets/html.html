@@ -1,11 +1,12 @@
-{# Render field value as HTML, with optional multilingual support.
-   - If the value is a multilingual dict (from fluent_core_translated),
-     pick the appropriate language via scheming_language_text.
-   - For description fields (notes/notes_translated), αφαιρούμε τυχόν iframe
-     και:
-       * αν το σώμα μοιάζει ήδη με HTML, το εμφανίζουμε όπως είναι
-       * αλλιώς, το κάνουμε render ως markdown
-   - Για όλα τα άλλα, το θεωρούμε ήδη HTML. #}
+{# Απόδοση τιμής πεδίου ως HTML, με υποστήριξη πολυγλωσσίας.
+   - Αν η τιμή είναι πολύγλωσσο dict (fluent_core_translated), επιλέγεται η
+     γλώσσα μέσω scheming_language_text.
+   - Για την περιγραφή (notes/notes_translated) αφαιρείται το πρώτο iframe και:
+       * αν το σώμα μοιάζει ήδη με HTML, εμφανίζεται ως HTML
+       * αλλιώς γίνεται render ως markdown
+   - Για όλα τα άλλα πεδία η τιμή θεωρείται HTML.
+   Κάθε HTML περνά από τον server-side sanitizer (finding MSA-2026-002-013),
+   με την ίδια πολιτική με το block της περιγραφής στο package/read.html. #}
 {% set raw_value = data[field.field_name] %}
 
 {# Υποστήριξη μεταφρασμένων πεδίων #}
@@ -15,14 +16,16 @@
 
 {# Ειδικός χειρισμός για την Περιγραφή #}
 {% if field.field_name in ['notes_translated', 'notes'] and raw_value %}
-  {% set parts = h.extract_iframe_from_html(raw_value) %}
-  {% set body = parts.body %}
+  {# Το πρώτο iframe αφαιρείται από το αρχικό κείμενο, όπως πριν. Ο
+     sanitizer τρέχει μετά, πάνω σε ό,τι μείνει, άρα η αφαίρεση δεν επηρεάζει
+     την ασφάλεια. #}
+  {% set body = h.extract_iframe_from_html(raw_value).body %}
   {# Αν μοιάζει ήδη με HTML, μην το ξαναπεράσουμε από markdown #}
   {% if '<' in body and '>' in body %}
-    {{ body | safe }}
+    {{ h.data_gov_gr_sanitize_html(body) }}
   {% else %}
-    {{ h.render_markdown(body) | safe }}
+    {{ h.data_gov_gr_sanitize_html(h.render_markdown(body)) }}
   {% endif %}
 {% else %}
-  {{ raw_value | safe }}
+  {{ h.data_gov_gr_sanitize_html(raw_value) }}
 {% endif %}

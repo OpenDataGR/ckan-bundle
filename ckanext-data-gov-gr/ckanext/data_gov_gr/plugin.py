@@ -44,7 +44,7 @@ from urllib.parse import urlparse
 import re
 from sqlalchemy import or_
 
-from ckanext.data_gov_gr import views, cli, organization_stats, roles
+from ckanext.data_gov_gr import views, cli, html_sanitizer, organization_stats, roles
 from ckanext.data_gov_gr.logic import validators, actions, auth
 from ckanext.data_gov_gr.logic.hvd_legislation import (
     DEFAULT_HVD_APPLICABLE_LEGISLATION,
@@ -306,6 +306,24 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         )
         declaration.declare(root.search.default_popularity_sort.enabled, "yes").set_description(
             "Use popularity (views_recent desc) as the default sort on the dataset search page."
+        )
+        declaration.declare(
+            root.html.iframe_allowed_domains,
+            html_sanitizer.DEFAULT_IFRAME_ALLOWED_DOMAINS,
+        ).set_description(
+            "Εγκεκριμένα domains για iframe στις περιγραφές, χωρισμένα με κενό "
+            "ή κόμμα. Το '*.example.gr' επιτρέπει μόνο subdomains. Επιτρέπεται "
+            "μόνο https στο default port. Κενή τιμή αφαιρεί όλα τα iframe. Το "
+            "domain του ίδιου του portal (ckan.site_url) και τα subdomains του "
+            "απορρίπτονται πάντα, γιατί με allow-scripts και allow-same-origin "
+            "το iframe θα ξέφευγε από το sandbox."
+        )
+        declaration.declare(
+            root.html.iframe_sandbox,
+            html_sanitizer.DEFAULT_IFRAME_SANDBOX,
+        ).set_description(
+            "Τιμή του sandbox attribute που ορίζεται σε κάθε επιτρεπόμενο iframe "
+            "των περιγραφών. Κενή τιμή εφαρμόζει τους αυστηρότερους περιορισμούς."
         )
         declaration.declare(root.map_search.basemap, "carto_light_all").set_description(
             "Basemap key for the dataset spatial-search map. Supported values: "

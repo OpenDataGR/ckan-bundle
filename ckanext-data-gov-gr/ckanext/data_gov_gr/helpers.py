@@ -20,7 +20,7 @@ from typing import (cast, Union)
 from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import aliased, joinedload
 
-from ckanext.data_gov_gr import gitbook_print, organization_stats
+from ckanext.data_gov_gr import gitbook_print, html_sanitizer, organization_stats
 from ckanext.data_gov_gr.logic import hvd_legislation
 from ckanext.data_gov_gr.stats import DataGovStats
 try:
@@ -1871,32 +1871,43 @@ def allow_org_admins_public_decisions():
     # Αν έχει τιμή, μετατρέπεται σε boolean
     return toolkit.asbool(value)
 
+# Κεφαλαία/πεζά μόνο ASCII στο όνομα του tag, όπως στην HTML (όχι "<ıframe")·
+# το \b μένει Unicode όπως στο αρχικό regex (όχι "<iframeé").
+_IFRAME_OPEN_RE = re.compile(r'<(?ai:iframe)\b')
+_IFRAME_CLOSE_RE = re.compile(r'</(?ai:iframe)>')
+
+
 def extract_iframe_from_html(html):
     """
     Επιστρέφει ένα dict με:
     - body: το HTML χωρίς το πρώτο <iframe>...</iframe>
     - iframe: το πρώτο iframe μπλοκ (ή κενό string αν δεν βρεθεί)
+
+    Ίδιο αποτέλεσμα με το regex <iframe\\b[^>]*>.*?</iframe> (IGNORECASE,
+    DOTALL, κεφαλαία/πεζά μόνο ASCII), αλλά σε γραμμικό χρόνο: αν το πρώτο άνοιγμα δεν έχει ">" και
+    κλείσιμο μετά από αυτό, δεν έχει ούτε κανένα επόμενο άνοιγμα, άρα δεν
+    χρειάζεται νέα αναζήτηση (το regex θα έψαχνε ξανά από κάθε "<iframe").
     """
+    no_iframe = {
+        'body': html,
+        'iframe': '',
+    }
     if not isinstance(html, str) or '<iframe' not in html.lower():
-        return {
-            'body': html,
-            'iframe': '',
-        }
+        return no_iframe
 
-    pattern = re.compile(r'<iframe\b[^>]*>.*?</iframe>', re.IGNORECASE | re.DOTALL)
-    match = pattern.search(html)
-    if not match:
-        return {
-            'body': html,
-            'iframe': '',
-        }
-
-    iframe_html = match.group(0)
-    body_html = pattern.sub('', html, count=1)
+    opening = _IFRAME_OPEN_RE.search(html)
+    if not opening:
+        return no_iframe
+    tag_end = html.find('>', opening.end())
+    if tag_end == -1:
+        return no_iframe
+    closing = _IFRAME_CLOSE_RE.search(html, tag_end + 1)
+    if not closing:
+        return no_iframe
 
     return {
-        'body': body_html,
-        'iframe': iframe_html,
+        'body': html[:opening.start()] + html[closing.end():],
+        'iframe': html[opening.start():closing.end()],
     }
 
 # ---------------------------------------------------------------------------------------
@@ -3656,6 +3667,7 @@ def get_helpers():
         'get_dataset_menu_items': get_dataset_menu_items,
         'get_contact_gitbook_embed_items': get_contact_gitbook_embed_items,
         'extract_iframe_from_html': extract_iframe_from_html,
+        'data_gov_gr_sanitize_html': html_sanitizer.sanitize_html,
         'get_stat_data': get_stat_data,
         'dump_json': dump_json,
     }

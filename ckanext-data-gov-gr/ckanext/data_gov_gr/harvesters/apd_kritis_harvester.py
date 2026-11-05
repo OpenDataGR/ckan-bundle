@@ -1,19 +1,10 @@
 # -*- coding: utf-8 -*-
-import json
-import logging
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict
 
-from .custom_dcat_harvester import CustomDcatHarvester
-from ..logic.harvest_mapping import get_harvest_source_config
+from .pod_datajson_harvester import PodDataJsonHarvester
 
-log = logging.getLogger(__name__)
-
-# Simple in-memory cache for POD catalog JSON to avoid re-downloading
-_pod_catalog_cache: Dict[str, Dict[str, Any]] = {}
-
-# Static mapping from APD Kritis POD `theme` labels to data.gov.gr
-# High-value dataset category URIs (as configured in the
-# "High-value dataset categories" vocabulary).
+# Σταθερή αντιστοίχιση των POD `theme` της ΑΠΔ Κρήτης σε URIs κατηγοριών HVD
+# του data.gov.gr (όπως είναι στο λεξιλόγιο "High-value dataset categories").
 _APD_THEME_TO_HVD_CATEGORY: Dict[str, str] = {
     "Περιβάλλον": "http://data.europa.eu/bna/c_dd313021",
     "Ύδατα": "http://data.europa.eu/bna/c_dd313021",
@@ -24,10 +15,10 @@ _APD_THEME_TO_HVD_CATEGORY: Dict[str, str] = {
     "Ιστορικά δεδομένα προγραμμάτων": "http://data.europa.eu/bna/c_e1da4e07",
 }
 
-# Static mapping from APD Kritis POD `theme` labels to EU Data Theme
-# authority URIs (as configured in the "Data theme" vocabulary).
+# Σταθερή αντιστοίχιση των POD `theme` της ΑΠΔ Κρήτης σε EU Data Theme
+# authority URIs (όπως είναι στο λεξιλόγιο "Data theme").
 #
-# Vocabulary (from CKAN):
+# Λεξιλόγιο (από το CKAN):
 #   AGRI -> .../data-theme/AGRI
 #   ECON -> .../data-theme/ECON
 #   EDUC -> .../data-theme/EDUC
@@ -42,7 +33,7 @@ _APD_THEME_TO_HVD_CATEGORY: Dict[str, str] = {
 #   TECH -> .../data-theme/TECH
 #   TRAN -> .../data-theme/TRAN
 #
-# Mapping decisions for APD Kritis themes:
+# Αποφάσεις αντιστοίχισης για τα themes της ΑΠΔ Κρήτης:
 #   - Περιβάλλον, Ύδατα, Μετεωρολογικοί - Υδρολογικοί Σταθμοί
 #       -> ENVI
 #   - Ενέργεια και Φυσικοί Πόροι
@@ -62,42 +53,44 @@ _APD_THEME_TO_DATA_THEME: Dict[str, str] = {
 }
 
 
-class ApdKritisHarvester(CustomDcatHarvester):
+class ApdKritisHarvester(PodDataJsonHarvester):
     """
-    Custom DCAT/POD harvester for APD Kritis (data.apdkritis.gov.gr).
+    Harvester DCAT/POD για την ΑΠΔ Κρήτης (data.apdkritis.gov.gr).
 
-    Extends CustomDcatHarvester and adds:
+    Όλη η λογική βρίσκεται στον γενικό PodDataJsonHarvester. Εδώ μένουν μόνο
+    το όνομα/τύπος του harvester (για να μη σπάσουν οι υπάρχουσες πηγές) και
+    οι προεπιλογές της ΑΠΔ Κρήτης:
 
-      - Recovery of dataset-level CC-BY licence from the POD data.json
-        (where it is exposed as ``license: "cc-by"``) and injection into
-        the harvested dataset dict so that the base class can normalise
-        it to the EU authority URI.
+      - άδεια "cc-by" (και παραλλαγές) -> CC BY 4.0,
+      - αντιστοίχιση των POD ``theme`` σε EU Data Theme και σε κατηγορία HVD
+        (για datasets με λέξη-κλειδί "High Value Dataset"),
+      - domain για τα σχετικά ``src`` των εικόνων στην περιγραφή,
+      - διαδρομή του data.json όταν το URL της πηγής είναι η ρίζα του site.
 
-      - Propagation of the normalised dataset licence down to all
-        resources (handled by CustomDcatHarvester via
-        ``_preserve_resource_level_licenses``), ensuring that resource
-        licences use the expected EU authority URI.
-
-      - Mapping of High Value Datasets (keyword
-        "High Value Dataset" on the source) and their POD theme into
-        data.gov.gr's ``hvd_category`` field using a static in-code
-        mapping.
-
-      - Mapping of POD ``theme`` labels into the EU Data Theme
-        authority URIs, populating the dataset ``theme`` field with
-        the correct URIs from the \"Data theme\" vocabulary.
-
-    Harvest source configuration (JSON in the CKAN UI):
-
-      - ``rdf_format`` (string, optional)
-            RDF format hint for the remote catalog. For APD Kritis POD
-            ``data.json`` this should be ``\"json-ld\"``. If omitted,
-            it defaults to ``\"json-ld\"``.
-
-      - Δεν απαιτείται άλλο configuration: οι αντιστοιχίσεις HVD και
-        Data Theme είναι ενσωματωμένες στον κώδικα για τα themes του
-        APD Κρήτης.
+    Η διαμόρφωση της πηγής (license_map, theme_map, hvd_category_map,
+    hvd_keyword, relative_url_base κλπ) υπερισχύει των προεπιλογών.
     """
+
+    LOG_PREFIX = "[APD KRITIS HARVESTER]"
+
+    # Η ΑΠΔ Κρήτης δίνει "cc-by" σε όλα τα datasets· δεχόμαστε και παραλλαγές.
+    DEFAULT_LICENSE_MAP = {
+        "cc-by": "cc-by",
+        "cc by": "cc-by",
+        "cc_by": "cc-by",
+        "creative commons attribution": "cc-by",
+        "cc-by-4.0": "cc-by",
+    }
+
+    DEFAULT_THEME_MAP = _APD_THEME_TO_DATA_THEME
+    DEFAULT_HVD_CATEGORY_MAP = _APD_THEME_TO_HVD_CATEGORY
+
+    # Οι περιγραφές της ΑΠΔ Κρήτης έχουν εικόνες με σχετικά URLs,
+    # π.χ. <img src="/sites/default/...">.
+    DEFAULT_RELATIVE_URL_BASE = "https://data.apdkritis.gov.gr"
+
+    # Όταν το URL της πηγής είναι η ρίζα του site, π.χ. https://data.apdkritis.gov.gr
+    DEFAULT_CATALOG_PATH = "/sites/default/files/pod_data/data.json"
 
     def info(self):
         return {
@@ -111,577 +104,3 @@ class ApdKritisHarvester(CustomDcatHarvester):
             "form_config_interface": "Text",
             "show_config": True,
         }
-
-    def validate_config(self, source_config: Optional[str]):
-        """
-        Validate and normalise harvest source configuration.
-
-        Ensures a sensible default for rdf_format (json-ld) for POD
-        data.json sources.
-        """
-        if not source_config:
-            # Default to JSON-LD for POD data.json
-            return json.dumps({"rdf_format": "json-ld"})
-
-        try:
-            conf = json.loads(source_config) or {}
-        except ValueError:
-            # Delegate to parent for consistent error handling
-            return super().validate_config(source_config)
-
-        # Ensure rdf_format is set (POD data.json is JSON-LD)
-        if not conf.get("rdf_format"):
-            conf["rdf_format"] = "json-ld"
-
-        return super().validate_config(json.dumps(conf))
-
-    def modify_package_dict(self, package_dict, temp_dict, harvest_object):
-        """
-        Apply APD Kritis-specific mapping on top of the generic custom DCAT
-        mapping from CustomDcatHarvester.
-
-        Pre-parent:
-          - Load the corresponding POD dataset from data.json
-          - Inject dataset-level licence when available (eg. \"cc-by\")
-
-        Post-parent:
-          - Derive hvd_category from POD theme + High Value keyword
-            using the static in-code mapping.
-        """
-        source_dataset = None
-        try:
-            source_dataset = self._get_pod_source_dataset(harvest_object)
-        except Exception as e:
-            log.error(
-                "[APD KRITIS HARVESTER] Error loading POD source dataset: %s", e, exc_info=True
-            )
-
-        # Pre-parent: inject dataset-level licence so the base class can
-        # normalise it and propagate it to resources.
-        try:
-            if source_dataset:
-                self._inject_cc_by_license_from_source(package_dict, source_dataset)
-        except Exception as e:
-            log.error(
-                "[APD KRITIS HARVESTER] Error applying pre-parent mapping: %s",
-                e,
-                exc_info=True,
-            )
-
-        # Run parent logic (all generic validation fixes / mappings)
-        package_dict = super().modify_package_dict(package_dict, temp_dict, harvest_object)
-
-        # Post-parent: derive HVD category and Data Theme from the POD
-        # metadata when available.
-        harvest_config = get_harvest_source_config(harvest_object)
-
-        try:
-            if source_dataset:
-                self._drop_empty_conforms_to_from_source(package_dict, source_dataset)
-                self._apply_hvd_category_from_source(package_dict, source_dataset, harvest_object)
-                self._apply_data_theme_from_source(package_dict, source_dataset, harvest_object)
-                self._fix_contact_from_source(package_dict, source_dataset)
-                if harvest_config.get("skip_publisher"):
-                    package_dict.pop("publisher", None)
-                else:
-                    self._fix_publisher_from_source(package_dict, source_dataset)
-        except Exception as e:
-            log.error(
-                "[APD KRITIS HARVESTER] Error applying post-parent mapping: %s",
-                e,
-                exc_info=True,
-            )
-
-        # APD Kritis POD descriptions include embedded images with root-relative
-        # URLs, eg: <img src="/sites/default/...">. Make them absolute by
-        # prefixing the APD Kritis domain.
-        try:
-            apd_domain = "https://data.apdkritis.gov.gr"
-
-            def _fix_img_src(value):
-                if not isinstance(value, str):
-                    return value
-                if 'src="/' in value:
-                    value = value.replace('src="/', f'src="{apd_domain}/')
-                if "src='/" in value:
-                    value = value.replace("src='/", f"src='{apd_domain}/")
-                return value
-
-            if "notes" in package_dict:
-                package_dict["notes"] = _fix_img_src(package_dict.get("notes"))
-
-            notes_translated = package_dict.get("notes_translated")
-            if isinstance(notes_translated, dict):
-                for lang, val in list(notes_translated.items()):
-                    notes_translated[lang] = _fix_img_src(val)
-
-            # If the base harvester already produced flattened fields, update them too.
-            for key in ("notes_translated-el", "notes_translated-en"):
-                if key in package_dict:
-                    package_dict[key] = _fix_img_src(package_dict.get(key))
-        except Exception as e:
-            log.error(
-                "[APD KRITIS HARVESTER] Error fixing embedded image URLs in description: %s",
-                e,
-                exc_info=True,
-            )
-
-        return package_dict
-
-    # ------------------------------------------------------------------
-    # POD /data.json helpers
-    # ------------------------------------------------------------------
-
-    def _get_pod_source_dataset(self, harvest_object) -> Optional[Dict[str, Any]]:
-        """
-        Load the original POD dataset entry from data.json that corresponds
-        to the given harvest object, based on the HarvestObject.guid which
-        is derived from dcat:identifier.
-        """
-        if not harvest_object:
-            return None
-
-        guid = getattr(harvest_object, "guid", None)
-        job = getattr(harvest_object, "job", None)
-        source = getattr(job, "source", None) if job else None
-        source_url = getattr(source, "url", None) if source else None
-
-        if not guid or not source_url:
-            return None
-
-        catalog, catalog_url = self._get_pod_catalog(source_url, job)
-        if not catalog:
-            return None
-
-        datasets = catalog.get("dataset") or []
-        for candidate in datasets:
-            if not isinstance(candidate, dict):
-                continue
-
-            ident = candidate.get("identifier") or candidate.get("id") or candidate.get("@id")
-            identifiers: List[str] = []
-
-            if isinstance(ident, list):
-                identifiers = [str(v) for v in ident]
-            elif ident is not None:
-                identifiers = [str(ident)]
-
-            for value in identifiers:
-                if value == guid or (guid and str(value).endswith(guid)):
-                    log.debug(
-                        "[APD KRITIS HARVESTER] Matched POD dataset %s in %s", guid, catalog_url
-                    )
-                    return candidate
-
-        log.warning(
-            "[APD KRITIS HARVESTER] No matching POD dataset for guid=%s in %s", guid, catalog_url
-        )
-        return None
-
-    def _get_pod_catalog(
-        self, source_url: str, harvest_job
-    ) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
-        """
-        Resolve and fetch the POD data.json catalog for the given harvest
-        source URL, with a simple in-process cache.
-        """
-        if not source_url:
-            return None, None
-
-        url = source_url.strip()
-        if not url:
-            return None, None
-
-        base = url.rstrip("/")
-        if base.endswith("data.json"):
-            catalog_url = base
-        else:
-            # Fallback for sources pointed at the site root, eg
-            # https://data.apdkritis.gov.gr
-            catalog_url = base + "/sites/default/files/pod_data/data.json"
-
-        if catalog_url in _pod_catalog_cache:
-            return _pod_catalog_cache[catalog_url], catalog_url
-
-        try:
-            # Reuse the DCATRDFHarvester HTTP helper to honour proxies, etc.
-            content, _ = self._get_content_and_type(
-                catalog_url, harvest_job, page=1, content_type="application/json"
-            )
-        except Exception as e:
-            log.error(
-                "[APD KRITIS HARVESTER] Error fetching POD catalog %s: %s",
-                catalog_url,
-                e,
-                exc_info=True,
-            )
-            return None, catalog_url
-
-        if not content:
-            log.warning(
-                "[APD KRITIS HARVESTER] Empty content returned for POD catalog %s", catalog_url
-            )
-            return None, catalog_url
-
-        try:
-            data = json.loads(content)
-        except ValueError as e:
-            log.error(
-                "[APD KRITIS HARVESTER] Error parsing POD catalog JSON from %s: %s",
-                catalog_url,
-                e,
-                exc_info=True,
-            )
-            return None, catalog_url
-
-        if not isinstance(data, dict):
-            log.warning(
-                "[APD KRITIS HARVESTER] POD catalog %s is not a JSON object, got %r",
-                catalog_url,
-                type(data),
-            )
-            return None, catalog_url
-
-        _pod_catalog_cache[catalog_url] = data
-        return data, catalog_url
-
-    # ------------------------------------------------------------------
-    # Licence handling
-    # ------------------------------------------------------------------
-
-    def _inject_cc_by_license_from_source(
-        self, package_dict: Dict[str, Any], source_dataset: Dict[str, Any]
-    ) -> None:
-        """
-        If the POD source dataset declares a CC-BY licence at dataset
-        level (``license: \"cc-by\"``), inject it into the harvested
-        package dict so that the base class can normalise it to the EU
-        authority URI and propagate it to all resources.
-        """
-        if not isinstance(package_dict, dict) or not isinstance(source_dataset, dict):
-            return
-
-        license_value = source_dataset.get("license") or source_dataset.get("license_id")
-        if not license_value or not isinstance(license_value, str):
-            return
-
-        value = license_value.strip().lower()
-        if not value:
-            return
-
-        # APD Kritis uses "cc-by" for all datasets; be slightly tolerant
-        # with variants.
-        if value not in ("cc-by", "cc by", "cc_by", "creative commons attribution", "cc-by-4.0"):
-            return
-
-        # Only inject if there is no existing licence on the dataset
-        if not package_dict.get("license") and not package_dict.get("license_id"):
-            package_dict["license"] = "cc-by"
-            package_dict["license_id"] = "cc-by"
-            log.debug(
-                "[APD KRITIS HARVESTER] Injected dataset-level licence 'cc-by' "
-                "for downstream normalisation"
-            )
-
-    # ------------------------------------------------------------------
-    # High Value Dataset (HVD) handling
-    # ------------------------------------------------------------------
-
-    def _apply_hvd_category_from_source(
-        self,
-        package_dict: Dict[str, Any],
-        source_dataset: Dict[str, Any],
-        harvest_object,
-    ) -> None:
-        """
-        When the POD dataset is marked as High Value (keyword
-        \"High Value Dataset\"), derive ``hvd_category`` using the
-        static in-code theme -> HVD category URI mapping.
-        """
-        if not isinstance(package_dict, dict) or not isinstance(source_dataset, dict):
-            return
-
-        # Detect High Value datasets based on POD keywords
-        keywords = source_dataset.get("keyword") or []
-        keyword_values: List[str] = []
-        if isinstance(keywords, list):
-            keyword_values = [str(k) for k in keywords if k is not None]
-        elif isinstance(keywords, str):
-            keyword_values = [keywords]
-
-        is_hvd = any(
-            k.strip().lower() == "high value dataset"
-            for k in keyword_values
-            if isinstance(k, str) and k.strip()
-        )
-
-        if not is_hvd:
-            return
-
-        themes = source_dataset.get("theme") or []
-        theme_values: List[str] = []
-        if isinstance(themes, list):
-            theme_values = [str(t) for t in themes if t is not None]
-        elif isinstance(themes, str):
-            theme_values = [themes]
-
-        uris: List[str] = []
-        seen: set = set()
-
-        # Map themes directly to configured HVD category URIs
-        for theme in theme_values:
-            key = theme.strip()
-            if not key:
-                continue
-            uri = _APD_THEME_TO_HVD_CATEGORY.get(key)
-            if uri and isinstance(uri, str):
-                if uri not in seen:
-                    uris.append(uri)
-                    seen.add(uri)
-
-        if not uris:
-            log.info(
-                "[APD KRITIS HARVESTER] Dataset marked as High Value but no "
-                "HVD category URI could be derived from theme/default mapping"
-            )
-            return
-
-        package_dict["hvd_category"] = uris
-        log.debug(
-            "[APD KRITIS HARVESTER] Applied hvd_category=%r based on POD theme/keyword",
-            uris,
-        )
-
-    # ------------------------------------------------------------------
-    # Data Theme (EU authority) handling
-    # ------------------------------------------------------------------
-
-    def _apply_data_theme_from_source(
-        self,
-        package_dict: Dict[str, Any],
-        source_dataset: Dict[str, Any],
-        harvest_object,
-    ) -> None:
-        """
-        Map POD ``theme`` labels from APD Kritis into EU Data Theme
-        authority URIs and populate the dataset ``theme`` field.
-        """
-        if not isinstance(package_dict, dict) or not isinstance(source_dataset, dict):
-            return
-
-        themes = source_dataset.get("theme") or []
-        theme_values: List[str] = []
-        if isinstance(themes, list):
-            theme_values = [str(t) for t in themes if t is not None]
-        elif isinstance(themes, str):
-            theme_values = [themes]
-
-        uris: List[str] = []
-        seen: set = set()
-
-        for theme in theme_values:
-            key = theme.strip()
-            if not key:
-                continue
-            uri = _APD_THEME_TO_DATA_THEME.get(key)
-            if uri and isinstance(uri, str) and uri not in seen:
-                uris.append(uri)
-                seen.add(uri)
-
-        if not uris:
-            return
-
-        package_dict["theme"] = uris
-        log.debug(
-            "[APD KRITIS HARVESTER] Applied data theme(s)=%r based on POD theme labels",
-            uris,
-        )
-
-    # ------------------------------------------------------------------
-    # Conformance handling
-    # ------------------------------------------------------------------
-
-    def _drop_empty_conforms_to_from_source(
-        self,
-        package_dict: Dict[str, Any],
-        source_dataset: Dict[str, Any],
-    ) -> None:
-        """
-        Remove parser artifacts caused by APD Kritis POD ``conformsTo: ""``.
-
-        In POD JSON-LD, ``conformsTo`` is an IRI field.  rdflib resolves the
-        empty string as the process working directory (``file:///...``), which
-        would otherwise be stored as CKAN ``conforms_to`` and serialized back
-        to RDF as ``dct:conformsTo``.
-        """
-        if not isinstance(package_dict, dict) or not isinstance(source_dataset, dict):
-            return
-
-        if "conformsTo" not in source_dataset:
-            return
-
-        raw_value = source_dataset.get("conformsTo")
-        raw_values: List[Any]
-        if isinstance(raw_value, list):
-            raw_values = raw_value
-        else:
-            raw_values = [raw_value]
-
-        has_non_empty_value = any(
-            isinstance(value, str) and value.strip()
-            for value in raw_values
-        )
-        if has_non_empty_value:
-            return
-
-        package_dict.pop("conforms_to", None)
-
-        extras = package_dict.get("extras")
-        if isinstance(extras, list):
-            package_dict["extras"] = [
-                extra
-                for extra in extras
-                if not (
-                    isinstance(extra, dict)
-                    and extra.get("key") in ("conforms_to", "dcat_conforms_to")
-                )
-            ]
-
-        log.debug(
-            "[APD KRITIS HARVESTER] Removed conforms_to generated from empty POD conformsTo"
-        )
-
-    # ------------------------------------------------------------------
-    # Contact point handling
-    # ------------------------------------------------------------------
-
-    def _fix_contact_from_source(
-        self,
-        package_dict: Dict[str, Any],
-        source_dataset: Dict[str, Any],
-    ) -> None:
-        """
-        Fix contact point email from the POD source dataset.
-
-        The POD data.json declares ``hasEmail`` without a ``mailto:``
-        prefix, which causes the rdflib JSON-LD parser to resolve it
-        as a relative file:// URI.  This method reads the clean email
-        from the original POD entry and injects it into the scheming
-        ``contact`` field.
-        """
-        if not isinstance(package_dict, dict) or not isinstance(source_dataset, dict):
-            return
-
-        contact_point = source_dataset.get("contactPoint")
-        if not contact_point:
-            return
-
-        entries: List[Dict[str, Any]] = []
-        if isinstance(contact_point, dict):
-            entries = [contact_point]
-        elif isinstance(contact_point, list):
-            entries = [e for e in contact_point if isinstance(e, dict)]
-
-        if not entries:
-            return
-
-        source_name = ""
-        source_email = ""
-        for entry in entries:
-            if not source_name:
-                source_name = (entry.get("fn") or "").strip()
-            if not source_email:
-                raw = (entry.get("hasEmail") or "").strip()
-                source_email = raw.replace("mailto:", "") if raw else ""
-
-        if not source_name and not source_email:
-            return
-
-        contacts = package_dict.get("contact")
-        if isinstance(contacts, dict):
-            contacts = [contacts]
-        elif not isinstance(contacts, list):
-            contacts = []
-
-        matched = False
-        for contact in contacts:
-            if not isinstance(contact, dict):
-                continue
-            if source_name and contact.get("name") == source_name:
-                if source_email and not contact.get("email"):
-                    contact["email"] = source_email
-                    matched = True
-                elif source_email and contact.get("email") != source_email:
-                    contact["email"] = source_email
-                    matched = True
-                else:
-                    matched = True
-                break
-
-        if not matched:
-            new_contact: Dict[str, str] = {}
-            if source_name:
-                new_contact["name"] = source_name
-            if source_email:
-                new_contact["email"] = source_email
-            if new_contact:
-                contacts.append(new_contact)
-
-        contacts = [c for c in contacts if isinstance(c, dict) and c]
-        if contacts:
-            package_dict["contact"] = contacts
-            log.debug(
-                "[APD KRITIS HARVESTER] Fixed contact from POD source: name=%r email=%r",
-                source_name,
-                source_email,
-            )
-
-    # ------------------------------------------------------------------
-    # Publisher handling
-    # ------------------------------------------------------------------
-
-    def _fix_publisher_from_source(
-        self,
-        package_dict: Dict[str, Any],
-        source_dataset: Dict[str, Any],
-    ) -> None:
-        """
-        Fix publisher name from the POD source dataset.
-
-        The POD JSON-LD context maps ``name`` to ``skos:prefLabel``
-        instead of ``foaf:name``, which the DCAT parser expects.
-        This method reads the clean publisher name from the original
-        POD entry and injects it into the scheming ``publisher`` field.
-        """
-        if not isinstance(package_dict, dict) or not isinstance(source_dataset, dict):
-            return
-
-        source_pub = source_dataset.get("publisher")
-        if not isinstance(source_pub, dict):
-            return
-
-        source_name = (source_pub.get("name") or "").strip()
-        if not source_name:
-            return
-
-        publishers = package_dict.get("publisher")
-        if isinstance(publishers, dict):
-            publishers = [publishers]
-        elif not isinstance(publishers, list):
-            publishers = []
-
-        if publishers:
-            first = publishers[0] if isinstance(publishers[0], dict) else {}
-            if not first.get("name"):
-                first["name"] = source_name
-                publishers[0] = first
-        else:
-            publishers = [{"name": source_name}]
-
-        publishers = [p for p in publishers if isinstance(p, dict) and p]
-        if publishers:
-            package_dict["publisher"] = publishers
-            log.debug(
-                "[APD KRITIS HARVESTER] Fixed publisher from POD source: name=%r",
-                source_name,
-            )

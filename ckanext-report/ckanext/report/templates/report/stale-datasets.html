@@ -314,7 +314,7 @@ data - other data values, as a dict
                   -
                 {% endif %}
               </td>
-              <td>{{ row.notes or _('No description') }}</td>
+              <td>{{ row.notes or '-' }}</td>
             </tr>
           {% endfor %}
         </tbody>
