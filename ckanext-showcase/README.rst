@@ -53,6 +53,16 @@ ckanext.showcase.notification_email = showcase-notify@example.gr
 ckanext.showcase.notification_exclude_emails = a@example.gr, b@example.gr
 ```
 
+Το prefix που εμφανίζεται στα subjects των email ειδοποιήσεων διαβάζεται από
+την υπάρχουσα ρύθμιση του CKAN:
+
+```ini
+ckan.site_title = Data.gov.gr
+```
+
+Αν το `ckan.site_title` δεν έχει οριστεί ή είναι κενό, τα email subjects
+αποστέλλονται χωρίς prefix.
+
 ## Περιγραφή properties
 
 ### `ckanext.showcase.notification_recipients_mode`
@@ -383,4 +393,3 @@ See: "Internationalizing strings in extensions" : http://docs.ckan.org/en/latest
 3. Compile your language catalog ( You can force pybabel compile to compile messages marked as fuzzy with the -f)
 
        python setup.py compile_catalog -f -l es
-

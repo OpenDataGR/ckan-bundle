@@ -5,6 +5,7 @@ from ckanext.showcase.model import ShowcaseAdmin
 
 import logging
 from ..utils import is_user_creator_of_showcase
+from ..utils import is_showcase_approved
 from ..utils import read_showcase
 from flask import g
 
@@ -46,16 +47,41 @@ def _get_logged_user_id(context):
     if '_showcase_logged_user_id' in context:
         return context['_showcase_logged_user_id']
 
-    user_id = getattr(getattr(g, 'userobj', None), 'id', None)
-    if user_id:
-        context['_showcase_logged_user_id'] = user_id
-        return user_id
+    # The CKAN action context is authoritative and also works for API,
+    # background and test calls that have no active Flask request context.
+    if 'user' in context:
+        userobj = model.User.get(context.get('user', ''))
+    else:
+        try:
+            userobj = getattr(g, 'userobj', None)
+        except RuntimeError:
+            userobj = None
 
-    user = context.get('user', '')
-    userobj = model.User.get(user)
     user_id = getattr(userobj, 'id', None)
     context['_showcase_logged_user_id'] = user_id
     return user_id
+
+
+def can_read_showcase(context, showcase_data_dict):
+    """Return whether the current user may read a specific showcase.
+
+    Approved showcases are public. A showcase that has not been approved may
+    only be read by its creator, a Showcase Admin, or a sysadmin.
+    """
+    if is_showcase_approved(showcase_data_dict):
+        return True
+
+    if _is_showcase_admin(context):
+        return True
+
+    logged_user_id = _get_logged_user_id(context)
+    if not logged_user_id:
+        return False
+
+    return is_user_creator_of_showcase(
+        showcase_data_dict,
+        logged_user_id,
+    )
 
 
 def create(context, data_dict):
@@ -141,8 +167,18 @@ def _can_manage_package_association(context, showcase_id):
 
 @toolkit.auth_allow_anonymous_access
 def show(context, data_dict):
-    '''All users can access a showcase show'''
-    return {'success': True}
+    """Apply the approval-aware read policy to a showcase."""
+    showcase_data_dict = data_dict.get('_showcase_for_auth')
+    if not isinstance(showcase_data_dict, dict):
+        return {
+            'success': False,
+            'msg': 'Showcase data is required for authorization',
+        }
+
+    return {
+        'success': can_read_showcase(context, showcase_data_dict),
+        'msg': 'You do not have access to this showcase',
+    }
 
 
 @toolkit.auth_allow_anonymous_access

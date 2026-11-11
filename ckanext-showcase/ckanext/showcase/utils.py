@@ -110,21 +110,10 @@ def read_showcase(id, context):
     except tk.NotAuthorized:
         return tk.abort(401, _('Unauthorized to read showcase'))
 
-    # Ένδειξη αν ο συνδεδεμένος χρήστης είναι ο ιδιοκτήτης του συνόλου δεδομένων
-    is_logged_user_creator_of_showcase = None
+    # Keep the web view and custom API on the same approval-aware policy.
+    from ckanext.showcase.logic.auth import can_read_showcase
 
-    is_logged_user_creator_of_showcase = (
-        is_user_creator_of_showcase(pkg_dict, getattr(g.userobj, "id", None))
-        if g.userobj not in (None, "") else False
-    )
-
-    from ckanext.showcase.logic.auth import _is_showcase_admin
-
-
-    if (not is_sysadmin(tk.g.user) and # Διαχειριστή Συστήματος
-            not _is_showcase_admin(context) and # Διαχειριστής Εφαρμογών
-            not is_showcase_approved(pkg_dict) and # Η εφαρμογή δεν είναι εγκεκριμένη
-            not is_logged_user_creator_of_showcase): # Ο Συνδεδεμένος Χρήστης δεν είναι δημιουργός της εφαρμογής
+    if not can_read_showcase(context, pkg_dict):
         return tk.abort(403, _('You do not have access to this showcase'))
 
     return pkg_dict

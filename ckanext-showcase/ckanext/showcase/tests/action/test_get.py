@@ -19,7 +19,11 @@ class TestShowcaseShow(object):
         """
         Calling showcase show with id arg returns showcase dict.
         """
-        my_showcase = factories.Dataset(type="showcase", name="my-showcase")
+        my_showcase = factories.Dataset(
+            type="showcase",
+            name="my-showcase",
+            approval_status="approved",
+        )
 
         showcase_shown = helpers.call_action(
             "ckanext_showcase_show", id=my_showcase["id"]
@@ -31,7 +35,11 @@ class TestShowcaseShow(object):
         """
         Calling showcase show with name arg returns showcase dict.
         """
-        my_showcase = factories.Dataset(type="showcase", name="my-showcase")
+        my_showcase = factories.Dataset(
+            type="showcase",
+            name="my-showcase",
+            approval_status="approved",
+        )
 
         showcase_shown = helpers.call_action(
             "ckanext_showcase_show", id=my_showcase["name"]
@@ -54,7 +62,11 @@ class TestShowcaseShow(object):
         """
         num_datasets property returned with showcase dict.
         """
-        my_showcase = factories.Dataset(type="showcase", name="my-showcase")
+        my_showcase = factories.Dataset(
+            type="showcase",
+            name="my-showcase",
+            approval_status="approved",
+        )
 
         showcase_shown = helpers.call_action(
             "ckanext_showcase_show", id=my_showcase["name"]
@@ -70,7 +82,11 @@ class TestShowcaseShow(object):
 
         sysadmin = factories.User(sysadmin=True)
 
-        my_showcase = factories.Dataset(type="showcase", name="my-showcase")
+        my_showcase = factories.Dataset(
+            type="showcase",
+            name="my-showcase",
+            approval_status="approved",
+        )
         package_one = factories.Dataset()
         package_two = factories.Dataset()
 
@@ -104,7 +120,11 @@ class TestShowcaseShow(object):
         """
         sysadmin = factories.User(sysadmin=True)
 
-        my_showcase = factories.Dataset(type="showcase", name="my-showcase")
+        my_showcase = factories.Dataset(
+            type="showcase",
+            name="my-showcase",
+            approval_status="approved",
+        )
         package_one = factories.Dataset()
         package_two = factories.Dataset()
         package_three = factories.Dataset()
@@ -142,6 +162,127 @@ class TestShowcaseShow(object):
         # the num_datasets should only include active datasets
         assert showcase_shown["num_datasets"] == 2
 
+
+@pytest.mark.usefixtures("with_plugins", "clean_db", "clean_index")
+class TestShowcaseShowAuthorization(object):
+    def test_approved_showcase_is_public(self):
+        showcase = factories.Dataset(
+            type="showcase",
+            approval_status="approved",
+        )
+
+        result = helpers.call_action(
+            "ckanext_showcase_show",
+            context={"user": "", "ignore_auth": False},
+            id=showcase["id"],
+        )
+
+        assert result["id"] == showcase["id"]
+
+    def test_pending_showcase_is_hidden_from_anonymous_user(self):
+        showcase = factories.Dataset(
+            type="showcase",
+            approval_status="pending",
+        )
+
+        with pytest.raises(toolkit.NotAuthorized):
+            helpers.call_action(
+                "ckanext_showcase_show",
+                context={"user": "", "ignore_auth": False},
+                id=showcase["id"],
+            )
+
+    def test_pending_showcase_is_hidden_from_other_user(self):
+        creator = factories.User()
+        other_user = factories.User()
+        showcase = factories.Dataset(
+            user=creator,
+            type="showcase",
+            approval_status="pending",
+        )
+
+        with pytest.raises(toolkit.NotAuthorized):
+            helpers.call_action(
+                "ckanext_showcase_show",
+                context={
+                    "user": other_user["name"],
+                    "ignore_auth": False,
+                },
+                id=showcase["id"],
+            )
+
+    def test_creator_can_read_own_pending_showcase(self):
+        creator = factories.User()
+        showcase = factories.Dataset(
+            user=creator,
+            type="showcase",
+            approval_status="pending",
+        )
+
+        result = helpers.call_action(
+            "ckanext_showcase_show",
+            context={"user": creator["name"], "ignore_auth": False},
+            id=showcase["id"],
+        )
+
+        assert result["id"] == showcase["id"]
+
+    def test_showcase_admin_can_read_pending_showcase(self):
+        sysadmin = factories.Sysadmin()
+        showcase_admin = factories.User()
+        showcase = factories.Dataset(
+            type="showcase",
+            approval_status="pending",
+        )
+        helpers.call_action(
+            "ckanext_showcase_admin_add",
+            context={"user": sysadmin["name"]},
+            username=showcase_admin["name"],
+        )
+
+        result = helpers.call_action(
+            "ckanext_showcase_show",
+            context={
+                "user": showcase_admin["name"],
+                "ignore_auth": False,
+            },
+            id=showcase["id"],
+        )
+
+        assert result["id"] == showcase["id"]
+
+    def test_sysadmin_can_read_pending_showcase(self):
+        sysadmin = factories.Sysadmin()
+        showcase = factories.Dataset(
+            type="showcase",
+            approval_status="pending",
+        )
+
+        result = helpers.call_action(
+            "ckanext_showcase_show",
+            context={"user": sysadmin["name"], "ignore_auth": False},
+            id=showcase["id"],
+        )
+
+        assert result["id"] == showcase["id"]
+
+    def test_trusted_internal_call_can_read_pending_showcase(self):
+        showcase = factories.Dataset(
+            type="showcase",
+            approval_status="pending",
+        )
+
+        result = helpers.call_action(
+            "ckanext_showcase_show",
+            context={"ignore_auth": True},
+            id=showcase["id"],
+        )
+
+        assert result["id"] == showcase["id"]
+
+
+@pytest.mark.usefixtures("with_plugins", "clean_db", "clean_index")
+class TestShowcaseAssociationCleanup(object):
     def test_showcase_anon_user_can_see_package_list_when_showcase_association_was_deleted(
         self, app
     ):

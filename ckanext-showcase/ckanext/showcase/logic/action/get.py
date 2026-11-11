@@ -21,9 +21,17 @@ def showcase_show(context, data_dict):
     :type id: string
     '''
 
-    toolkit.check_access('ckanext_showcase_show', context, data_dict)
-
+    # Keep the core package_show authorization (for example, private-package
+    # rules), then add the Showcase-specific approval policy below.
     pkg_dict = toolkit.get_action('package_show')(context, data_dict)
+
+    auth_data_dict = data_dict.copy()
+    auth_data_dict['_showcase_for_auth'] = pkg_dict
+    toolkit.check_access(
+        'ckanext_showcase_show',
+        context,
+        auth_data_dict,
+    )
 
     return pkg_dict
 

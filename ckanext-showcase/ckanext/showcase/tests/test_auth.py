@@ -95,7 +95,11 @@ class TestShowcaseAuthDetails(object):
         An anon (not logged in) user can view an individual Showcase details page.
         """
 
-        factories.Dataset(type="showcase", name="my-showcase")
+        factories.Dataset(
+            type="showcase",
+            name="my-showcase",
+            approval_status="approved",
+        )
 
         app.get("/showcase/my-showcase", status=200)
 
@@ -106,7 +110,11 @@ class TestShowcaseAuthDetails(object):
 
         user = factories.User()
 
-        factories.Dataset(type="showcase", name="my-showcase")
+        factories.Dataset(
+            type="showcase",
+            name="my-showcase",
+            approval_status="approved",
+        )
 
         app.get(
             "/showcase/my-showcase",
@@ -120,7 +128,11 @@ class TestShowcaseAuthDetails(object):
         showcase details page.
         """
 
-        factories.Dataset(type="showcase", name="my-showcase")
+        factories.Dataset(
+            type="showcase",
+            name="my-showcase",
+            approval_status="approved",
+        )
 
         response = app.get("/showcase/my-showcase", status=200)
 
@@ -134,7 +146,11 @@ class TestShowcaseAuthDetails(object):
 
         user = factories.User()
 
-        factories.Dataset(type="showcase", name="my-showcase")
+        factories.Dataset(
+            type="showcase",
+            name="my-showcase",
+            approval_status="approved",
+        )
 
         response = app.get(
             "/showcase/my-showcase",
@@ -153,7 +169,11 @@ class TestShowcaseAuthDetails(object):
 
         user = factories.Sysadmin()
 
-        factories.Dataset(type="showcase", name="my-showcase")
+        factories.Dataset(
+            type="showcase",
+            name="my-showcase",
+            approval_status="approved",
+        )
 
         response = app.get(
             "/showcase/my-showcase",
@@ -169,7 +189,11 @@ class TestShowcaseAuthDetails(object):
         Anon user can request showcase show.
         """
 
-        factories.Dataset(type="showcase", name="my-showcase")
+        factories.Dataset(
+            type="showcase",
+            name="my-showcase",
+            approval_status="approved",
+        )
 
         response = app.get(
             "/api/3/action/ckanext_showcase_show?id=my-showcase", status=200
@@ -185,7 +209,11 @@ class TestShowcaseAuthDetails(object):
         """
         user = factories.User()
 
-        factories.Dataset(type="showcase", name="my-showcase")
+        factories.Dataset(
+            type="showcase",
+            name="my-showcase",
+            approval_status="approved",
+        )
 
         response = app.get(
             "/api/3/action/ckanext_showcase_show?id=my-showcase",
@@ -199,11 +227,15 @@ class TestShowcaseAuthDetails(object):
 
     def test_auth_showcase_show_sysadmin_can_access(self, app):
         """
-        Normal logged in user can request showcase show.
+        Sysadmin can request an approved showcase.
         """
         user = factories.Sysadmin()
 
-        factories.Dataset(type="showcase", name="my-showcase")
+        factories.Dataset(
+            type="showcase",
+            name="my-showcase",
+            approval_status="approved",
+        )
 
         response = app.get(
             "/api/3/action/ckanext_showcase_show?id=my-showcase",
@@ -214,6 +246,163 @@ class TestShowcaseAuthDetails(object):
         json_response = json.loads(response.body)
 
         assert json_response["success"]
+
+    def test_auth_anon_user_cant_view_pending_showcase_details(self, app):
+        factories.Dataset(
+            type="showcase",
+            name="pending-showcase",
+            approval_status="pending",
+        )
+
+        app.get("/showcase/pending-showcase", status=403)
+
+    def test_auth_other_user_cant_view_pending_showcase_details(self, app):
+        creator = factories.User()
+        other_user = factories.User()
+        factories.Dataset(
+            user=creator,
+            type="showcase",
+            name="pending-showcase",
+            approval_status="pending",
+        )
+
+        app.get(
+            "/showcase/pending-showcase",
+            status=403,
+            extra_environ={"REMOTE_USER": str(other_user["name"])},
+        )
+
+    def test_auth_creator_can_view_own_pending_showcase_details(self, app):
+        creator = factories.User()
+        factories.Dataset(
+            user=creator,
+            type="showcase",
+            name="pending-showcase",
+            approval_status="pending",
+        )
+
+        app.get(
+            "/showcase/pending-showcase",
+            status=200,
+            extra_environ={"REMOTE_USER": str(creator["name"])},
+        )
+
+    def test_auth_showcase_admin_can_view_pending_showcase_details(self, app):
+        sysadmin = factories.Sysadmin()
+        showcase_admin = factories.User()
+        factories.Dataset(
+            type="showcase",
+            name="pending-showcase",
+            approval_status="pending",
+        )
+        helpers.call_action(
+            "ckanext_showcase_admin_add",
+            context={"user": sysadmin["name"]},
+            username=showcase_admin["name"],
+        )
+
+        app.get(
+            "/showcase/pending-showcase",
+            status=200,
+            extra_environ={"REMOTE_USER": str(showcase_admin["name"])},
+        )
+
+    def test_auth_sysadmin_can_view_pending_showcase_details(self, app):
+        sysadmin = factories.Sysadmin()
+        factories.Dataset(
+            type="showcase",
+            name="pending-showcase",
+            approval_status="pending",
+        )
+
+        app.get(
+            "/showcase/pending-showcase",
+            status=200,
+            extra_environ={"REMOTE_USER": str(sysadmin["name"])},
+        )
+
+    def test_auth_anon_user_cant_get_pending_showcase_from_api(self, app):
+        factories.Dataset(
+            type="showcase",
+            name="pending-showcase",
+            approval_status="pending",
+        )
+
+        app.get(
+            "/api/3/action/ckanext_showcase_show?id=pending-showcase",
+            status=403,
+        )
+
+    def test_auth_other_user_cant_get_pending_showcase_from_api(self, app):
+        creator = factories.User()
+        other_user = factories.User()
+        factories.Dataset(
+            user=creator,
+            type="showcase",
+            name="pending-showcase",
+            approval_status="pending",
+        )
+
+        app.get(
+            "/api/3/action/ckanext_showcase_show?id=pending-showcase",
+            status=403,
+            extra_environ={"REMOTE_USER": str(other_user["name"])},
+        )
+
+    def test_auth_creator_can_get_own_pending_showcase_from_api(self, app):
+        creator = factories.User()
+        factories.Dataset(
+            user=creator,
+            type="showcase",
+            name="pending-showcase",
+            approval_status="pending",
+        )
+
+        response = app.get(
+            "/api/3/action/ckanext_showcase_show?id=pending-showcase",
+            status=200,
+            extra_environ={"REMOTE_USER": str(creator["name"])},
+        )
+
+        assert json.loads(response.body)["success"]
+
+    def test_auth_showcase_admin_can_get_pending_showcase_from_api(self, app):
+        sysadmin = factories.Sysadmin()
+        showcase_admin = factories.User()
+        factories.Dataset(
+            type="showcase",
+            name="pending-showcase",
+            approval_status="pending",
+        )
+        helpers.call_action(
+            "ckanext_showcase_admin_add",
+            context={"user": sysadmin["name"]},
+            username=showcase_admin["name"],
+        )
+
+        response = app.get(
+            "/api/3/action/ckanext_showcase_show?id=pending-showcase",
+            status=200,
+            extra_environ={"REMOTE_USER": str(showcase_admin["name"])},
+        )
+
+        assert json.loads(response.body)["success"]
+
+    def test_auth_sysadmin_can_get_pending_showcase_from_api(self, app):
+        sysadmin = factories.Sysadmin()
+        factories.Dataset(
+            type="showcase",
+            name="pending-showcase",
+            approval_status="pending",
+        )
+
+        response = app.get(
+            "/api/3/action/ckanext_showcase_show?id=pending-showcase",
+            status=200,
+            extra_environ={"REMOTE_USER": str(sysadmin["name"])},
+        )
+
+        assert json.loads(response.body)["success"]
 
 
 @pytest.mark.usefixtures("with_plugins", "clean_db", "clean_index")

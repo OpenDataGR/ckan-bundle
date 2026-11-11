@@ -176,6 +176,17 @@ def _get_showcase_url(showcase):
     return f"{site_url}/showcase/{showcase_name}"
 
 
+def _get_notification_subject_prefix():
+    return (toolkit.config.get('ckan.site_title', '') or '').strip()
+
+
+def _format_notification_subject(subject):
+    prefix = _get_notification_subject_prefix()
+    if prefix:
+        return f"{prefix}: {subject}"
+    return subject
+
+
 def _send_email(recipient, subject, body):
     mail_recipient(
         recipient_name="",
@@ -200,7 +211,9 @@ def _send_email_safely(recipient, subject, body, *, event, audience):
 
 
 def _get_creator_creation_subject(showcase_title):
-    return f"DATA GOV GR: Δημιουργήθηκε η επανάχρησή σας: '{showcase_title}'"
+    return _format_notification_subject(
+        f"Δημιουργήθηκε η επανάχρησή σας: '{showcase_title}'"
+    )
 
 
 def _get_creator_creation_body(showcase_title, showcase_url, status):
@@ -223,7 +236,9 @@ def _get_creator_creation_body(showcase_title, showcase_url, status):
 
 
 def _get_admin_creation_subject(showcase_title):
-    return f"DATA GOV GR: Δημιουργήθηκε νέα επανάχρηση: '{showcase_title}'"
+    return _format_notification_subject(
+        f"Δημιουργήθηκε νέα επανάχρηση: '{showcase_title}'"
+    )
 
 
 def _get_admin_creation_body(showcase_title, showcase_url, status):
@@ -248,8 +263,12 @@ def _get_admin_creation_body(showcase_title, showcase_url, status):
 
 def _get_creator_status_subject(showcase_title, status):
     if status == 'approved':
-        return f"DATA GOV GR: Εγκρίθηκε η επανάχρησή σας: '{showcase_title}'"
-    return f"DATA GOV GR: Απορρίφθηκε η επανάχρησή σας: '{showcase_title}'"
+        return _format_notification_subject(
+            f"Εγκρίθηκε η επανάχρησή σας: '{showcase_title}'"
+        )
+    return _format_notification_subject(
+        f"Απορρίφθηκε η επανάχρησή σας: '{showcase_title}'"
+    )
 
 
 def _get_creator_status_body(showcase_title, showcase_url, status):
@@ -265,8 +284,8 @@ def _get_creator_status_body(showcase_title, showcase_url, status):
 
 
 def _get_org_approval_subject(dataset_title):
-    return (
-        "DATA GOV GR: Εγκεκριμένη επανάχρηση για σύνολο δεδομένων σας: "
+    return _format_notification_subject(
+        "Εγκεκριμένη επανάχρηση για σύνολο δεδομένων σας: "
         f"'{dataset_title}'"
     )
 
