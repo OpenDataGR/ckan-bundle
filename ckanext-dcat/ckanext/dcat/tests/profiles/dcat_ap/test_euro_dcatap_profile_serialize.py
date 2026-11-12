@@ -16,11 +16,37 @@ from ckantoolkit.tests import helpers, factories
 
 from ckanext.dcat import utils
 from ckanext.dcat.processors import RDFSerializer, HYDRA
+from ckanext.dcat.profiles import euro_dcat_ap_base
 from ckanext.dcat.profiles import (
     DCAT, DCT, ADMS, XSD, VCARD, FOAF, SCHEMA,
     SKOS, LOCN, GSP, OWL, SPDX, GEOJSON_IMT,
     RDFS,
 )
+
+
+IANA_MEDIA_TYPE_BASE_URI = "https://www.iana.org/assignments/media-types/"
+
+
+def _mock_media_types_vocabulary(monkeypatch, *media_types):
+    def vocabulary_show(context, data_dict):
+        assert context == {"ignore_auth": True}
+        assert data_dict == {"id": "Media types"}
+        return {
+            "tags": [
+                {
+                    "label_en": media_type,
+                    "value_uri": IANA_MEDIA_TYPE_BASE_URI + media_type,
+                    "is_active": True,
+                }
+                for media_type in media_types
+            ]
+        }
+
+    monkeypatch.setattr(
+        euro_dcat_ap_base.toolkit,
+        "get_action",
+        lambda action: vocabulary_show,
+    )
 from ckanext.dcat.profiles.euro_dcat_ap_base import (
     DISTRIBUTION_LICENSE_FALLBACK_CONFIG,
     LICENSE_DOCUMENT_EMIT_TYPE_CONFIG,
@@ -1055,12 +1081,13 @@ class TestEuroDCATAPProfileSerializeDataset(BaseSerializeTest):
         assert self._triple(g, distribution, DCAT.downloadURL, URIRef(resource['download_url']))
         assert self._triple(g, distribution, DCAT.accessURL, URIRef(resource['access_url']))
 
-    def test_distribution_format_iana_uri(self):
+    def test_distribution_format_iana_uri(self, monkeypatch):
         dataset_dict, resource = self._get_base_dataset_with_resource()
         # when only format is available and it looks like an IANA media type, use DCAT.mediaType instead
         # of DCT.format for output
         fmt_uri = 'https://www.iana.org/assignments/media-types/application/json'
         resource['format'] = fmt_uri
+        _mock_media_types_vocabulary(monkeypatch, 'application/json')
 
         # expect no dct:format node and the URI in dcat:mediaType
         self._build_graph_and_check_format_mediatype(
@@ -1082,31 +1109,33 @@ class TestEuroDCATAPProfileSerializeDataset(BaseSerializeTest):
             []
         )
 
-    def test_distribution_format_mediatype_text(self):
+    def test_distribution_format_mediatype_text(self, monkeypatch):
         dataset_dict, resource = self._get_base_dataset_with_resource()
         # if format value looks like an IANA media type, output dcat:mediaType instead of dct:format
         fmt_text = 'application/json'
         resource['format'] = fmt_text
+        _mock_media_types_vocabulary(monkeypatch, fmt_text)
 
-        # expect no dct:format node and the literal value in dcat:mediaType
+        # expect no dct:format node and the vocabulary URI in dcat:mediaType
         self._build_graph_and_check_format_mediatype(
             dataset_dict,
             [],
-            [Literal(fmt_text)]
+            [URIRef(IANA_MEDIA_TYPE_BASE_URI + fmt_text)]
         )
 
-    def test_distribution_format_mediatype_same(self):
+    def test_distribution_format_mediatype_same(self, monkeypatch):
         dataset_dict, resource = self._get_base_dataset_with_resource()
         # if format and mediaType are identical, output only dcat:mediaType
         fmt_text = 'application/json'
         resource['format'] = fmt_text
         resource['mimetype'] = fmt_text
+        _mock_media_types_vocabulary(monkeypatch, fmt_text)
 
-        # expect no dct:format node and the literal value in dcat:mediaType
+        # expect no dct:format node and the vocabulary URI in dcat:mediaType
         self._build_graph_and_check_format_mediatype(
             dataset_dict,
             [],
-            [Literal(fmt_text)]
+            [URIRef(IANA_MEDIA_TYPE_BASE_URI + fmt_text)]
         )
 
     def test_distribution_dates_fallback(self):
@@ -1139,17 +1168,18 @@ class TestEuroDCATAPProfileSerializeDataset(BaseSerializeTest):
         assert self._triple(g, distribution, DCT.modified, resource['metadata_modified'], XSD.dateTime)
         assert self._triple(g, distribution, DCT.issued, resource['created'], XSD.dateTime)
 
-    def test_distribution_format_mediatype_different(self):
+    def test_distribution_format_mediatype_different(self, monkeypatch):
         dataset_dict, resource = self._get_base_dataset_with_resource()
         # if format and mediaType are different, output both
         resource['format'] = 'myformat'
         resource['mimetype'] = 'application/json'
+        _mock_media_types_vocabulary(monkeypatch, resource['mimetype'])
 
         # expect both nodes
         self._build_graph_and_check_format_mediatype(
             dataset_dict,
             [Literal('myformat')],
-            [Literal('application/json')]
+            [URIRef(IANA_MEDIA_TYPE_BASE_URI + 'application/json')]
         )
 
     def test_hash_algorithm_not_uri(self):

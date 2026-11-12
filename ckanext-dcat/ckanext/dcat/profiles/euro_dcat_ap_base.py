@@ -1,5 +1,8 @@
 import json
+import logging
+import re
 from decimal import Decimal, DecimalException
+from urllib.parse import unquote, urlsplit
 
 from rdflib import term, URIRef, BNode, Literal
 import ckantoolkit as toolkit
@@ -33,6 +36,7 @@ from .base import (
 )
 
 config = toolkit.config
+log = logging.getLogger(__name__)
 
 DISTRIBUTION_LICENSE_FALLBACK_CONFIG = "ckanext.dcat.resource.inherit.license"
 INCLUDE_DOWNLOADALL_RESOURCE_CONFIG = "ckanext.dcat.include_downloadall_resource"
@@ -42,6 +46,84 @@ OUTPUT_RESOURCE_FORMAT_AS_FILE_TYPE_URI_CONFIG = (
 )
 FILE_TYPE_VOCABULARY_NAME = "File Type"
 FILE_TYPE_URI_BY_CODE_GRAPH_CACHE = "_dcat_file_type_uri_by_code_cache"
+MEDIA_TYPES_VOCABULARY_NAME = "Media types"
+MEDIA_TYPE_URI_BY_VALUE_GRAPH_CACHE = "_dcat_media_type_uri_by_value_cache"
+IANA_MEDIA_TYPES_PATH = "/assignments/media-types/"
+FILE_TYPE_CODE_ALIASES = {
+    "CSV.ZIP": "CSV",
+    "DBASE": "DBF",
+    "GEOPACKAGE": "GPKG",
+    "GZ": "GZIP",
+    "MD": "MARKDOWN",
+    "MP4": "MPEG4",
+    "RAR.": "RAR",
+    "SHAPE ZIP": "SHP",
+    "SHAPE-ZIP": "SHP",
+    "SHP ZIP": "SHP",
+    "SHP-ZIP": "SHP",
+    "TIF": "TIFF",
+    "TTL": "RDF_TURTLE",
+    "WCS": "WCS_SRVC",
+    "WFS": "WFS_SRVC",
+    "WMS": "WMS_SRVC",
+    "WMTS": "WMTS_SRVC",
+}
+
+# RFC 6838 media types consist of two token values separated by a slash.
+# Requiring token syntax avoids treating arbitrary composite format labels such
+# as "xlsx/csv/shape file/GeoJson" as media types merely because they contain
+# a slash.
+MEDIA_TYPE_PATTERN = re.compile(
+    r"^[!#$%&'*+\-.^_`|~0-9A-Za-z]+/"
+    r"[!#$%&'*+\-.^_`|~0-9A-Za-z]+$"
+)
+
+
+def _looks_like_media_type(value):
+    return isinstance(value, str) and bool(MEDIA_TYPE_PATTERN.fullmatch(value.strip()))
+
+
+def _media_type_key(value):
+    """Return a normalized bare media type, excluding optional parameters."""
+    if not isinstance(value, str):
+        return None
+
+    bare_value = value.split(";", 1)[0].strip()
+    return bare_value.casefold() if _looks_like_media_type(bare_value) else None
+
+
+def _http_uri(value):
+    """Return a stripped HTTP(S) URI, or None when the value is not one."""
+    if not isinstance(value, str):
+        return None
+
+    stripped = value.strip()
+    try:
+        parsed = urlsplit(stripped)
+    except ValueError:
+        return None
+
+    if parsed.scheme.casefold() not in {"http", "https"} or not parsed.netloc:
+        return None
+    return stripped
+
+
+def _media_type_key_from_iana_uri(value):
+    """Extract a normalized media type from an IANA media type URI."""
+    uri = _http_uri(value)
+    if not uri:
+        return None
+
+    parsed = urlsplit(uri)
+    hostname = (parsed.hostname or "").casefold()
+    if hostname != "iana.org" and not hostname.endswith(".iana.org"):
+        return None
+    path_index = parsed.path.casefold().find(IANA_MEDIA_TYPES_PATH)
+    if path_index < 0:
+        return None
+
+    media_type = unquote(parsed.path[path_index + len(IANA_MEDIA_TYPES_PATH):])
+    return _media_type_key(media_type)
 
 
 class BaseEuropeanDCATAPProfile(RDFProfile):
@@ -61,7 +143,11 @@ class BaseEuropeanDCATAPProfile(RDFProfile):
                 {"ignore_auth": True},
                 {"id": FILE_TYPE_VOCABULARY_NAME},
             )
-        except Exception:
+        except Exception as exc:
+            log.warning(
+                "Could not load File Type vocabulary for RDF format matching: %s",
+                exc,
+            )
             setattr(self.g, FILE_TYPE_URI_BY_CODE_GRAPH_CACHE, mapping)
             return mapping
 
@@ -74,7 +160,7 @@ class BaseEuropeanDCATAPProfile(RDFProfile):
             name = tag.get("name")
             code = None
             if isinstance(value_uri, str) and value_uri.strip():
-                code = value_uri.rstrip("/").split("/")[-1]
+                code = value_uri.strip().rstrip("/").split("/")[-1]
             elif isinstance(name, str) and name.strip():
                 code = name
 
@@ -97,7 +183,90 @@ class BaseEuropeanDCATAPProfile(RDFProfile):
         if not stripped or stripped.startswith(("http://", "https://")):
             return None
 
-        return self._file_type_uri_by_code().get(stripped.upper())
+        mapping = self._file_type_uri_by_code()
+        code = stripped.upper()
+
+        # Preserve exact vocabulary codes as the highest-priority match.
+        value_uri = mapping.get(code)
+        if value_uri:
+            return value_uri
+
+        # File extensions are often stored with a leading dot. Only remove it
+        # when doing so produces an actual code in the live vocabulary.
+        if code.startswith(".") and len(code) > 1:
+            value_uri = mapping.get(code[1:])
+            if value_uri:
+                return value_uri
+
+        # Aliases are deliberately explicit. Their targets must exist in the
+        # live vocabulary, so an alias can never manufacture an invalid URI.
+        alias_code = FILE_TYPE_CODE_ALIASES.get(code)
+        return mapping.get(alias_code) if alias_code else None
+
+    def _media_type_uri_by_value(self):
+        if hasattr(self.g, MEDIA_TYPE_URI_BY_VALUE_GRAPH_CACHE):
+            return getattr(self.g, MEDIA_TYPE_URI_BY_VALUE_GRAPH_CACHE)
+
+        mapping = {}
+        try:
+            vocabulary_show = toolkit.get_action("vocabularyadmin_vocabulary_show")
+            vocabulary = vocabulary_show(
+                {"ignore_auth": True},
+                {"id": MEDIA_TYPES_VOCABULARY_NAME},
+            )
+        except Exception as exc:
+            log.warning(
+                "Could not load Media types vocabulary for RDF media type matching: %s",
+                exc,
+            )
+            setattr(self.g, MEDIA_TYPE_URI_BY_VALUE_GRAPH_CACHE, mapping)
+            return mapping
+
+        tags = vocabulary.get("tags", []) if isinstance(vocabulary, dict) else []
+        for tag in tags:
+            if not isinstance(tag, dict):
+                continue
+            if tag.get("is_active") is not None and not toolkit.asbool(
+                tag.get("is_active")
+            ):
+                continue
+
+            value_uri = _http_uri(tag.get("value_uri"))
+            if not value_uri:
+                continue
+
+            keys = {
+                _media_type_key(tag.get("label_en")),
+                _media_type_key_from_iana_uri(value_uri),
+            }
+            for key in keys - {None}:
+                previous_uri = mapping.get(key)
+                if previous_uri and previous_uri != value_uri:
+                    log.warning(
+                        "Duplicate Media types vocabulary value %s maps to both %s and %s",
+                        key,
+                        previous_uri,
+                        value_uri,
+                    )
+                    continue
+                mapping[key] = value_uri
+
+        setattr(self.g, MEDIA_TYPE_URI_BY_VALUE_GRAPH_CACHE, mapping)
+        return mapping
+
+    def _media_type_uri_for_value(self, value, allow_non_iana_uri=True):
+        """Resolve a media type value to a URI without manufacturing one."""
+        uri = _http_uri(value)
+        if uri:
+            iana_key = _media_type_key_from_iana_uri(uri)
+            if iana_key:
+                return self._media_type_uri_by_value().get(iana_key, uri)
+            return uri if allow_non_iana_uri else None
+
+        key = _media_type_key(value)
+        if not key:
+            return None
+        return self._media_type_uri_by_value().get(key)
 
     def _parse_dataset_base(self, dataset_dict, dataset_ref):
 
@@ -771,27 +940,30 @@ class BaseEuropeanDCATAPProfile(RDFProfile):
             mimetype = resource_dict.get("mimetype")
             fmt = resource_dict.get("format")
 
-            # IANA media types (either URI or Literal) should be mapped as mediaType.
-            # In case format is available and mimetype is not set or identical to format,
-            # check which type is appropriate.
-            if fmt and (not mimetype or mimetype == fmt):
-                if (
-                    "iana.org/assignments/media-types" in fmt
-                    or not fmt.startswith("http")
-                    and "/" in fmt
-                ):
-                    # output format value as dcat:mediaType instead of dct:format
-                    mimetype = fmt
-                    fmt = None
-                else:
-                    # Use dct:format
-                    mimetype = None
+            mimetype_uri = self._media_type_uri_for_value(mimetype)
 
-            if mimetype:
-                mimetype = URIRefOrLiteral(mimetype)
-                g.add((distribution, DCAT.mediaType, mimetype))
-                if isinstance(mimetype, URIRef):
-                    g.add((mimetype, RDF.type, DCT.MediaType))
+            # A media type stored in the format field is promoted only after it
+            # resolves to an actual URI. Unresolved values remain dct:format
+            # literals, so no source information is lost.
+            if fmt and (not mimetype or mimetype == fmt):
+                format_media_type_uri = self._media_type_uri_for_value(
+                    fmt,
+                    allow_non_iana_uri=False,
+                )
+                if format_media_type_uri:
+                    mimetype_uri = format_media_type_uri
+                    fmt = None
+
+            if mimetype_uri:
+                mimetype_ref = CleanedURIRef(mimetype_uri)
+                g.add((distribution, DCAT.mediaType, mimetype_ref))
+                g.add((mimetype_ref, RDF.type, DCT.MediaType))
+            elif mimetype:
+                log.warning(
+                    "Skipping unresolved non-URI resource media type %r for resource %s",
+                    mimetype,
+                    resource_dict.get("id", "<unknown>"),
+                )
 
             if fmt:
                 file_type_uri = self._file_type_uri_for_format(fmt)
