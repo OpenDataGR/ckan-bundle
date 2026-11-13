@@ -69,6 +69,33 @@ DEFAULT_DATASET_POPULARITY_SORT_CONFIG = (
     'ckanext.data_gov_gr.search.default_popularity_sort.enabled'
 )
 DEFAULT_DATASET_POPULARITY_SORT_PACKAGE_TYPES = ('dataset', 'data-service')
+HYBRID_PREFIX_SEARCH_CONFIG = (
+    'ckanext.data_gov_gr.search.hybrid_prefix.enabled'
+)
+HYBRID_PREFIX_LIVE_SEARCH_CONFIG = (
+    'ckanext.data_gov_gr.search.hybrid_prefix.live_search_enabled'
+)
+HYBRID_PREFIX_LIVE_SEARCH_PARAM = (
+    'ext_data_gov_gr_hybrid_prefix_live_search'
+)
+HYBRID_PREFIX_MIN_QUERY_LENGTH = 4
+HYBRID_PREFIX_EXACT_BOOST = 5
+HYBRID_PREFIX_FALLBACK_BOOST = 0.2
+
+
+def build_hybrid_prefix_query(query):
+    """Add a low-boost prefix fallback to a simple, single-word query."""
+    if not isinstance(query, str):
+        return None
+
+    query = query.strip()
+    if len(query) < HYBRID_PREFIX_MIN_QUERY_LENGTH or not query.isalnum():
+        return None
+
+    return (
+        f'({query})^{HYBRID_PREFIX_EXACT_BOOST} OR '
+        f'(text:{query}*)^{HYBRID_PREFIX_FALLBACK_BOOST}'
+    )
 
 
 def _positive_integer_or_default(default):
@@ -243,6 +270,8 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
             'ckanext.data_gov_gr.map_search.carto_api_key': [ignore_missing, unicode_safe],
             'ckanext.spatial.common_map.carto_vector.api_key': [ignore_missing, unicode_safe],
             DEFAULT_DATASET_POPULARITY_SORT_CONFIG: [ignore_missing, boolean_validator],
+            HYBRID_PREFIX_SEARCH_CONFIG: [ignore_missing, boolean_validator],
+            HYBRID_PREFIX_LIVE_SEARCH_CONFIG: [ignore_missing, boolean_validator],
             'ckanext.matomo.consent_mode': [ignore_missing, unicode_safe],
             'ckanext.data_gov_gr.header.logo_preset': [ignore_missing, unicode_safe],
             organization_stats.ORGANIZATION_VISITS_SORT_ENABLED_CONFIG: [ignore_missing, boolean_validator],
@@ -306,6 +335,15 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         )
         declaration.declare(root.search.default_popularity_sort.enabled, "yes").set_description(
             "Use popularity (views_recent desc) as the default sort on the dataset search page."
+        )
+        declaration.declare(root.search.hybrid_prefix.enabled, "no").set_description(
+            "Add a low-boost prefix fallback to simple searches on dataset and data-service pages."
+        )
+        declaration.declare(
+            root.search.hybrid_prefix.live_search_enabled,
+            "no",
+        ).set_description(
+            "Add the same low-boost prefix fallback to dataset live search."
         )
         declaration.declare(
             root.html.iframe_allowed_domains,
@@ -791,6 +829,8 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
         elif self._should_apply_default_popularity_sort(data_dict):
             data_dict['sort'] = DEFAULT_DATASET_POPULARITY_SORT
 
+        self._apply_hybrid_prefix_search(data_dict)
+
         # Αναζητούμε το χωρικό φίλτρο 'ext_bbox' στο αρχικό dictionary που έρχεται από το request.
         # Το φίλτρο αυτό αναμένεται να είναι μια συμβολοσειρά τεσσάρων δεκαδικών τιμών: minLon, minLat, maxLon, maxLat (π.χ. "24.1,35.2,25.9,36.1")
         ext_bbox_value = data_dict.get('ext_bbox')
@@ -829,6 +869,59 @@ class DataGovGrPlugin(plugins.SingletonPlugin):
 
         # Επιστρέφουμε το τροποποιημένο data_dict ώστε να συνεχιστεί η αναζήτηση με τα νέα φίλτρα
         return data_dict
+
+    def _apply_hybrid_prefix_search(self, data_dict):
+        is_live_search = self._pop_hybrid_prefix_live_search_marker(data_dict)
+
+        if is_live_search:
+            enabled = helpers.get_config_as_bool(
+                HYBRID_PREFIX_LIVE_SEARCH_CONFIG,
+                default=False,
+            )
+        elif self._is_supported_search_endpoint():
+            enabled = helpers.get_config_as_bool(
+                HYBRID_PREFIX_SEARCH_CONFIG,
+                default=False,
+            )
+        else:
+            return
+
+        if not enabled:
+            return
+
+        # Leave explicit/advanced Solr queries alone. The hybrid mode is only
+        # intended for the plain text submitted by the two search boxes.
+        if (
+            data_dict.get('defType')
+            or data_dict.get('qf')
+            or data_dict.get('mm')
+        ):
+            return
+
+        hybrid_query = build_hybrid_prefix_query(data_dict.get('q'))
+        if hybrid_query is None:
+            return
+
+        data_dict['q'] = hybrid_query
+        data_dict['defType'] = 'edismax'
+        # CKAN's default mm can require both clauses of this two-clause query,
+        # which would neutralize the OR fallback. One matching clause is the
+        # intended behavior; boosts still control relevance ordering.
+        data_dict['mm'] = '1'
+
+    def _pop_hybrid_prefix_live_search_marker(self, data_dict):
+        marker = data_dict.pop(HYBRID_PREFIX_LIVE_SEARCH_PARAM, None)
+        extras = data_dict.get('extras')
+        if isinstance(extras, dict):
+            marker = extras.pop(HYBRID_PREFIX_LIVE_SEARCH_PARAM, marker)
+
+        if marker is None:
+            return False
+
+        try:
+            return toolkit.asbool(marker)
+        except (TypeError, ValueError):
+            return False
 
     def _should_apply_default_relevance_sort(self, data_dict):
         if not helpers.get_config_as_bool(

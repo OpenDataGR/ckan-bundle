@@ -24,8 +24,8 @@
       <div class="controls">
         <select id="field-private" name="private" class="form-control form-select">
           {% if h.check_access('sysadmin') or h.allow_org_admins_public_decisions() %}
-            <option value="True">{{ _('Private') }}</option>
-            <option value="False">{{ _('Public') }}</option>
+            <option value="True"{% if data.private|trim == 'True' %} selected="selected"{% endif %}>{{ _('Private') }}</option>
+            <option value="False"{% if data.private|trim == 'False' %} selected="selected"{% endif %}>{{ _('Public') }}</option>
           {% else %}
             <option value="True" selected="selected">{{ _('Private') }}</option>
           {% endif %}

@@ -1201,6 +1201,67 @@
           });
         </script>
 
+        <hr>
+
+        {% set hybrid_prefix_enabled = h.get_config_as_bool('ckanext.data_gov_gr.search.hybrid_prefix.enabled', False) %}
+        <input
+          type="hidden"
+          id="field-ckanext.data_gov_gr.search.hybrid_prefix.enabled-hidden"
+          name="ckanext.data_gov_gr.search.hybrid_prefix.enabled"
+          value="false"
+          {% if hybrid_prefix_enabled %}disabled="disabled"{% endif %}
+        />
+        {% call form.checkbox(
+          'ckanext.data_gov_gr.search.hybrid_prefix.enabled',
+          id='field-ckanext.data_gov_gr.search.hybrid_prefix.enabled',
+          label=_('Υβριδική αναζήτηση με πρόθεμα στην κύρια αναζήτηση'),
+          value='true',
+          checked=hybrid_prefix_enabled
+        ) %}
+          <p class="help-block">
+            {{ _('Για απλές αναζητήσεις μίας λέξης με τουλάχιστον 4 χαρακτήρες, διατηρεί την κανονική αναζήτηση και προσθέτει αντιστοίχιση προθέματος με χαμηλότερη βαρύτητα.') }}
+          </p>
+        {% endcall %}
+
+        {% set hybrid_prefix_live_search_enabled = h.get_config_as_bool('ckanext.data_gov_gr.search.hybrid_prefix.live_search_enabled', False) %}
+        <input
+          type="hidden"
+          id="field-ckanext.data_gov_gr.search.hybrid_prefix.live_search_enabled-hidden"
+          name="ckanext.data_gov_gr.search.hybrid_prefix.live_search_enabled"
+          value="false"
+          {% if hybrid_prefix_live_search_enabled %}disabled="disabled"{% endif %}
+        />
+        {% call form.checkbox(
+          'ckanext.data_gov_gr.search.hybrid_prefix.live_search_enabled',
+          id='field-ckanext.data_gov_gr.search.hybrid_prefix.live_search_enabled',
+          label=_('Υβριδική αναζήτηση με πρόθεμα στη live αναζήτηση'),
+          value='true',
+          checked=hybrid_prefix_live_search_enabled
+        ) %}
+          <p class="help-block">
+            {{ _('Εφαρμόζει τον ίδιο υβριδικό τρόπο αναζήτησης στα αποτελέσματα που εμφανίζονται δυναμικά κατά την πληκτρολόγηση.') }}
+          </p>
+        {% endcall %}
+        <script>
+          document.addEventListener('DOMContentLoaded', function () {
+            [
+              'ckanext.data_gov_gr.search.hybrid_prefix.enabled',
+              'ckanext.data_gov_gr.search.hybrid_prefix.live_search_enabled'
+            ].forEach(function (name) {
+              var checkbox = document.getElementById('field-' + name);
+              var hidden = document.getElementById('field-' + name + '-hidden');
+              if (!checkbox || !hidden) {
+                return;
+              }
+              function syncHidden() {
+                hidden.disabled = !!checkbox.checked;
+              }
+              checkbox.addEventListener('change', syncHidden);
+              syncHidden();
+            });
+          });
+        </script>
+
         {% if show_dataset_menu_section %}
           <hr>
           <h4>{{ _('Μενού Συνόλων Δεδομένων (Dropdown)') }}</h4>

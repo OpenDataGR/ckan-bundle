@@ -21,6 +21,9 @@ MAX_QUERY_LENGTH = 200
 
 LIVE_SEARCH_MIN_QUERY_LENGTH = 2
 LIVE_SEARCH_NOTES_LENGTH = 160
+HYBRID_PREFIX_LIVE_SEARCH_PARAM = (
+    "ext_data_gov_gr_hybrid_prefix_live_search"
+)
 
 FUZZY_MIN_QUERY_LENGTH = 3
 FUZZY_SIMILARITY_THRESHOLD = 0.5
@@ -260,8 +263,8 @@ def enrich_dataset_live_search(context, data_dict):
         configured_limit,
     )
 
-    # The same query the dataset search page runs on submit: plain q,
-    # default relevance sort, datasets only, no facets or extra filters.
+    # Mark this package_search call so data_gov_gr can selectively apply its
+    # live-search query policy without changing other package_search clients.
     result = toolkit.get_action("package_search")(
         context,
         {
@@ -270,6 +273,7 @@ def enrich_dataset_live_search(context, data_dict):
             "rows": limit,
             "start": 0,
             "include_private": True,
+            HYBRID_PREFIX_LIVE_SEARCH_PARAM: True,
         },
     )
 
