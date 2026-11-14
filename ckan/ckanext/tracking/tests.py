@@ -3,10 +3,12 @@ import datetime
 
 import pytest
 import ckan.lib.helpers as h
+import ckan.model as model
 
-from ckan.model.meta import engine
 from ckan.tests import factories
 from ckan.tests.helpers import call_action
+from ckanext.tracking import middleware
+from ckanext.tracking.model import TrackingRaw
 
 
 @pytest.fixture
@@ -24,7 +26,7 @@ def export(tmp_path):
     path = tmp_path / "report.csv"
 
     def exporter():
-        export_tracking(engine=engine, output_filename=path)
+        export_tracking(output_filename=path)
 
         return list(csv.DictReader(path.open("r")))
 
@@ -43,15 +45,14 @@ def track(app):
     def func(url, type_="page", ip="199.204.138.90", browser="firefox"):
         params = {"url": url, "type": type_}
         environ_overrides = {
-            # The tracking middleware crashes if these aren't present.
             "HTTP_USER_AGENT": browser,
             "REMOTE_ADDR": ip,
             "HTTP_ACCEPT_LANGUAGE": "en",
             "HTTP_ACCEPT_ENCODING": "gzip, deflate",
         }
-        app.post(
+        return app.post(
             "/_tracking", params=params, environ_overrides=environ_overrides
-            )
+        )
 
     return func
 
@@ -70,13 +71,88 @@ def update_tracking_summary():
     date = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime(
         "%Y-%m-%d"
     )
-    update_all(engine=engine, start_date=date)
+    update_all(start_date=date)
 
 
 @pytest.mark.ckan_config("ckan.root_path", "/foo/{{LANG}}")
 @pytest.mark.ckan_config("ckan.plugins", "tracking")
 @pytest.mark.usefixtures("with_plugins", "clean_db", "app")
 class TestTracking(object):
+    def test_tracking_endpoint_returns_no_content(self, track):
+        response = track("/about")
+
+        assert response.status_code == 204
+
+    @pytest.mark.parametrize(
+        "tracking_type",
+        (
+            "expr 9000792500 - 947221",
+            "response.write(9650088*9963545)",
+            "unknown",
+        ),
+    )
+    def test_tracking_endpoint_rejects_unknown_types(
+        self, track, tracking_type
+    ):
+        response = track("/data-service", type_=tracking_type)
+
+        assert response.status_code == 400
+        assert model.Session.query(TrackingRaw).count() == 0
+
+    def test_tracking_endpoint_accepts_empty_homepage_url(self, track):
+        response = track("")
+
+        assert response.status_code == 204
+        assert model.Session.query(TrackingRaw).filter_by(url="").count() == 1
+
+    @pytest.mark.parametrize(
+        "params",
+        ({}, {"url": "/about"}, {"type": "page"}),
+    )
+    def test_tracking_endpoint_rejects_missing_fields(self, app, params):
+        response = app.post("/_tracking", params=params)
+
+        assert response.status_code == 400
+        assert model.Session.query(TrackingRaw).count() == 0
+
+    def test_tracking_endpoint_tolerates_empty_client_headers(self, app):
+        response = app.post(
+            "/_tracking",
+            params={"url": "/about", "type": "page"},
+            environ_overrides={
+                "HTTP_USER_AGENT": "",
+                "REMOTE_ADDR": "",
+                "HTTP_ACCEPT_LANGUAGE": "",
+                "HTTP_ACCEPT_ENCODING": "",
+            },
+        )
+
+        assert response.status_code == 204
+
+    def test_tracking_db_failure_does_not_poison_session(
+        self, app, monkeypatch, track
+    ):
+        # Reproduces the production incident: a tracking_type longer than
+        # the varchar(10) column fails at flush time with
+        # StringDataRightTruncation. Bypass the type validation so the
+        # failure reaches the database.
+        long_type = "response.write(9650088*9963545)"
+        monkeypatch.setattr(
+            middleware, "ALLOWED_TRACKING_TYPES", frozenset([long_type])
+        )
+
+        response = track("/data-service", type_=long_type)
+        # Production servers close the response after sending it, which is
+        # when deferred callbacks used to run. The test client does not do
+        # this on its own.
+        response.close()
+
+        assert response.status_code == 204
+        assert model.Session().is_active
+        assert model.Session.query(TrackingRaw).count() == 0
+        assert app.get("/api/3/action/package_list").status_code == 200
+        assert app.get("/dataset/").status_code == 200
+
     def test_package_with_0_views(self):
         package = factories.Dataset()
 

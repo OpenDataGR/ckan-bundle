@@ -1,55 +1,52 @@
 import hashlib
 import logging
 
+import ckan.model as model
 from ckan.common import request
-from ckan.types import Response
 
 from ckanext.tracking.model import TrackingRaw
 
 
 logger = logging.getLogger(__name__)
+ALLOWED_TRACKING_TYPES = frozenset(("page", "resource"))
 
 
-def track_request(response: Response) -> Response:
-    path = request.environ.get('PATH_INFO')
-    method = request.environ.get('REQUEST_METHOD')
-    if path == '/_tracking' and method == 'POST':
-        # Μαζεύουμε ό,τι χρειαζόμαστε όσο υπάρχει ακόμη request context.
-        # Το callback εκτελείται αφού κλείσει το response iterable, οπότε τότε
-        # το request context δεν θα είναι πλέον διαθέσιμο.
-        url = request.form.get("url")
-        tracking_type = request.form.get("type")
-        if not url or not tracking_type:
-            return response
+def track_request() -> tuple[str, int]:
+    """Validate and store a tracking event inside the request lifecycle."""
+    url = request.form.get("url")
+    tracking_type = request.form.get("type")
 
-        # we want a unique anonomized key for each user so that we do
-        # not count multiple clicks from the same user.
-        key = ''.join([
-            request.environ['HTTP_USER_AGENT'],
-            request.environ['REMOTE_ADDR'],
-            request.environ.get('HTTP_ACCEPT_LANGUAGE', ''),
-            request.environ.get('HTTP_ACCEPT_ENCODING', ''),
-        ])
-        # raises a type error on python<3.9
-        h = hashlib.new('md5', usedforsecurity=False)
-        h.update(key.encode())
-        user_key = h.hexdigest()
+    # An empty URL represents the home page and is valid. Tracking types are
+    # an enum in practice even though the database column is a varchar.
+    if url is None or tracking_type not in ALLOWED_TRACKING_TYPES:
+        return "", 400
 
-        def _store_tracking() -> None:
-            try:
-                logger.debug("Tracking %s for %s", tracking_type, url)
-                TrackingRaw.create(
-                    user_key=user_key,
-                    url=url,
-                    tracking_type=tracking_type,
-                )
-            except Exception:
-                logger.exception("Error tracking request")
+    # We want a unique anonymized key for each user so that we do not count
+    # multiple clicks from the same user. Missing headers must not turn a
+    # best-effort tracking request into a server error.
+    key = "".join([
+        request.environ.get("HTTP_USER_AGENT", ""),
+        request.environ.get("REMOTE_ADDR", ""),
+        request.environ.get("HTTP_ACCEPT_LANGUAGE", ""),
+        request.environ.get("HTTP_ACCEPT_ENCODING", ""),
+    ])
+    h = hashlib.new("md5", usedforsecurity=False)
+    h.update(key.encode())
+    user_key = h.hexdigest()
 
-        # Αναβάλουμε το DB write μέχρι να έχει σταλεί η απόκριση.
-        if hasattr(response, "call_on_close"):
-            response.call_on_close(_store_tracking)
-        else:
-            _store_tracking()
+    try:
+        logger.debug("Tracking %s for %s", tracking_type, url)
+        TrackingRaw.create(
+            user_key=user_key,
+            url=url,
+            tracking_type=tracking_type,
+        )
+    except Exception:
+        # TrackingRaw.create() commits, so a failed flush leaves the scoped
+        # session unusable until it is explicitly rolled back. Always recover
+        # it before this worker handles another request.
+        model.Session.rollback()
+        logger.exception("Error tracking request")
 
-    return response
+    # Tracking is best-effort and must not affect the page being measured.
+    return "", 204
