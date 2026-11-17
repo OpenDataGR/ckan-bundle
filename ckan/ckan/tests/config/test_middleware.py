@@ -1,9 +1,11 @@
 # encoding: utf-8
 
 import pytest
+import sqlalchemy as sa
 
 from flask import Blueprint
 
+import ckan.model as model
 from ckan import plugins as p
 from ckan.common import config, _
 from ckan.lib.helpers import url_for
@@ -128,3 +130,55 @@ def test_no_wtf_secret_falls_back_to_secret_key(app):
 @pytest.mark.usefixtures(u"with_plugins")
 def test_custom_middleware_does_not_break_the_app(app):
     app.get("/", status=200)
+
+
+def test_request_teardown_recovers_invalidated_session(patched_app):
+    context = patched_app.flask_app.test_request_context("/")
+    context.push()
+
+    try:
+        session = model.Session()
+        connection = session.connection()
+        connection.invalidate()
+
+        with pytest.raises(sa.exc.PendingRollbackError):
+            session.execute(sa.text("SELECT 1"))
+
+        context.pop(RuntimeError("request failed"))
+
+        assert model.Session.execute(sa.text("SELECT 1")).scalar() == 1
+        patched_app.get("/flask_core", status=200)
+    finally:
+        model.Session.remove()
+
+
+@pytest.mark.parametrize(
+    "exception",
+    [None, RuntimeError("request failed")],
+    ids=["without-exception", "with-exception"],
+)
+def test_request_teardown_removes_session_with_or_without_exception(
+        app, exception):
+    context = app.flask_app.test_request_context("/")
+    context.push()
+
+    try:
+        session_during_request = model.Session()
+        context.pop(exception)
+
+        assert model.Session() is not session_during_request
+    finally:
+        model.Session.remove()
+
+
+def test_request_teardown_without_active_session_is_safe(app):
+    model.Session.remove()
+    context = app.flask_app.test_request_context("/")
+    context.push()
+
+    try:
+        context.pop()
+
+        assert not model.Session.registry.has()
+    finally:
+        model.Session.remove()
