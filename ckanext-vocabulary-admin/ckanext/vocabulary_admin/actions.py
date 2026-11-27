@@ -223,10 +223,15 @@ def vocabularyadmin_vocabulary_show(context, data_dict):
     # Call the original, core CKAN action to get the basic data
     vocabulary_data = toolkit.get_action('vocabulary_show')(context, data_dict)
 
+    tags = vocabulary_data.get('tags', [])
+    # Όλα τα metadata με ένα query (αντί για ένα query ανά tag)
+    metadata_by_tag = tag_metadata_model.get_tags_metadata(
+        [tag['id'] for tag in tags])
+
     enriched_active_tags = []
-    for tag in vocabulary_data.get('tags', []):
+    for tag in tags:
         # For each tag, get its custom metadata
-        metadata = tag_metadata_model.get_tag_metadata(tag['id'])
+        metadata = metadata_by_tag.get(tag['id'])
 
         # Keep the tag only if it's active (or if it has no metadata,
         # consider it active for compatibility reasons)

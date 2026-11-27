@@ -339,3 +339,59 @@ msgstr "Δεν βρέθηκαν αποτελέσματα βαθμολογίας 
 
 msgid "No openness score results were found."
 msgstr "Δεν βρέθηκαν αποτελέσματα βαθμολογίας ανοικτότητας."
+
+msgid "Format field \"%s\" does not match the URL extension \"%s\"; the URL extension was used."
+msgstr "Το πεδίο μορφής \"%s\" δεν συμφωνεί με την κατάληξη του URL \"%s\"· χρησιμοποιήθηκε η κατάληξη του URL."
+
+msgid "Score estimated from the resource metadata; the file contents were not inspected."
+msgstr "Η βαθμολογία εκτιμήθηκε από τα μεταδεδομένα του πόρου· το περιεχόμενο του αρχείου δεν ελέγχθηκε."
+
+msgid "Score frequencies (datasets)"
+msgstr "Συχνότητες βαθμολογίας (σύνολα δεδομένων)"
+
+msgid "Organizations with datasets"
+msgstr "Οργανισμοί με σύνολα δεδομένων"
+
+msgid "All organizations"
+msgstr "Όλοι οι οργανισμοί"
+
+msgid "All datasets"
+msgstr "Όλα τα σύνολα δεδομένων"
+
+msgid "Not scored"
+msgstr "Δεν έχουν βαθμολογηθεί"
+
+msgid "{count} dataset"
+msgid_plural "{count} datasets"
+msgstr[0] "{count} σύνολο"
+msgstr[1] "{count} σύνολα"
+
+msgid "Filter organizations with unscored datasets"
+msgstr "Φιλτράρισμα οργανισμών με σύνολα δεδομένων που δεν έχουν βαθμολογηθεί"
+
+msgid "Filter organizations with datasets of score {score}"
+msgstr "Φιλτράρισμα οργανισμών με σύνολα δεδομένων βαθμολογίας {score}"
+
+msgid "{total} organization"
+msgstr "{total} οργανισμός"
+
+msgid "{total} organizations"
+msgstr "{total} οργανισμοί"
+
+msgid "{start}-{end} of {total} organization"
+msgstr "{start}-{end} από {total} οργανισμό"
+
+msgid "{start}-{end} of {total} organizations"
+msgstr "{start}-{end} από {total} οργανισμούς"
+
+msgid "{total} dataset"
+msgstr "{total} σύνολο δεδομένων"
+
+msgid "{total} datasets"
+msgstr "{total} σύνολα δεδομένων"
+
+msgid "{start}-{end} of {total} dataset"
+msgstr "{start}-{end} από {total} σύνολο δεδομένων"
+
+msgid "{start}-{end} of {total} datasets"
+msgstr "{start}-{end} από {total} σύνολα δεδομένων"

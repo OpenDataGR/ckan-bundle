@@ -273,3 +273,12 @@ msgstr "Ο πόρος δεν έχει URL"
 
 msgid "Resource is a Download All ZIP resource"
 msgstr "Ο πόρος είναι συνθετικό ZIP λήψης όλων των πόρων"
+
+msgid "URL checked successfully"
+msgstr "Ο σύνδεσμος ελέγχθηκε με επιτυχία"
+
+msgid "URL check temporarily failed"
+msgstr "Προσωρινή αποτυχία ελέγχου συνδέσμου"
+
+msgid "Not checked: the server %s did not respond (timeout) to %d previous links in this check"
+msgstr "Δεν ελέγχθηκε: ο server %s δεν απάντησε (timeout) σε %d προηγούμενους συνδέσμους αυτού του ελέγχου"

@@ -241,3 +241,13 @@ msgstr ""
 
 msgid "Resource is a Download All ZIP resource"
 msgstr ""
+
+msgid "URL checked successfully"
+msgstr ""
+
+msgid "URL check temporarily failed"
+msgstr ""
+
+#, python-format
+msgid "Not checked: the server %s did not respond (timeout) to %d previous links in this check"
+msgstr ""

@@ -43,15 +43,29 @@ def pop_zip_resource(pkg):
     '''Finds the zip resource in a package's resources, removes it from the
     package and returns it. NB the package doesn't have the zip resource in it
     any more.
+
+    OD-857: αφαιρούνται όλα τα ZIP, και επιστρέφεται αυτό που ενημερώνει το
+    job (freshness.zip_resource).
     '''
-    zip_res = None
-    non_zip_resources = []
-    for res in pkg.get('resources', []):
-        if res.get('downloadall_metadata_modified'):
-            zip_res = res
-        else:
-            non_zip_resources.append(res)
-    pkg['resources'] = non_zip_resources
+    from . import eligibility, freshness
+    zip_res = freshness.zip_resource(pkg)
+    pkg['resources'] = [res for res in pkg.get('resources', [])
+                        if not eligibility.is_zip_resource(res)]
     if is_data_service(pkg):
         return None
     return zip_res
+
+
+def zip_state(pkg, zip_res=None):
+    '''Κατάσταση του κουμπιού «Λήψη όλων»: ready, stale, none ή hidden
+    (βλ. freshness.zip_state).'''
+    from . import freshness
+    return freshness.zip_state(pkg, zip_res)
+
+
+def zip_missing_count(zip_res):
+    '''Πόσοι πόροι του dataset δεν περιλαμβάνονται στο ZIP (αποκλεισμένοι ή
+    αποτυχημένοι), σύμφωνα με τα στοιχεία του τελευταίου build.'''
+    from . import freshness
+    return freshness.build_count(zip_res, 'downloadall_excluded') + \
+        freshness.build_count(zip_res, 'downloadall_failed')

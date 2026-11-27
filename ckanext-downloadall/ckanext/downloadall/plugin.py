@@ -4,29 +4,16 @@ from ckan.lib.plugins import DefaultTranslation
 
 from ckan import model
 
-from .tasks import update_zip
 from . import helpers
 from . import action
+from . import eligibility
+from . import lib
 
 
 log = __import__('logging').getLogger(__name__)
 
 
-def _request_queued_dataset_ids():
-    """Return the per-request set of datasets already handled, if available."""
-    try:
-        queued_dataset_ids = getattr(
-            toolkit.g, '_downloadall_queued_dataset_ids', None)
-    except RuntimeError:
-        return None
-
-    if queued_dataset_ids is None:
-        queued_dataset_ids = set()
-        toolkit.g._downloadall_queued_dataset_ids = queued_dataset_ids
-
-    return queued_dataset_ids
-
-
+@toolkit.blanket.config_declarations
 class DownloadallPlugin(plugins.SingletonPlugin, DefaultTranslation):
     plugins.implements(plugins.ITranslation)
     plugins.implements(plugins.IConfigurer)
@@ -41,84 +28,47 @@ class DownloadallPlugin(plugins.SingletonPlugin, DefaultTranslation):
         toolkit.add_template_directory(config_, 'templates')
         toolkit.add_public_directory(config_, 'public')
         toolkit.add_resource('fanstatic', 'downloadall')
+        # Έλεγχος του ckanext.downloadall.dedup_strategy κατά την εκκίνηση και
+        # καταχώριση των hooks για το enqueue μετά το commit
+        lib.check_config()
 
     # IDomainObjectModification
 
     def notify(self, entity, operation):
         u'''
-        Send a notification on entity modification.
+        Βάζει job για το ZIP του dataset μετά το commit, όταν αλλάζει το
+        dataset ή κάποιος πόρος του (OD-857).
 
-        :param entity: instance of module.Package.
+        Το ίδιο το job αποφασίζει αν το ZIP χρειάζεται νέο build (fingerprint
+        και hash του datapackage.json), οπότε εδώ δεν γίνεται σύγκριση.
+        Αγνοούνται:
+          - η ενημέρωση του ίδιου του ZIP από το job (αλλιώς ατέρμονος κύκλος)
+          - datasets χωρίς δικαίωμα σε ZIP που δεν έχουν ZIP (π.χ. μη HVD με
+            hvd_only)
+
+        :param entity: instance of model.Package or model.Resource
         :param operation: 'new', 'changed' or 'deleted'.
         '''
-
-        if operation == 'deleted':
+        if operation == 'deleted' or entity is None or lib.in_own_update():
             return
 
-        # Check if entity is None or doesn't have a name attribute
-        if entity is None:
-            log.debug(u'{} None'.format(operation))
-            log.debug(u'{} None'.format(operation))
-            return
-
-        try:
-            log.debug(u'{} {} \'{}\''
-                      .format(operation, type(entity).__name__, entity.name))
-        except AttributeError:
-            log.debug(u'{} {} (no name)'.format(operation, type(entity).__name__))
-            return
-        # We should regenerate zip if these happen:
-        # 1 change of title, description etc (goes into package.json)
-        # 2 add/change/delete resource metadata
-        # 3 change resource data by upload (results in URL change)
-        # 4 change resource data by remote data
-        # BUT not:
-        # 5 if this was just an update of the Download All zip itself
-        #   (or you get an infinite loop)
-        #
-        # 4 - we're ignoring this for now (ideally new data means a new URL)
-        # 1&2&3 - will change package.json and notify(res) and possibly
-        #         notify(package) too
-        # 5 - will cause these notifies but package.json only in limit places
-        #
-        # SO if package.json (not including Package Zip bits) remains the same
-        # then we don't need to regenerate zip.
-        # Try to get the current user from the context, but handle the case
-        # when running outside of a Flask request context
-        try:
-            user = toolkit.c.user
-        except (RuntimeError, TypeError):
-            log.debug('Running outside of Flask application context, user will be None')
-            user = None
-        if isinstance(entity, model.Package) and operation == 'changed' and user is None:
-            # Αυτό πιθανότατα σημαίνει ότι η ειδοποίηση προήλθε από τον ίδιο τον worker
-            # που μόλις ενημέρωσε το resource του zip.
-            # Δεν χρειάζεται να ξαναβάλουμε την εργασία στην ουρά.
-            log.debug(f"Package '{getattr(entity, 'name', 'UnknownPackage')}' change notification received, "
-                      f"but user context is None (likely worker-triggered for 'downloadall'). Skipping re-queue.")
-            return
         if isinstance(entity, model.Package):
-            if helpers.is_data_service(entity) or getattr(entity, 'type', '') == 'showcase':
-                log.debug('Skipping downloadall queue for dataset type "{}": {}'.format(
-                    getattr(entity, 'type', 'unknown'), getattr(entity, 'name', 'UnknownPackage')))
-                purge_downloadall_zip(entity.id, user)
-                return
-            enqueue_update_zip(entity.name, entity.id, operation, user)
+            dataset = entity
         elif isinstance(entity, model.Resource):
-            if entity.extras.get('downloadall_metadata_modified'):
-                # this is the zip of all the resources - no need to react to
-                # it being changed
-                log.debug('Ignoring change to zip resource')
+            if eligibility.is_zip_model_resource(entity):
+                # Το ίδιο το ZIP· η αλλαγή του δεν χρειάζεται νέο build
                 return
-            dataset = entity.related_packages()[0]
-            if helpers.is_data_service(dataset) or getattr(dataset, 'type', '') == 'showcase':
-                log.debug('Skipping downloadall queue for dataset type "{}": {}'.format(
-                    getattr(dataset, 'type', 'unknown'), getattr(dataset, 'name', 'UnknownPackage')))
-                purge_downloadall_zip(dataset.id, user)
+            packages = entity.related_packages()
+            if not packages:
                 return
-            enqueue_update_zip(dataset.name, dataset.id, operation, user)
+            dataset = packages[0]
         else:
             return
+
+        if not eligibility.package_needs_job(dataset):
+            log.debug('No DownloadAll job for %s', dataset.name)
+            return
+        lib.enqueue_zip_after_commit(dataset.id)
 
     # ITemplateHelpers
 
@@ -126,6 +76,8 @@ class DownloadallPlugin(plugins.SingletonPlugin, DefaultTranslation):
         return {
             'downloadall__pop_zip_resource': helpers.pop_zip_resource,
             'downloadall__is_data_service': helpers.is_data_service,
+            'downloadall__zip_state': helpers.zip_state,
+            'downloadall__zip_missing_count': helpers.zip_missing_count,
         }
 
     # IPackageController
@@ -174,65 +126,12 @@ class DownloadallPlugin(plugins.SingletonPlugin, DefaultTranslation):
     # IActions
 
     def get_actions(self):
-        actions = {}
+        actions = {
+            'package_update': action.package_update,
+            'resource_delete': action.resource_delete,
+        }
         if plugins.get_plugin('datastore'):
             # datastore is enabled, so we need to chain the datastore_create
             # action, to update the zip when it is called
             actions['datastore_create'] = action.datastore_create
         return actions
-
-
-def enqueue_update_zip(dataset_name, dataset_id, operation, user=None):
-    # Avoid duplicate notifications for the same dataset in one web request.
-    # Deduplication across requests is intentionally left to update_zip's
-    # skip_if_no_changes check so that enqueueing never scans the whole queue.
-    queue = 'bulk'
-    request_dataset_ids = _request_queued_dataset_ids()
-    if request_dataset_ids is not None and dataset_id in request_dataset_ids:
-        log.debug('Already enqueued downloadall job for dataset in '
-                  'this request: {} {}'.format(dataset_name, dataset_id))
-        return
-
-    log.debug(u'Queuing job update_zip: {} {}'
-              .format(operation, dataset_name))
-
-    # Pass the user parameter to the update_zip function
-    toolkit.enqueue_job(
-        update_zip, [dataset_id, user, True],
-        title=u'DownloadAll {} "{}" {}'.format(operation, dataset_name,
-                                               dataset_id),
-        queue=queue)
-    if request_dataset_ids is not None:
-        request_dataset_ids.add(dataset_id)
-
-
-def purge_downloadall_zip(dataset_id, user=None):
-    """Delete downloadall ZIP resources for given dataset."""
-    context = {'model': model, 'session': model.Session}
-    if user:
-        context['user'] = user
-    else:
-        context['ignore_auth'] = True
-
-    try:
-        dataset = toolkit.get_action('package_show')(context, {'id': dataset_id})
-    except Exception as e:
-        log.error('Failed to fetch dataset %s for ZIP purge: %s', dataset_id, e)
-        return
-
-    zip_resource_ids = [
-        res['id'] for res in dataset.get('resources', [])
-        if res.get('downloadall_metadata_modified')
-    ]
-
-    if not zip_resource_ids:
-        return
-
-    log.info('Purging %d downloadall ZIP resource(s) from dataset %s', len(zip_resource_ids), dataset_id)
-
-    for res_id in zip_resource_ids:
-        try:
-            toolkit.get_action('resource_delete')(context, {'id': res_id})
-            log.info('Deleted downloadall ZIP resource %s from dataset %s', res_id, dataset_id)
-        except Exception as e:
-            log.error('Failed to delete downloadall ZIP resource %s: %s', res_id, e)

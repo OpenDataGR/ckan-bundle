@@ -23,6 +23,11 @@ class IPipe(Interface):
     def receive_data(self, operation, queue, **params):
         pass
 
+    def reindexes_after_package_archived(self):
+        '''True αν ο observer κάνει reindex του dataset μετά το
+        package-archived, ώστε ο archiver να μην το κάνει δεύτερη φορά.'''
+        return False
+
     @classmethod
     def send_data(cls, operation, queue, **params):
         for observer in plugins.PluginImplementations(cls):

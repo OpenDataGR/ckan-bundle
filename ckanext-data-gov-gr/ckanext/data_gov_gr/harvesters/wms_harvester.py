@@ -1287,6 +1287,9 @@ class WmsCapabilitiesHarvester(HarvesterBase):
             )
             resource["download_url"] = wms_capabilities_url
             resource["mimetype"] = XML_MIMETYPE
+            # Περιγραφή της υπηρεσίας, όχι δεδομένα: δεν μπαίνει στο ZIP
+            # «Λήψη όλων» (ckanext-downloadall)
+            resource["downloadall_exclude"] = True
             resources.append(resource)
 
         if (
@@ -1312,6 +1315,9 @@ class WmsCapabilitiesHarvester(HarvesterBase):
             )
             resource["download_url"] = wfs_capabilities_url
             resource["mimetype"] = XML_MIMETYPE
+            # Περιγραφή της υπηρεσίας, όχι δεδομένα: δεν μπαίνει στο ZIP
+            # «Λήψη όλων» (ckanext-downloadall)
+            resource["downloadall_exclude"] = True
             resources.append(resource)
 
         return resources

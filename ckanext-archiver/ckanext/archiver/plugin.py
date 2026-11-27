@@ -52,7 +52,11 @@ class ArchiverPlugin(p.SingletonPlugin, p.toolkit.DefaultDatasetForm):
 
         log.debug('Creating archiver task: %s', entity.name)
 
-        lib.create_archiver_package_task(entity, 'priority')
+        # Το notify εκτελείται πριν από το commit: το job μπαίνει στην ουρά
+        # μετά από αυτό, ώστε να διαβάσει την αποθηκευμένη εκδοχή του dataset
+        from ckanext.archiver import job_dedup
+        job_dedup.enqueue_after_commit('archiver', entity.id, 'priority',
+                                       lib.enqueue_archiver_package)
 
     def _is_it_sufficient_change_to_run_archiver(self, package, operation):
         ''' Returns True if in this revision any of these happened:
@@ -169,6 +173,12 @@ class ArchiverPlugin(p.SingletonPlugin, p.toolkit.DefaultDatasetForm):
 
     def update_config(self, config):
         p.toolkit.add_template_directory(config, 'templates')
+        # Έλεγχος του ckanext.archiver.mode κατά την εκκίνηση: άγνωστη τιμή
+        # σταματά την εφαρμογή αντί να γυρίσει σιωπηλά στο default.
+        log.info('Archiver mode: %s', lib.archiver_mode())
+        from ckanext.archiver import job_dedup
+        log.info('Archiver dedup strategy: %s', job_dedup.get_strategy('archiver'))
+        job_dedup.register_session_hooks()
 
     # IActions
 

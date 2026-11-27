@@ -1,157 +1,974 @@
-import tempfile
-import zipfile
-import os
-import hashlib
-import math
+# -*- coding: utf-8 -*-
+'''
+Δημιουργία του ZIP «Λήψη όλων» ενός dataset (OD-857).
+
+Ροή του job:
+  1. package_show (αν το dataset δεν υπάρχει πια ή δεν είναι ενεργό, τέλος)
+  2. dataset που δεν πρέπει να έχει ZIP (data service, showcase, μη HVD με
+     hvd_only, κανένας πόρος για το ZIP): σβήνεται το ZIP του, αν υπάρχει
+  3. αν το fingerprint και το hash του datapackage.json δεν άλλαξαν, τέλος
+  4. λήψη κάθε πόρου σε προσωρινό αρχείο (timeouts, όρια μεγέθους, χρονικό
+     όριο πριν το timeout του job) και προσθήκη στο ZIP μαζί με το
+     datapackage.json και το downloadall-manifest.json
+  5. αποθήκευση του ZIP με νέο όνομα αρχείου και, μόνο μετά από επιτυχία,
+     διαγραφή του προηγούμενου blob
+
+Οι πόροι που δεν κατέβηκαν δεν σταματούν το job· καταγράφονται στο manifest.
+Αν δεν κατέβηκε κανένας πόρος ή το build απέτυχε, το προηγούμενο ZIP μένει
+και σημειώνεται η αποτυχημένη προσπάθεια (record_attempt).
+'''
 import copy
+import datetime
+import hashlib
+import json
+import logging
+import math
+import os
+import shutil
+import socket
+import tempfile
+import threading
 import time
+import zipfile
+from email.utils import parsedate_to_datetime
+from time import monotonic, sleep
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import requests
 import six
+import sqlalchemy as sa
 import ckanapi
+import ckanapi.cli.utils
 import ckanapi.datapackage
+from rq.timeouts import JobTimeoutException
 
 from ckan import model
-from ckan.plugins.toolkit import get_action, config
+from ckan.plugins import toolkit
 
-from . import helpers
+from . import config
+from . import dedup
+from . import eligibility
+from . import filenames
+from . import freshness
+from . import lib
+from . import storage
 
+log = logging.getLogger(__name__)
 
-log = __import__('logging').getLogger(__name__)
+DATAPACKAGE_NAME = 'datapackage.json'
+MANIFEST_NAME = 'downloadall-manifest.json'
+CHUNK_SIZE = 64 * 1024
+RETRY_DELAY_SECONDS = 2
+# Επαναλήψεις της απελευθέρωσης του lock σε σύντομο σφάλμα της Redis
+RELEASE_ATTEMPTS = 3
+RELEASE_RETRY_SECONDS = 1
 
+# Πότε μπαίνει νέο job μετά την απελευθέρωση του lock (_release_and_requeue)
+REQUEUE_NEVER = 'never'
+REQUEUE_IF_CHANGED = 'if-changed'
+REQUEUE_ALWAYS = 'always'
+ZIP_NAME_MAX_DATASET_CHARS = 60
 
-def update_zip(package_id, user, skip_if_no_changes=True):
-    '''
-    Create/update the a dataset's zip resource, containing the other resources
-    and some metadata.
+STATUS_INCLUDED = 'included'
+STATUS_EXCLUDED = 'excluded'
+STATUS_FAILED = 'failed'
 
-    :param skip_if_no_changes: If true, and there is an existing zip for this
-        dataset, it will compare a freshly generated package.json against what
-        is in the existing zip, and if there are no changes (ignoring the
-        Download All Zip) then it will skip downloading the resources and
-        updating the zip.
-    :param user: The username of the authenticated user who initiated the task.
-        This is used to ensure the background task has the same permissions as the user.
-    '''
-    try:
-        # Include the user in the context to handle private datasets
-        context = {'model': model, 'session': model.Session}
-        if user:
-            context['user'] = user
-        else:
-            # When no user is provided (background job), use ignore_auth to bypass authorization
-            context['ignore_auth'] = True
-        dataset = get_action('package_show')(context, {'id': package_id})
+# Παράμετροι URL που μπορεί να περιέχουν μυστικά (π.χ. SAS token)· οι τιμές
+# τους δεν γράφονται στο manifest
+SECRET_QUERY_KEYS = ('sig', 'signature', 'token', 'access_token', 'key',
+                     'apikey', 'api_key', 'password', 'secret', 'code', 'auth')
 
-        # Skip dataset types that should not have a download-all ZIP
-        if helpers.is_data_service(dataset) or dataset.get('type') == 'showcase':
-            log.info(
-                'Skipping zip creation for dataset type "{}": {} (ID: {})'.format(
-                    dataset.get('type', 'unknown'), dataset.get('name', 'unknown'), package_id))
-            return
-
-        log.info('Starting zip update for dataset: {} (ID: {})'.format(dataset['name'], package_id))
-
-        datapackage, ckan_and_datapackage_resources, existing_zip_resource = \
-            generate_datapackage_json(package_id, user)
-
-        log.info('Generated datapackage with {} resources'.format(len(ckan_and_datapackage_resources)))
-
-        if existing_zip_resource:
-            log.info('Found existing zip resource: {}'.format(existing_zip_resource.get('id', 'unknown')))
-        else:
-            log.info('No existing zip resource found')
-
-        # For the first creation of a dataset or when resources are added to a dataset that previously had no resources,
-        # we want to force the creation of the zip file, regardless of whether the datapackage has changed significantly
-        force_update = False
-        if len(ckan_and_datapackage_resources) > 0 and (not existing_zip_resource or
-                                                       existing_zip_resource.get('size', 0) == 0):
-            log.info('Forcing zip update because dataset has resources but no existing zip or empty zip')
-            force_update = True
-
-        if not force_update and skip_if_no_changes and existing_zip_resource and \
-                not has_datapackage_changed_significantly(
-                    datapackage, ckan_and_datapackage_resources,
-                    existing_zip_resource):
-            log.info('Skipping updating the zip - the datapackage.json is not '
-                    'changed sufficiently: {}'.format(dataset['name']))
-            return
-
-        prefix = "{}-".format(dataset[u'name'])
-        fd, tmp_zip_path = tempfile.mkstemp(prefix=prefix, suffix='.zip')
-        os.close(fd)
-
-        try:
-            with open(tmp_zip_path, 'w+b') as fp:
-                filesize = write_zip(fp, datapackage, ckan_and_datapackage_resources, user=user)
-                log.info('Zip file created with size: {} bytes'.format(filesize))
-
-                # Rewind the file pointer to the beginning of the file
-                fp.seek(0)
-
-                # Upload resource to CKAN as a new/updated resource
-                # Use the authenticated user for the LocalCKAN instance if available
-                # Στο format το ZIP που καταχωρείται τελικά αφαιρείται πριν γίνει Ιndex οπότε και δεν φαίνεται στα φίλτρα
-                local_ckan = ckanapi.LocalCKAN(username=user) if user else ckanapi.LocalCKAN()
-                fp.seek(0)
-                resource = dict(
-                    package_id=dataset['id'],
-                    url='dummy-value',
-                    upload=fp,
-                    name=u'All resource data',
-                    name_translated={
-                        'en': u'All resource data',
-                        'el': u'Όλα τα δεδομένα πόρων',
-                    },
-                    format=u'ZIP',
-                    downloadall_metadata_modified=dataset['metadata_modified'],
-                    downloadall_datapackage_hash=hash_datapackage(datapackage)
-                )
-
-                if not existing_zip_resource:
-                    log.info('Creating new zip resource for dataset: {}'.format(dataset['name']))
-                    result = local_ckan.action.resource_create(**resource)
-                    log.info('New zip resource created with ID: {}'.format(result.get('id', 'unknown')))
-                else:
-                    log.info('Updating existing zip resource ID: {}'.format(existing_zip_resource['id']))
-                    result = local_ckan.action.resource_patch(
-                        id=existing_zip_resource['id'],
-                        **resource)
-                    log.info('Zip resource updated successfully')
-        finally:
-            if os.path.exists(tmp_zip_path):
-                try:
-                    os.remove(tmp_zip_path)
-                    log.info('Removed downloadall temp zip: {}'.format(tmp_zip_path))
-                except OSError as e:
-                    log.warning('Could not remove downloadall temp zip {}: {}'.format(tmp_zip_path, e))
-    except Exception as e:
-        log.error('Error in update_zip for dataset {}: {}'.format(package_id, str(e)))
-        import traceback
-        log.error(traceback.format_exc())
-        raise
+ZIP_RESOURCE_NAME = u'All resource data'
+ZIP_RESOURCE_NAME_TRANSLATED = {'en': u'All resource data',
+                                'el': u'Όλα τα δεδομένα πόρων'}
 
 
 class DownloadError(Exception):
-    """Exception raised when a resource cannot be downloaded."""
-    def __init__(self, message="Resource download failed"):
+    """Ο πόρος δεν μπόρεσε να μπει στο ZIP.
+
+    transient: η αποτυχία μπορεί να είναι προσωρινή (timeout, σύνδεση, 5xx,
+    429), οπότε το update-all-zips --retry-failed την ξαναδοκιμάζει· οι άλλες
+    (π.χ. 404, όριο μεγέθους ή χρόνου) ξαναδοκιμάζονται όταν αλλάξει το
+    dataset.
+    """
+    def __init__(self, message="Resource download failed", transient=False):
         self.message = message
+        self.transient = transient
         super(DownloadError, self).__init__(self.message)
 
 
-def has_datapackage_changed_significantly(
-        datapackage, ckan_and_datapackage_resources, existing_zip_resource):
-    '''Compare the freshly generated datapackage with the existing one and work
-    out if it is changed enough to warrant regenerating the zip.
+def _call_update_zip_once(package_id, user, skip_if_no_changes, deadline,
+                          count_retry=None):
+    # Κρατά την κλήση 4 ορισμάτων όταν το count_retry είναι default
+    # (συμβατότητα με υπάρχοντα mocks/tests).
+    if count_retry is None or count_retry == (not skip_if_no_changes):
+        return _update_zip_once(package_id, user, skip_if_no_changes, deadline)
+    return _update_zip_once(package_id, user, skip_if_no_changes, deadline,
+                            count_retry=count_retry)
 
-    :returns bool: True if the data package has really changed and needs
-        regenerating
+
+def update_zip(package_id, user=None, skip_if_no_changes=True, dedup_token=None,
+               timeout=None, count_retry=None):
+    """Update a dataset ZIP, coalescing changes when a Redis token is given.
+
+    Job του RQ (βλ. dedup, branch feature/downloadall-redis-coalescing). Με
+    dedup_token, όσο το dataset αλλάζει κατά τη διάρκεια του build, η
+    επεξεργασία επαναλαμβάνεται μέσα στο ίδιο job.
+
+    :param user: αγνοείται· το job τρέχει ως site user
+    :param skip_if_no_changes: αν το υπάρχον ZIP αντιστοιχεί ήδη στην τρέχουσα
+        εκδοχή του dataset, δεν ξαναδημιουργείται
+    :param timeout: δευτερόλεπτα για κλήση εκτός RQ (CLI --synchronous), ώστε
+        ένας αργός server να μην κρατά την εντολή απεριόριστα
+    :param count_retry: αν το αναγκαστικό build μετρά στο downloadall_retries
+        (None: default, True όταν skip_if_no_changes=False· False για
+        αναγκαστικό ξαναχτίσιμο μετά από package_update/harvest).
+    """
+    # Μία φορά ανά job: το timeout της RQ μετρά από την αρχή του job, όχι από
+    # την αρχή κάθε επανάληψης
+    deadline = job_deadline(timeout)
+    if dedup_token is None:
+        return _call_update_zip_once(
+            package_id, user, skip_if_no_changes, deadline, count_retry)
+
+    job_count_retry = (
+        (not skip_if_no_changes) if count_retry is None else bool(count_retry)
+    )
+
+    while True:
+        try:
+            prepared = dedup.prepare_iteration(package_id, dedup_token)
+        except dedup.RedisDedupError as exc:
+            log.warning(
+                'Redis coordination unavailable for DownloadAll job %s; '
+                'running once without deduplication: %s', package_id, exc)
+            try:
+                return _call_update_zip_once(
+                    package_id, user, skip_if_no_changes, deadline, count_retry)
+            finally:
+                # Αλλιώς το lock μένει ως το TTL και οι αλλαγές του dataset
+                # δεν βάζουν job. Χωρίς νέο job: αν το σφάλμα επιμένει, κάθε
+                # νέο job θα ξανάβαζε το επόμενο
+                _release_and_requeue(package_id, dedup_token,
+                                     skip_if_no_changes, REQUEUE_NEVER,
+                                     count_retry=count_retry)
+
+        if not prepared:
+            log.info(
+                'Skipping superseded DownloadAll job for dataset %s',
+                package_id)
+            return
+
+        # Αίτημα για νέο build χωρίς έλεγχο αλλαγών (π.χ. --retry-failed ή
+        # harvest) που ήρθε όσο υπήρχε ήδη αυτό το job
+        forced = _take_force(package_id)
+        effective_skip = skip_if_no_changes and not forced
+        force_counts_retry = bool(forced) and forced != dedup.FORCE_REFRESH
+        effective_count_retry = job_count_retry or force_counts_retry
+        started = monotonic()
+        try:
+            _call_update_zip_once(package_id, user, effective_skip, deadline,
+                                  effective_count_retry)
+        except Exception:
+            # Μια αλλαγή όσο έτρεχε το job που απέτυχε δεν πρέπει να χαθεί
+            _release_and_requeue(package_id, dedup_token, skip_if_no_changes,
+                                 REQUEUE_IF_CHANGED, count_retry=count_retry)
+            raise
+        duration = monotonic() - started
+        # Οι ρυθμίσεις του job (π.χ. --retry-failed) ισχύουν μόνο για την 1η
+        # επανάληψη. Οι επόμενες, και ένα νέο job λόγω χρόνου, γίνονται για
+        # αλλαγή του dataset και αποφασίζονται από το :force του Redis· αλλιώς
+        # ένα harvest ή μια απλή αλλαγή θα μετρούσε ξανά στο downloadall_retries
+        skip_if_no_changes = True
+        count_retry = None
+        job_count_retry = False
+
+        try:
+            rerun = dedup.finish_iteration(package_id, dedup_token)
+        except dedup.RedisDedupError as exc:
+            log.warning(
+                'Could not finalize Redis coordination for DownloadAll job '
+                '%s: %s', package_id, exc)
+            _release_and_requeue(package_id, dedup_token, skip_if_no_changes,
+                                 REQUEUE_IF_CHANGED, count_retry=count_retry)
+            return
+
+        if not rerun:
+            return
+
+        # Νέα επεξεργασία μόνο αν προλαβαίνει όσο κράτησε η προηγούμενη·
+        # αλλιώς οι πόροι θα έβγαιναν «time limit» και η αλλαγή θα
+        # καταγραφόταν ως αποτυχημένη προσπάθεια αντί για νέο job
+        if deadline is not None and monotonic() + duration > deadline:
+            log.info(
+                'Dataset %s changed while its DownloadAll job was running; '
+                'not enough time left in this job, queueing a new one',
+                package_id)
+            _release_and_requeue(package_id, dedup_token, skip_if_no_changes,
+                                 REQUEUE_ALWAYS, count_retry=count_retry)
+            return
+
+        log.info(
+            'Dataset %s changed while its DownloadAll job was running; '
+            'processing the latest state', package_id)
+
+
+def _take_force(package_id):
+    try:
+        return dedup.take_force(package_id)
+    except dedup.RedisDedupError as exc:
+        log.warning('Could not read the forced-rebuild request of %s: %s',
+                    package_id, exc)
+        return False
+
+
+def _release_and_requeue(package_id, dedup_token, skip_if_no_changes, requeue,
+                         count_retry=None):
+    '''Αφήνει το lock του job και βάζει νέο job για το dataset: ποτέ
+    (REQUEUE_NEVER), μόνο αν το dataset άλλαξε όσο έτρεχε το job
+    (REQUEUE_IF_CHANGED, dirty) ή πάντα (REQUEUE_ALWAYS).
+
+    Σε σφάλμα της Redis ξαναδοκιμάζει λίγες φορές: ένα lock που μένει κρατά
+    τις αλλαγές του dataset χωρίς job ως το TTL (dedup.get_lock_ttl).'''
+    changed = False
+    for attempt in range(RELEASE_ATTEMPTS):
+        try:
+            dedup.release_lock(package_id, dedup_token)
+            if requeue == REQUEUE_IF_CHANGED:
+                changed = dedup.is_dirty(package_id)
+            break
+        except dedup.RedisDedupError as exc:
+            if attempt + 1 < RELEASE_ATTEMPTS:
+                sleep(RELEASE_RETRY_SECONDS)
+                continue
+            log.warning('Redis coordination unavailable after the DownloadAll '
+                        'job of %s; its lock expires after the TTL: %s',
+                        package_id, exc)
+            if requeue != REQUEUE_ALWAYS:
+                return
+    if requeue == REQUEUE_NEVER or (requeue == REQUEUE_IF_CHANGED and not changed):
+        return
+    if requeue == REQUEUE_IF_CHANGED:
+        log.info('Dataset %s changed while its DownloadAll job was running; '
+                 'queueing a new job', package_id)
+    try:
+        if count_retry is None:
+            lib.enqueue_zip(package_id, skip_if_no_changes)
+        else:
+            lib.enqueue_zip(package_id, skip_if_no_changes,
+                            count_retry=count_retry)
+    except Exception:
+        log.exception('Could not queue a new DownloadAll job for %s',
+                      package_id)
+
+
+def _context():
+    return {'model': model, 'session': model.Session, 'ignore_auth': True}
+
+
+def _site_ckan():
+    return ckanapi.LocalCKAN()
+
+
+def _update_zip_once(package_id, user=None, skip_if_no_changes=True,
+                     deadline=None, count_retry=None):
+    # Νέα ανάγνωση από τη βάση: σε επανάληψη μέσα στο ίδιο job ή στο
+    # update-all-zips --synchronous, το session κρατά τα αντικείμενα όπως
+    # ήταν όταν φορτώθηκαν (expire_on_commit=False), και το ZIP θα έβγαινε
+    # από παλιά μεταδεδομένα
+    model.Session.expire_all()
+    try:
+        dataset = toolkit.get_action('package_show')(_context(), {'id': package_id})
+    except toolkit.ObjectNotFound:
+        log.info('Dataset %s no longer exists; nothing to do', package_id)
+        return
+    if not eligibility.is_active(dataset):
+        log.info('Dataset %s is %s; no DownloadAll ZIP', dataset['name'],
+                 dataset.get('state'))
+        return
+
+    existing_zip = freshness.zip_resource(dataset)
+    included, excluded = eligibility.split_resources(dataset)
+    # Χωρίς πόρους για το ZIP δεν φτιάχνεται ZIP μόνο με μεταδεδομένα
+    reason = eligibility.dataset_exclusion_reason(dataset) or \
+        (None if included else eligibility.REASON_NO_RESOURCES)
+    if reason:
+        zips = [r for r in dataset.get('resources') or []
+                if eligibility.is_zip_resource(r)]
+        if not zips:
+            log.info('No DownloadAll ZIP for %s (%s)', dataset['name'], reason)
+        # Όλα τα ZIP, και τα διπλά: η διαγραφή είναι ενημέρωση του ίδιου του
+        # job, οπότε δεν θα έμπαινε νέο job για όσα έμεναν
+        for zip_res in zips:
+            log.info('Removing the DownloadAll ZIP %s of %s (%s)',
+                     zip_res['id'], dataset['name'], reason)
+            _lock_dataset_zip(dataset['id'])
+            with lib.own_update():
+                _site_ckan().action.resource_delete(id=zip_res['id'])
+        return
+
+    fingerprint = freshness.compute_fingerprint(dataset)
+    datapackage, pairs = generate_datapackage(dataset, included)
+    datapackage_hash = hash_datapackage(datapackage)
+
+    if skip_if_no_changes and existing_zip and existing_zip.get('size') and \
+            existing_zip.get('downloadall_fingerprint') == fingerprint and \
+            existing_zip.get('downloadall_datapackage_hash') == datapackage_hash:
+        log.info('The DownloadAll ZIP of %s is up to date', dataset['name'])
+        _retry_pending_cleanup(existing_zip)
+        return
+
+    log.info('Building the DownloadAll ZIP of %s (%d resources, %d excluded)',
+             dataset['name'], len(included), len(excluded))
+    build_dir = tempfile.mkdtemp(prefix='downloadall-')
+    try:
+        zip_path = os.path.join(build_dir, zip_filename(dataset['name']))
+        manifest = write_zip(zip_path, dataset, datapackage, pairs, excluded,
+                             build_dir, deadline)
+        counts = manifest['counts']
+        if not counts[STATUS_INCLUDED]:
+            if existing_zip:
+                log.warning('No resource of %s could be downloaded; keeping '
+                            'the previous ZIP', dataset['name'])
+                record_attempt(existing_zip['id'], fingerprint)
+            else:
+                log.warning('No resource of %s could be downloaded; no ZIP '
+                            'created', dataset['name'])
+                record_no_zip_attempt(dataset['id'], fingerprint)
+            return
+        save_zip(dataset, existing_zip, zip_path, fingerprint,
+                 datapackage_hash, counts,
+                 transient_failed=manifest.get('transient_failed', 0),
+                 forced=(not skip_if_no_changes) if count_retry is None else bool(count_retry))
+    except Exception:
+        if existing_zip:
+            record_attempt(existing_zip['id'], fingerprint)
+        else:
+            record_no_zip_attempt(dataset['id'], fingerprint)
+        raise
+    finally:
+        shutil.rmtree(build_dir, ignore_errors=True)
+
+
+def record_no_zip_attempt(dataset_id, fingerprint):
+    '''Όπως το record_attempt, για dataset χωρίς ZIP: η αποτυχία κρατιέται στη
+    Redis (dedup.record_no_zip_attempt), ώστε το --retry-failed να μην το
+    ξαναχτίζει κάθε βράδυ. Σφάλμα εδώ δεν κρύβει το αρχικό σφάλμα του job.'''
+    try:
+        dedup.record_no_zip_attempt(dataset_id, fingerprint)
+    except Exception:
+        log.exception('Could not record the DownloadAll attempt of dataset %s',
+                      dataset_id)
+
+
+def record_attempt(zip_resource_id, fingerprint):
+    '''Σημειώνει στον πόρο ZIP ότι η ενημέρωσή του για την τρέχουσα εκδοχή του
+    dataset δοκιμάστηκε και δεν ολοκληρώθηκε (κανένας πόρος δεν κατέβηκε, το
+    dataset δεν περνά validation, timeout κ.λπ.). Έτσι το κουμπί δείχνει το
+    προηγούμενο ZIP αντί να μένει κλειδωμένο χωρίς να περιμένει κανένα job
+    (βλ. freshness.zip_state)· το ξαναδοκιμάζει το update-all-zips
+    --retry-failed.
+
+    Γράφεται απευθείας στη βάση και όχι με resource_patch, ώστε να γίνεται και
+    όταν το dataset δεν περνά validation. Το CKAN ξαναπερνά το dataset στο Solr
+    με το notify του commit. Σφάλμα εδώ δεν κρύβει το αρχικό σφάλμα του job.
     '''
-    assert existing_zip_resource
-    new_hash = hash_datapackage(datapackage)
-    old_hash = existing_zip_resource.get('downloadall_datapackage_hash')
-    return new_hash != old_hash
+    try:
+        # Μετά από σφάλμα της βάσης το session χρειάζεται rollback
+        model.Session.rollback()
+        resource = model.Session.query(model.Resource).get(zip_resource_id)
+        if resource is None:
+            return
+        extras = dict(resource.extras or {})
+        if extras.get(freshness.ATTEMPTED_FIELD) == fingerprint:
+            # Νέα αποτυχία της ίδιας εκδοχής (π.χ. --retry-failed)
+            extras[freshness.ATTEMPTS_FIELD] = \
+                freshness.build_count(extras, freshness.ATTEMPTS_FIELD) + 1
+        else:
+            extras[freshness.ATTEMPTED_FIELD] = fingerprint
+            extras[freshness.ATTEMPTS_FIELD] = 1
+        resource.extras = extras
+        with lib.own_update():
+            model.Session.commit()
+    except Exception:
+        log.exception('Could not record the DownloadAll attempt on resource %s',
+                      zip_resource_id)
+        model.Session.rollback()
+
+
+def generate_datapackage(dataset, included):
+    '''Το datapackage.json (μεταδεδομένα) και τα ζεύγη (πόρος CKAN, πόρος
+    datapackage) για τους πόρους που μπαίνουν στο ZIP.'''
+    datapackage = ckanapi.datapackage.dataset_to_datapackage(
+        dict(dataset, resources=included))
+    pairs = list(zip(included, datapackage.get('resources', [])))
+    local_ckan = _site_ckan()
+    for resource, datapackage_resource in pairs:
+        try:
+            ckanapi.datapackage.populate_datastore_res_fields(
+                ckan=local_ckan, res=resource)
+            ckanapi.datapackage.populate_schema_from_datastore(
+                cres=resource, dres=datapackage_resource)
+        except JobTimeoutException:
+            raise
+        except Exception as e:
+            log.warning('Could not read the datastore schema of resource %s: %s',
+                        resource.get('id'), e)
+    for key in config.dataset_fields_to_add():
+        datapackage[key] = dataset.get(key)
+    return datapackage, pairs
+
+
+def zip_filename(dataset_name):
+    '''Νέο όνομα αρχείου σε κάθε build, ώστε το νέο ZIP να είναι ξεχωριστό blob
+    από το προηγούμενο. Το όνομα του dataset κόβεται, ώστε η χρονοσφραγίδα να
+    μη χαθεί στο όριο μήκους των ονομάτων αρχείων του CKAN.'''
+    stamp = datetime.datetime.utcnow().strftime('%Y%m%d-%H%M%S')
+    base = (dataset_name or 'dataset')[:ZIP_NAME_MAX_DATASET_CHARS]
+    return '%s-%s.zip' % (base, stamp)
+
+
+def job_deadline(timeout=None):
+    '''Χρονική στιγμή (time.monotonic) μετά την οποία δεν συνεχίζεται η λήψη
+    πόρων, ώστε να μείνει χρόνος για την αποθήκευση του ZIP πριν το timeout
+    του job. Μέσα σε RQ ισχύει το timeout του job, αλλιώς το timeout (π.χ.
+    του CLI). None χωρίς κανένα από τα δύο.
+
+    Το περιθώριο είναι 10% του timeout, τουλάχιστον 120 δευτερόλεπτα, αλλά
+    ποτέ πάνω από το μισό· αλλιώς ένα μικρό timeout δεν θα άφηνε χρόνο για
+    καμία λήψη.'''
+    from rq import get_current_job
+    job = get_current_job()
+    if job is not None:
+        timeout = getattr(job, 'timeout', None)
+    if not isinstance(timeout, (int, float)) or timeout <= 0:
+        return None
+    margin = min(max(timeout * 0.1, 120), timeout / 2.0)
+    return monotonic() + timeout - margin
+
+
+def public_url(resource):
+    '''URL του πόρου για το manifest, χωρίς στοιχεία σύνδεσης και χωρίς τιμές
+    παραμέτρων που μπορεί να είναι μυστικά.'''
+    url = resource.get('url') or ''
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        return ''
+    netloc = parts.netloc.rsplit('@', 1)[-1]
+    query = urlencode([
+        (key, 'REDACTED' if key.lower() in SECRET_QUERY_KEYS else value)
+        for key, value in parse_qsl(parts.query, keep_blank_values=True)])
+    return urlunsplit((parts.scheme, netloc, parts.path, query, ''))
+
+
+def _manifest_entry(resource):
+    return {'id': resource.get('id'), 'name': resource.get('name'),
+            'format': resource.get('format'), 'url': public_url(resource)}
+
+
+def write_zip(zip_path, dataset, datapackage, pairs, excluded, work_dir,
+              deadline=None):
+    '''Δημιουργεί το ZIP στο zip_path. Επιστρέφει το manifest.'''
+    entries = []
+    used = {DATAPACKAGE_NAME.lower(), MANIFEST_NAME.lower()}
+    max_count = config.max_resources()
+    max_total = config.max_total_size()
+    total_size = 0
+    included_count = 0
+    transient_failed = 0
+    with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED, allowZip64=True,
+                         strict_timestamps=False) as zipf:
+        for position, (resource, datapackage_resource) in enumerate(pairs):
+            entry = _manifest_entry(resource)
+            if max_count and included_count >= max_count:
+                entry.update(status=STATUS_EXCLUDED,
+                             reason='resource limit (%d)' % max_count)
+            elif deadline is not None and monotonic() > deadline:
+                entry.update(status=STATUS_FAILED, reason='time limit')
+            else:
+                budget = max_total - total_size if max_total else None
+                try:
+                    filename, size = download_resource_into_zip(
+                        resource, position, zipf, used, work_dir, deadline, budget)
+                except DownloadError as e:
+                    log.info('Resource %s not included: %s', resource.get('id'), e)
+                    entry.update(status=STATUS_FAILED, reason=e.message)
+                    if e.transient:
+                        transient_failed += 1
+                else:
+                    total_size += size
+                    included_count += 1
+                    entry.update(status=STATUS_INCLUDED, filename=filename, size=size)
+                    save_local_path_in_datapackage_resource(
+                        datapackage_resource, resource, filename)
+            entries.append(entry)
+        for resource, reason in excluded:
+            entry = _manifest_entry(resource)
+            entry.update(status=STATUS_EXCLUDED, reason=reason)
+            entries.append(entry)
+
+        counts = dict((status, sum(1 for e in entries if e['status'] == status))
+                      for status in (STATUS_INCLUDED, STATUS_EXCLUDED, STATUS_FAILED))
+        manifest = {
+            'dataset': dataset.get('name'),
+            'generated': datetime.datetime.utcnow().replace(microsecond=0).isoformat() + 'Z',
+            'counts': counts,
+            'resources': entries,
+        }
+        _writestr(zipf, DATAPACKAGE_NAME, ckanapi.cli.utils.pretty_json(datapackage))
+        _writestr(zipf, MANIFEST_NAME, json.dumps(
+            manifest, indent=2, ensure_ascii=False).encode('utf-8'))
+    log.info('ZIP %s: %d included, %d excluded, %d failed, %s',
+             os.path.basename(zip_path), counts[STATUS_INCLUDED],
+             counts[STATUS_EXCLUDED], counts[STATUS_FAILED],
+             format_bytes(os.path.getsize(zip_path)))
+    # Για τον πόρο ZIP (freshness.needs_retry)· δεν γράφεται στο ZIP
+    manifest['transient_failed'] = transient_failed
+    return manifest
+
+
+def _writestr(zipf, name, data):
+    info = zipfile.ZipInfo(name, date_time=time.localtime()[:6])
+    info.compress_type = zipfile.ZIP_DEFLATED
+    zipf.writestr(info, data)
+
+
+def save_local_path_in_datapackage_resource(datapackage_resource, res,
+                                            filename):
+    # Το path στο datapackage.json δείχνει πλέον στο αρχείο μέσα στο ZIP
+    title = datapackage_resource.get('title') or res.get('title') \
+        or res.get('name', '')
+    datapackage_resource['sources'] = [
+        {'title': title, 'path': datapackage_resource.get('path')}]
+    datapackage_resource['path'] = filename
+
+
+def _check_size(size, budget):
+    max_size = config.max_resource_size()
+    if max_size and size > max_size:
+        raise DownloadError('larger than the limit of %s' % format_bytes(max_size))
+    if budget is not None and size > budget:
+        raise DownloadError('total size limit reached')
+
+
+def _local_upload_path(resource):
+    '''Διαδρομή του αρχείου ενός upload στην τοπική αποθήκευση του CKAN, αν
+    υπάρχει (όχι με cloudstorage).'''
+    if resource.get('url_type') != 'upload' or storage.cloudstorage_enabled():
+        return None
+    from ckan.lib.uploader import get_resource_uploader
+    try:
+        path = get_resource_uploader(dict(resource)).get_path(resource['id'])
+    except (AttributeError, TypeError):
+        return None
+    return path if path and os.path.isfile(path) else None
+
+
+def _download_url(resource):
+    '''Από πού κατεβαίνει ο πόρος: για upload στο cloudstorage ένα signed URL
+    (λειτουργεί και για ιδιωτικά datasets), αλλιώς το URL του πόρου.'''
+    if resource.get('url_type') == 'upload' and storage.cloudstorage_enabled():
+        try:
+            from ckanext.cloudstorage.storage import ResourceCloudStorage
+            signed = ResourceCloudStorage(dict(resource)).get_path(resource['id'])
+            if signed:
+                return signed
+        except JobTimeoutException:
+            raise
+        except Exception as e:
+            log.warning('Could not get the cloud storage URL of resource %s: %s',
+                        resource.get('id'), e)
+    return resource.get('url')
+
+
+def _open(url, deadline):
+    '''GET με streaming, timeouts και περιορισμένες επαναλήψεις για προσωρινές
+    αποτυχίες (timeout, σύνδεση, 429, 5xx).'''
+    retries = config.retries()
+    timeout = (config.connect_timeout(), config.read_timeout())
+    message = 'download failed'
+    for attempt in range(retries + 1):
+        try:
+            response = requests.get(url, stream=True, timeout=timeout)
+        except (requests.exceptions.Timeout,
+                requests.exceptions.ConnectionError) as e:
+            message = 'connection failed: %s' % e
+        except requests.exceptions.RequestException as e:
+            raise DownloadError('invalid request: %s' % e)
+        except JobTimeoutException:
+            raise
+        except Exception as e:
+            # Π.χ. LocationParseError του urllib3 (host με πολύ μεγάλο όνομα,
+            # και μετά από ανακατεύθυνση): αποτυχία του πόρου, όχι του ZIP
+            raise DownloadError('invalid request: %s' % e)
+        else:
+            if response.status_code < 400:
+                return response
+            response.close()
+            message = 'HTTP %s' % response.status_code
+            if response.status_code != 429 and response.status_code < 500:
+                raise DownloadError(message)
+        if attempt < retries and (deadline is None or
+                                  monotonic() + RETRY_DELAY_SECONDS < deadline):
+            sleep(RETRY_DELAY_SECONDS)
+        else:
+            break
+    # Εδώ φτάνουν μόνο οι προσωρινές αποτυχίες (σύνδεση, timeout, 429, 5xx)
+    raise DownloadError(message, transient=True)
+
+
+def _response_socket(response):
+    '''Το socket της απάντησης (urllib3 1.x και 2.x), αν είναι διαθέσιμο.
+    Όταν ο server κλείνει τη σύνδεση μετά την απάντηση (HTTP/1.0,
+    «Connection: close»), η http.client αφήνει το connection.sock κενό και
+    το socket μένει μόνο στο αντικείμενο που διαβάζει το σώμα.'''
+    raw = getattr(response, 'raw', None)
+    connection = getattr(raw, '_connection', None) or \
+        getattr(raw, 'connection', None)
+    sock = getattr(connection, 'sock', None)
+    if sock is None:
+        reader = getattr(getattr(raw, '_fp', None), 'fp', None)
+        sock = getattr(getattr(reader, 'raw', None), '_sock', None)
+    return sock
+
+
+class _DeadlineGuard(object):
+    '''Κόβει τη σύνδεση ενός πόρου στο χρονικό όριο του job.
+
+    Το read_timeout ισχύει για κάθε ανάγνωση από το socket· ένας server που
+    στέλνει λίγα bytes κάθε λίγο κρατά μία ανάγνωση των CHUNK_SIZE bytes για
+    ώρες, και ο έλεγχος του ορίου ανάμεσα στα chunks δεν φτάνει ποτέ. Τότε το
+    timeout της RQ θα έκοβε όλο το job και θα χανόταν όλο το ZIP. Το
+    shutdown του socket από άλλο thread τελειώνει αμέσως την ανάγνωση.'''
+
+    def __init__(self, response, deadline):
+        self.fired = False
+        self._timer = None
+        sock = _response_socket(response) if deadline is not None else None
+        if sock is None:
+            return
+        self._timer = threading.Timer(max(deadline - monotonic(), 0),
+                                      self._fire, [sock])
+        self._timer.daemon = True
+        self._timer.start()
+
+    def _fire(self, sock):
+        self.fired = True
+        try:
+            sock.shutdown(socket.SHUT_RDWR)
+        except (OSError, ValueError):
+            pass
+
+    def cancel(self):
+        if self._timer is not None:
+            self._timer.cancel()
+
+
+def _last_modified(response):
+    value = response.headers.get('Last-Modified')
+    if not value:
+        return None
+    try:
+        return parsedate_to_datetime(value).timestamp()
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
+def download_resource_into_zip(resource, position, zipf, used, work_dir,
+                               deadline=None, budget=None):
+    '''Κατεβάζει τον πόρο σε προσωρινό αρχείο (χωρίς να τον φορτώνει στη μνήμη)
+    και τον προσθέτει στο ZIP. Επιστρέφει (όνομα στο ZIP, μέγεθος).
+
+    Κάθε σφάλμα είναι αποτυχία του πόρου (DownloadError), όχι όλου του ZIP,
+    εκτός από το JobTimeoutException της RQ, που σταματά πράγματι το job.
+    '''
+    try:
+        local_path = _local_upload_path(resource)
+    except JobTimeoutException:
+        raise
+    except Exception as e:
+        # Π.χ. ο uploader δεν μπορεί να δημιουργήσει τον φάκελο αποθήκευσης
+        raise DownloadError('could not read the uploaded file: %s' % e)
+    if local_path:
+        try:
+            size = os.path.getsize(local_path)
+            _check_size(size, budget)
+            filename = filenames.make_unique(
+                filenames.choose_filename(resource, position), used)
+            zipf.write(local_path, arcname=filename)
+        except (DownloadError, JobTimeoutException):
+            raise
+        except Exception as e:
+            # Π.χ. δικαιώματα ή αρχείο που σβήστηκε στο μεταξύ: αποτυχία του
+            # πόρου, όχι όλου του job
+            raise DownloadError('could not read the uploaded file: %s' % e)
+        return filename, size
+
+    url = _download_url(resource)
+    if not url:
+        raise DownloadError('resource has no URL')
+    response = _open(url, deadline)
+    guard = _DeadlineGuard(response, deadline)
+    tmp_path = os.path.join(work_dir, 'resource-%d.part' % position)
+    try:
+        length = response.headers.get('Content-Length')
+        if length and length.isdigit():
+            _check_size(int(length), budget)
+        size = 0
+        with open(tmp_path, 'wb') as out:
+            for chunk in response.iter_content(CHUNK_SIZE):
+                if not chunk:
+                    continue
+                size += len(chunk)
+                _check_size(size, budget)
+                if deadline is not None and monotonic() > deadline:
+                    raise DownloadError('time limit')
+                out.write(chunk)
+        if guard.fired:
+            # Η σύνδεση κόπηκε στο όριο· το αρχείο είναι μισό
+            raise DownloadError('time limit')
+        mtime = _last_modified(response)
+        if mtime:
+            os.utime(tmp_path, (mtime, mtime))
+        filename = filenames.make_unique(filenames.choose_filename(
+            resource, position,
+            content_disposition=response.headers.get('Content-Disposition'),
+            content_type=response.headers.get('Content-Type')), used)
+        zipf.write(tmp_path, arcname=filename)
+        return filename, size
+    except JobTimeoutException:
+        raise
+    except Exception as e:
+        if guard.fired:
+            raise DownloadError('time limit')
+        if isinstance(e, DownloadError):
+            raise
+        # Π.χ. σύνδεση που κόπηκε στη μέση της λήψης
+        raise DownloadError('download failed: %s' % e, transient=isinstance(
+            e, (requests.exceptions.RequestException, OSError)))
+    finally:
+        guard.cancel()
+        response.close()
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+
+
+def _pending_cleanup(zip_resource):
+    return config.as_list(
+        (zip_resource or {}).get('downloadall_cleanup_pending'), split=False)
+
+
+def _cleanup(resource_id, current_filename, names, current_size=None):
+    '''Σβήνει τα blobs των παλιών ZIP, μόνο αν το τρέχον ZIP υπάρχει στο
+    storage με το σωστό μέγεθος (storage.blob_verified). Αλλιώς δεν σβήνεται
+    κανένα και μένουν για επόμενη προσπάθεια. Επιστρέφει όσα δεν σβήστηκαν.'''
+    # Ίδιο όνομα με το τρέχον: το blob αντικαταστάθηκε από το νέο ZIP
+    names = [name for name in dict.fromkeys(names) if name != current_filename]
+    if not names:
+        return []
+    if not storage.blob_verified(resource_id, current_filename, current_size):
+        log.error('Keeping the previous DownloadAll ZIP blobs of resource %s: '
+                  'the current ZIP could not be verified in the storage',
+                  resource_id)
+        return names
+    remaining = []
+    for name in names:
+        if not storage.delete_upload_blob(resource_id, name):
+            remaining.append(name)
+    return remaining
+
+
+def _store_pending(resource_id, attempted, remaining):
+    '''Ενημερώνει το downloadall_cleanup_pending του πόρου ZIP μετά από
+    διαγραφές blobs: βγαίνουν όσα σβήστηκαν (attempted χωρίς remaining) και
+    μπαίνουν όσα δεν σβήστηκαν.
+
+    Γράφει μόνο αυτό το πεδίο, απευθείας στη βάση και κάτω από το lock του
+    dataset, με νέα ανάγνωση του πόρου. Ένα resource_patch θα ξανάγραφε όλο τον
+    πόρο από παλιότερη ανάγνωση, π.χ. το url και το fingerprint ενός ZIP που
+    στο μεταξύ αποθήκευσε άλλο job.'''
+    package_id = model.Session.query(model.Resource.package_id) \
+        .filter(model.Resource.id == resource_id).scalar()
+    if package_id is None:
+        return
+    _lock_dataset_zip(package_id)
+    resource = model.Session.query(model.Resource).populate_existing() \
+        .filter(model.Resource.id == resource_id).first()
+    current = _pending_cleanup(resource.extras if resource is not None else None)
+    deleted = set(attempted) - set(remaining)
+    current_file = storage.upload_filename(
+        {'url': resource.url, 'url_type': resource.url_type}) if resource else None
+    pending = [name for name in dict.fromkeys(
+        [n for n in current if n not in deleted] + list(remaining))
+        if name != current_file]
+    if resource is None or pending == current:
+        model.Session.rollback()
+        return
+    extras = dict(resource.extras or {})
+    extras['downloadall_cleanup_pending'] = json.dumps(pending) if pending else ''
+    resource.extras = extras
+    with lib.own_update():
+        model.Session.commit()
+
+
+def _retry_pending_cleanup(zip_resource):
+    pending = _pending_cleanup(zip_resource)
+    if not pending:
+        return
+    remaining = _cleanup(zip_resource['id'],
+                         storage.upload_filename(zip_resource), pending,
+                         zip_resource.get('size'))
+    _store_pending(zip_resource['id'], pending, remaining)
+
+
+def _lock_dataset_zip(dataset_id):
+    '''Κλειδώνει ως το commit την αποθήκευση του ZIP του dataset, ώστε δύο
+    jobs που τελειώνουν μαζί (π.χ. δύο πρώτα builds) να μη φτιάξουν δύο πόρους
+    ZIP ή να σβήσει το ένα το αρχείο του άλλου. Advisory lock της PostgreSQL:
+    δεν μπλοκάρει τις αλλαγές των χρηστών στο dataset.'''
+    digest = hashlib.sha1(('ckanext-downloadall:' + dataset_id).encode('utf-8'))
+    key = int(digest.hexdigest()[:15], 16)
+    model.Session.execute(sa.text('SELECT pg_advisory_xact_lock(:key)'),
+                          {'key': key})
+
+
+def _current_zip(dataset_id):
+    '''Ο πόρος ZIP του dataset όπως είναι τώρα στη βάση (freshness.zip_resource:
+    ο πρώτος με τη σειρά των πόρων), ως dict, ή None.'''
+    resources = model.Session.query(model.Resource) \
+        .filter(model.Resource.package_id == dataset_id) \
+        .filter(model.Resource.state == 'active') \
+        .order_by(model.Resource.position) \
+        .populate_existing()
+    for resource in resources:
+        if eligibility.is_zip_model_resource(resource):
+            return dict(resource.extras or {}, id=resource.id,
+                        url=resource.url, url_type=resource.url_type)
+    return None
+
+
+def save_zip(dataset, existing_zip, zip_path, fingerprint, datapackage_hash,
+             counts, transient_failed=0, forced=False):
+    '''Αποθηκεύει το ZIP ως πόρο του dataset και, μετά την επιτυχία, σβήνει
+    ακριβώς το blob του προηγούμενου ZIP. Αν η αποθήκευση αποτύχει, το
+    προηγούμενο ZIP μένει ανέπαφο.
+
+    Ο πόρος ZIP και το dataset ξαναδιαβάζονται κάτω από το lock του dataset,
+    γιατί είναι από την αρχή του build: στο μεταξύ μπορεί άλλο job να έφτιαξε
+    ή να άλλαξε το ZIP, ή να άλλαξε το dataset (handoff του OD-857, §3: πριν
+    ενεργοποιηθεί το νέο ZIP, επανελέγχεται το τρέχον fingerprint):
+
+      - το dataset δεν δικαιούται πια ZIP (π.χ. έγινε ιδιωτικό): δεν
+        αποθηκεύεται, και μπαίνει job για το καθάρισμα·
+      - το dataset άλλαξε και υπάρχει ήδη ZIP της νέας εκδοχής: δεν
+        αποθηκεύεται, για να μη γραφτεί παλιότερο build πάνω σε νεότερο·
+      - το dataset άλλαξε χωρίς νεότερο ZIP: αποθηκεύεται με το fingerprint
+        της εκδοχής που χτίστηκε (άρα δεν φαίνεται ενημερωμένο) και μπαίνει
+        μία ακόμη επεξεργασία της τελευταίας κατάστασης.
+
+    :param forced: build χωρίς έλεγχο αλλαγών (π.χ. --retry-failed)· μόνο αυτά
+        μετρούν στο όριο downloadall_retries
+    :returns: ο πόρος ZIP που αποθηκεύτηκε, ή None αν δεν αποθηκεύτηκε'''
+    _lock_dataset_zip(dataset['id'])
+    # Το resource_patch/create ξαναδιαβάζει το dataset (package_show) και το
+    # γράφει ολόκληρο (package_update)· χωρίς expire θα έγραφε τα μεταδεδομένα
+    # όπως ήταν στην αρχή του build, πάνω σε αλλαγές που έγιναν στο μεταξύ
+    model.Session.expire_all()
+    existing_zip = _current_zip(dataset['id'])
+    changed = False
+    try:
+        latest = toolkit.get_action('package_show')(_context(), {'id': dataset['id']})
+    except toolkit.ObjectNotFound:
+        model.Session.rollback()
+        log.info('Dataset %s was deleted during its DownloadAll build', dataset['name'])
+        return None
+    if not eligibility.is_active(latest) or \
+            eligibility.dataset_exclusion_reason(latest) or \
+            not freshness.included_resources(latest):
+        model.Session.rollback()
+        log.info('Dataset %s no longer gets a DownloadAll ZIP; not saving the '
+                 'build', dataset['name'])
+        _queue_follow_up(dataset['id'])
+        return None
+    latest_fingerprint = freshness.compute_fingerprint(latest)
+    if latest_fingerprint != fingerprint:
+        if existing_zip and \
+                existing_zip.get('downloadall_fingerprint') == latest_fingerprint:
+            model.Session.rollback()
+            log.info('A newer DownloadAll ZIP of %s is already saved; discarding '
+                     'this build', dataset['name'])
+            return None
+        changed = True
+    old_filename = storage.upload_filename(existing_zip)
+    pending = _pending_cleanup(existing_zip)
+    # Builds χωρίς έλεγχο αλλαγών της ίδιας εκδοχής: όριο για το --retry-failed
+    previous_retries = freshness.build_count(existing_zip, freshness.RETRIES_FIELD)
+    if existing_zip and existing_zip.get('downloadall_fingerprint') == fingerprint:
+        retries = previous_retries + 1 if forced else previous_retries
+    else:
+        retries = 0
+    fields = dict(
+        package_id=dataset['id'],
+        url=os.path.basename(zip_path),
+        name=ZIP_RESOURCE_NAME,
+        name_translated=ZIP_RESOURCE_NAME_TRANSLATED,
+        format=u'ZIP',
+        downloadall_metadata_modified=dataset['metadata_modified'],
+        downloadall_datapackage_hash=datapackage_hash,
+        downloadall_fingerprint=fingerprint,
+        downloadall_built_at=datetime.datetime.utcnow().replace(microsecond=0).isoformat() + 'Z',
+        downloadall_included=counts[STATUS_INCLUDED],
+        downloadall_excluded=counts[STATUS_EXCLUDED],
+        downloadall_failed=counts[STATUS_FAILED],
+        downloadall_failed_transient=transient_failed,
+        downloadall_retries=retries,
+        downloadall_cleanup_pending=json.dumps(pending) if pending else '',
+        # Το νέο ZIP αντιστοιχεί στο fingerprint του· μια παλιά αποτυχημένη
+        # προσπάθεια δεν πρέπει να κάνει «ready» ένα ZIP άλλης εκδοχής
+        downloadall_attempted_fingerprint='',
+        downloadall_attempts='',
+    )
+    local_ckan = _site_ckan()
+    try:
+        with open(zip_path, 'rb') as fp, lib.own_update():
+            if existing_zip:
+                saved = local_ckan.action.resource_patch(
+                    id=existing_zip['id'], upload=fp, **fields)
+            else:
+                saved = local_ckan.action.resource_create(upload=fp, **fields)
+    except toolkit.ValidationError as e:
+        log.error('Cannot save the DownloadAll ZIP of %s: the dataset does not '
+                  'pass validation: %s', dataset['name'], e.error_dict)
+        raise
+    log.info('Saved the DownloadAll ZIP of %s (resource %s)',
+             dataset['name'], saved['id'])
+    try:
+        dedup.clear_no_zip_attempts(dataset['id'])
+    except dedup.RedisDedupError:
+        pass
+
+    names = list(pending)
+    if old_filename:
+        names.append(old_filename)
+    # Το blob του νέου ZIP ελέγχεται με το μέγεθος του αρχείου που ανέβηκε
+    remaining = _cleanup(saved['id'], storage.upload_filename(saved), names,
+                         os.path.getsize(zip_path))
+    _store_pending(saved['id'], names, remaining)
+    if changed:
+        log.info('Dataset %s changed during its DownloadAll build; the saved '
+                 'ZIP is not current, processing the latest state', dataset['name'])
+        _queue_follow_up(dataset['id'])
+    return saved
+
+
+def _queue_follow_up(package_id):
+    '''Μία ακόμη επεξεργασία του dataset. Με redis, μέσα στο job το lock είναι
+    δικό μας: σημειώνεται dirty και το ίδιο job ξαναεπεξεργάζεται το dataset.'''
+    try:
+        lib.enqueue_zip(package_id)
+    except Exception:
+        log.exception('Could not queue a new DownloadAll job for %s', package_id)
 
 
 def hash_datapackage(datapackage):
@@ -184,467 +1001,20 @@ def canonized_datapackage(datapackage):
     resources to remote ones.
     '''
     datapackage_ = copy.deepcopy(datapackage)
-    # convert resources to remote paths
-    # i.e.
-    #
-    #   "path": "annual-.csv", "sources": [
-    #     {
-    #       "path": "https://example.com/file.csv",
-    #       "title": "annual.csv"
-    #     }
-    #   ],
-    #
-    # ->
-    #
-    #   "path": "https://example.com/file.csv",
+    # Ο τίτλος της άδειας μεταφράζεται και διαφέρει ανάμεσα στο Solr και στη
+    # βάση (βλ. freshness)· μετρά μόνο το license_id
+    license_ = datapackage_.get('license')
+    if isinstance(license_, dict):
+        license_.pop('title', None)
+        license_.pop('url', None)
     for res in datapackage_.get('resources', []):
         try:
             remote_path = res['sources'][0]['path']
-        except KeyError:
+        except (KeyError, IndexError):
             continue
         res['path'] = remote_path
         del res['sources']
     return datapackage_
-
-
-def generate_datapackage_json(package_id, user=None):
-    '''Generates the datapackage - metadata that would be saved as
-    datapackage.json.
-
-    :param package_id: The ID of the package/dataset
-    :param user: The username of the authenticated user who initiated the task.
-        This is used to ensure the background task has the same permissions as the user.
-    '''
-    log.info('Generating datapackage.json for package ID: {}'.format(package_id))
-    try:
-        context = {'model': model, 'session': model.Session}
-        if user:
-            context['user'] = user
-        else:
-            # When no user is provided (background job), use ignore_auth to bypass authorization
-            context['ignore_auth'] = True
-        dataset = get_action('package_show')(
-            context, {'id': package_id})
-        log.info('Retrieved dataset: {} (name: {})'.format(package_id, dataset.get('name', 'unknown')))
-
-        # filter out resources that are not suitable for inclusion in the data
-        # package
-        # Use the authenticated user for the LocalCKAN instance
-        local_ckan = ckanapi.LocalCKAN(username=user) if user else ckanapi.LocalCKAN()
-        log.info('Filtering resources for inclusion in datapackage')
-        dataset, resources_to_include, existing_zip_resource = \
-            remove_resources_that_should_not_be_included_in_the_datapackage(
-                dataset)
-        log.info('Found {} resources to include in datapackage'.format(len(resources_to_include)))
-
-        if existing_zip_resource:
-            log.info('Found existing zip resource with ID: {}'.format(existing_zip_resource.get('id', 'unknown')))
-        else:
-            log.info('No existing zip resource found')
-
-        # get the datapackage (metadata)
-        log.info('Converting dataset to datapackage format')
-        datapackage = ckanapi.datapackage.dataset_to_datapackage(dataset)
-        log.info('Successfully converted dataset to datapackage format')
-
-        # populate datapackage with the schema from the Datastore data
-        # dictionary
-        log.info('Populating datapackage with schema from Datastore')
-        ckan_and_datapackage_resources = zip(resources_to_include,
-                                            datapackage.get('resources', []))
-        ckan_and_datapackage_resources = list(ckan_and_datapackage_resources)  # Convert to list for reuse
-
-        for i, (res, datapackage_res) in enumerate(ckan_and_datapackage_resources):
-            log.info('Processing resource {}/{}: {}'.format(i+1, len(ckan_and_datapackage_resources), res.get('name', 'unnamed')))
-            try:
-                ckanapi.datapackage.populate_datastore_res_fields(
-                    ckan=local_ckan, res=res)
-                ckanapi.datapackage.populate_schema_from_datastore(
-                    cres=res, dres=datapackage_res)
-                log.info('Successfully populated schema for resource: {}'.format(res.get('name', 'unnamed')))
-            except Exception as e:
-                log.warning('Error populating schema for resource {}: {}'.format(res.get('name', 'unnamed'), str(e)))
-                # Continue with other resources even if one fails
-
-        # add in any other dataset fields, if configured
-        fields_to_include = config.get(
-            u'ckanext.downloadall.dataset_fields_to_add_to_datapackage',
-            u'').split()
-        if fields_to_include:
-            log.info('Adding additional fields to datapackage: {}'.format(', '.join(fields_to_include)))
-            for key in fields_to_include:
-                datapackage[key] = dataset.get(key)
-
-        log.info('Datapackage generation complete')
-        return (datapackage, ckan_and_datapackage_resources,
-                existing_zip_resource)
-    except Exception as e:
-        log.error('Error generating datapackage for package {}: {}'.format(package_id, str(e)))
-        import traceback
-        log.error(traceback.format_exc())
-        raise
-
-
-def get_original_filename(resource):
-    """
-    Extract the original filename from the resource URL or name.
-
-    :param resource: The resource dictionary
-    :returns: The original filename
-    """
-    # Try to extract filename from URL
-    url = resource.get('url', '')
-    if url:
-        # Remove query parameters
-        url_path = url.split('?')[0]
-        # Get the last part of the path
-        filename = url_path.split('/')[-1]
-        if filename:
-            return filename
-
-    # If URL doesn't provide a filename, use the resource name
-    name = resource.get('name', '')
-    if name:
-        # If name has an extension, use it as is
-        if '.' in name:
-            return name
-        # Otherwise, add an extension based on format
-        format = resource.get('format', '')
-        if format:
-            # Convert format to a simple extension
-            if '/' in format:
-                format = format.split('/')[-1]
-            return f"{name}.{format}"
-
-    # Fallback to datapackage resource filename
-    return None
-
-def write_zip(fp, datapackage, ckan_and_datapackage_resources, user=None):
-    '''
-    Downloads resources and writes the zip file.
-
-    :param fp: Open file that the zip can be written to
-    :param datapackage: The datapackage metadata
-    :param ckan_and_datapackage_resources: List of (ckan_resource, datapackage_resource) tuples
-    :param user: The username of the authenticated user who initiated the task
-    '''
-    with zipfile.ZipFile(fp, 'w', zipfile.ZIP_DEFLATED, allowZip64=True) \
-            as zipf:
-        i = 0
-        successful_downloads = 0
-        total_resources = len(ckan_and_datapackage_resources)
-
-        log.info('Starting to download {} resources'.format(total_resources))
-
-        for res, dres in ckan_and_datapackage_resources:
-            i += 1
-
-            log.debug('Downloading resource {}/{}: {}'
-                      .format(i, total_resources,
-                              res['url']))
-
-            # Try to get the original filename first
-            original_filename = get_original_filename(res)
-
-            # Fallback to datapackage resource filename if original not found
-            filename = original_filename or ckanapi.datapackage.resource_filename(dres)
-
-            log.info('Using filename for resource: {}'.format(filename))
-
-            try:
-                log.info('Attempting to download resource: {} (ID: {})'.format(res.get('name', 'unnamed'), res.get('id', 'unknown')))
-                download_resource_into_zip(res['url'], filename, zipf, user=user, resource=res)
-                log.info('Successfully downloaded and added resource to zip: {} (ID: {})'.format(res.get('name', 'unnamed'), res.get('id', 'unknown')))
-                successful_downloads += 1
-                save_local_path_in_datapackage_resource(dres, res, filename)
-            except DownloadError as e:
-                # The dres['path'] is left as the url - i.e. an 'external
-                # resource' of the data package.
-                log.error('Failed to download resource: {} (ID: {}). Error: {}'.format(res.get('name', 'unnamed'), res.get('id', 'unknown'), str(e)))
-
-            # TODO optimize using the file_hash
-
-        log.info('Successfully downloaded {} out of {} resources'.format(successful_downloads, total_resources))
-
-        # Add the datapackage.json
-        write_datapackage_json(datapackage, zipf)
-
-        # If no resources were successfully downloaded, log a warning
-        if successful_downloads == 0 and total_resources > 0:
-            log.warning('No resources were successfully downloaded for this dataset. The zip file will only contain the datapackage.json.')
-
-    statinfo = os.stat(fp.name)
-    filesize = statinfo.st_size
-
-    log.info('Zip created: {} {} bytes'.format(fp.name, filesize))
-
-    return filesize
-
-
-def save_local_path_in_datapackage_resource(datapackage_resource, res,
-                                            filename):
-    # save path in datapackage.json - i.e. now pointing at the file
-    # bundled in the data package zip
-    title = datapackage_resource.get('title') or res.get('title') \
-        or res.get('name', '')
-    datapackage_resource['sources'] = [
-        {'title': title, 'path': datapackage_resource['path']}]
-    datapackage_resource['path'] = filename
-
-
-def download_resource_into_zip(url, filename, zipf, user=None, resource=None):
-    """
-    Download a resource and add it to the zip file.
-
-    If the resource is a local upload (url_type='upload'), access it directly from the filesystem.
-    If the resource is stored in cloud storage, use the appropriate cloud storage class to get the URL.
-    Otherwise, download it via HTTP.
-
-    :param url: The URL of the resource
-    :param filename: The filename to use in the zip file
-    :param zipf: The zip file object
-    :param user: The username of the authenticated user who initiated the task
-    :param resource: The resource dictionary (optional)
-    """
-    log.info('Starting download of resource: {} to {}'.format(url, filename))
-
-    # Ensure filename doesn't contain characters that could cause issues
-    safe_filename = filename.replace('/', '_').replace('\\', '_')
-    if safe_filename != filename:
-        log.info('Sanitized filename from {} to {}'.format(filename, safe_filename))
-        filename = safe_filename
-
-    # Check if this is a local resource (url_type='upload')
-    if resource and resource.get('url_type') == 'upload':
-        log.info('Resource is an upload, checking if it is local or in cloud storage')
-
-        # First, check if the cloudstorage extension is enabled
-        # First, check if the cloudstorage extension is enabled
-        try:
-            import ckan.plugins as p
-            plugins_config = p.toolkit.config.get('ckan.plugins', '')
-            if isinstance(plugins_config, list):
-                cloudstorage_enabled = 'cloudstorage' in plugins_config
-            elif isinstance(plugins_config, str):
-                cloudstorage_enabled = 'cloudstorage' in plugins_config.split()
-            else:
-                cloudstorage_enabled = False  # Προεπιλογή σε false αν ο τύπος είναι μη αναμενόμενος
-            if cloudstorage_enabled:
-                log.info('Cloudstorage extension is enabled, checking if resource is in cloud storage')
-                try:
-                    from ckanext.cloudstorage.storage import ResourceCloudStorage
-
-                    # Get the resource ID
-                    resource_id = resource.get('id')
-                    if not resource_id:
-                        log.error('Resource ID not found for cloud resource')
-                        raise DownloadError("Resource ID not found for cloud resource")
-
-                    # Create a ResourceCloudStorage instance to get the URL
-                    cloud_storage = ResourceCloudStorage(resource)
-                    cloud_url = cloud_storage.get_path(resource_id)
-
-                    if cloud_url:
-                        log.info('Resource is in cloud storage, URL: {}'.format(cloud_url))
-                        # Update the URL to use the cloud URL
-                        url = cloud_url
-                        # Skip the local file check and proceed to HTTP download
-                        raise Exception("Resource is in cloud storage, proceeding to HTTP download")
-                except Exception as e:
-                    log.info('Error checking cloud storage or resource not in cloud: {}'.format(str(e)))
-                    log.info('Falling back to local file check')
-            else:
-                log.info('Cloudstorage extension is not enabled, checking local file')
-        except Exception as e:
-            log.error('Error checking cloudstorage extension: {}'.format(str(e)))
-            log.info('Falling back to local file check')
-
-        # If we get here, try to access the file locally
-        try:
-            from ckan.lib.uploader import ResourceUpload
-
-            # Get the resource ID
-            resource_id = resource.get('id')
-            if not resource_id:
-                log.error('Resource ID not found for local resource')
-                raise DownloadError("Resource ID not found for local resource")
-
-            # Create a ResourceUpload instance to get the file path
-            resource_upload = ResourceUpload(resource)
-            filepath = resource_upload.get_path(resource_id)
-
-            log.info('Local resource path: {}'.format(filepath))
-
-            # Check if the file exists
-            if not os.path.exists(filepath):
-                log.error('Local resource file not found: {}'.format(filepath))
-                raise DownloadError("Local resource file not found: {}".format(filepath))
-
-            # Add the file to the zip
-            hash_object = hashlib.md5()
-            size = os.path.getsize(filepath)
-
-            log.info('Adding local resource to zip: {}'.format(filepath))
-
-            # Create ZipInfo object to preserve original file timestamp
-            file_stat = os.stat(filepath)
-            file_mtime = file_stat.st_mtime
-            # Convert to tuple of (year, month, day, hour, minute, second)
-            date_time = time.localtime(file_mtime)[:6]
-
-            # Create ZipInfo with original timestamp
-            info = zipfile.ZipInfo(filename)
-            info.date_time = date_time
-            info.compress_type = zipfile.ZIP_DEFLATED
-
-            # Write file with preserved timestamp
-            with open(filepath, 'rb') as f:
-                zipf.writestr(info, f.read())
-
-            log.info('Successfully added local resource to zip with original timestamp')
-
-            # Calculate hash
-            with open(filepath, 'rb') as f:
-                while True:
-                    chunk = f.read(4096)
-                    if not chunk:
-                        break
-                    hash_object.update(chunk)
-
-            file_hash = hash_object.hexdigest()
-            log.info('Added local resource {}, size: {}, hash: {}'.format(
-                filepath, format_bytes(size), file_hash))
-
-
-        except Exception as e:
-            log.error('Error accessing local resource: {}'.format(str(e)))
-            import traceback
-            log.error(traceback.format_exc())
-            log.info('Falling back to HTTP download')
-            # Fall back to HTTP download
-
-    # If not a local resource or if accessing it directly failed, download via HTTP
-    try:
-        log.info('Making HTTP request to: {}'.format(url))
-        # Create a session with the user's API key if available
-        session = requests.Session()
-        if user:
-            # Get the user's API key
-            from ckan import model
-            user_obj = model.User.get(user)
-            if user_obj and user_obj.apikey:
-                session.headers.update({'Authorization': user_obj.apikey})
-                log.info('Using API key for user: {}'.format(user))
-
-        # Make the request with the authenticated session
-        r = session.get(url, stream=True)
-        r.raise_for_status()
-        log.info('HTTP request successful, status code: {}'.format(r.status_code))
-    except requests.ConnectionError:
-        error_msg = 'URL {url} refused connection. The resource will not be downloaded'.format(url=url)
-        log.error(error_msg)
-        raise DownloadError(error_msg)
-    except requests.exceptions.HTTPError as e:
-        error_msg = 'URL {url} status error: {status}. The resource will not be downloaded'.format(url=url, status=e.response.status_code)
-        log.error(error_msg)
-        raise DownloadError(error_msg)
-    except requests.exceptions.RequestException as e:
-        error_msg = 'URL {url} download request exception: {error}'.format(url=url, error=str(e))
-        log.error(error_msg)
-        raise DownloadError(error_msg)
-    except Exception as e:
-        error_msg = 'URL {url} download exception: {error}'.format(url=url, error=str(e))
-        log.error(error_msg)
-        import traceback
-        log.error(traceback.format_exc())
-        raise DownloadError(error_msg)
-
-    hash_object = hashlib.md5()
-    size = 0
-    try:
-        log.info('Attempting to write resource to zip file using Python 3 method')
-
-        # Try to get Last-Modified header from response
-        last_modified = None
-        if 'Last-Modified' in r.headers:
-            try:
-                # Parse the Last-Modified header
-                last_modified_str = r.headers['Last-Modified']
-                log.info('Found Last-Modified header: {}'.format(last_modified_str))
-                # Parse RFC 7232 date format
-                from email.utils import parsedate_to_datetime
-                last_modified = parsedate_to_datetime(last_modified_str).timestamp()
-                log.info('Parsed Last-Modified timestamp: {}'.format(last_modified))
-            except Exception as e:
-                log.warning('Failed to parse Last-Modified header: {}'.format(str(e)))
-                last_modified = None
-
-        # If we couldn't get Last-Modified, use current time
-        if last_modified is None:
-            last_modified = time.time()
-            log.info('Using current time for file timestamp')
-
-        # Create ZipInfo with timestamp
-        date_time = time.localtime(last_modified)[:6]
-        info = zipfile.ZipInfo(filename)
-        info.date_time = date_time
-        info.compress_type = zipfile.ZIP_DEFLATED
-
-        # Download content to memory first
-        content = b''
-        for chunk in r.iter_content(chunk_size=16384):  # Increased chunk size to 16KB
-            if chunk:  # Filter out keep-alive new chunks
-                content += chunk
-                hash_object.update(chunk)
-                size += len(chunk)
-
-        # Write content with preserved timestamp
-        zipf.writestr(info, content)
-
-        log.info('Successfully wrote resource to zip using Python 3 method with preserved timestamp')
-
-    except Exception as e:
-        error_msg = 'Error writing resource to zip: {}'.format(str(e))
-        log.error(error_msg)
-        import traceback
-        log.error(traceback.format_exc())
-        raise DownloadError(error_msg)
-
-    file_hash = hash_object.hexdigest()
-    log.info('Downloaded {}, hash: {}'
-              .format(format_bytes(size), file_hash))
-
-
-def write_datapackage_json(datapackage, zipf):
-    log.info('Writing datapackage.json to zip file')
-    try:
-        with tempfile.NamedTemporaryFile() as json_file:
-            log.info('Creating temporary file for datapackage.json')
-            json_content = ckanapi.cli.utils.pretty_json(datapackage)
-            log.info('Generated JSON content, size: {} bytes'.format(len(json_content)))
-            json_file.write(json_content)
-            json_file.flush()
-            log.info('Writing datapackage.json from temporary file: {}'.format(json_file.name))
-
-            # Use current time for datapackage.json since it's dynamically generated
-            current_time = time.time()
-            date_time = time.localtime(current_time)[:6]
-
-            # Create ZipInfo with current timestamp
-            info = zipfile.ZipInfo('datapackage.json')
-            info.date_time = date_time
-            info.compress_type = zipfile.ZIP_DEFLATED
-
-            # Write file with current timestamp
-            with open(json_file.name, 'rb') as f:
-                zipf.writestr(info, f.read())
-
-            log.info('Successfully added datapackage.json to zip file with current timestamp')
-    except Exception as e:
-        log.error('Error writing datapackage.json to zip: {}'.format(str(e)))
-        import traceback
-        log.error(traceback.format_exc())
-        raise
 
 
 def format_bytes(size_bytes):
@@ -655,51 +1025,3 @@ def format_bytes(size_bytes):
     p = math.pow(1024, i)
     s = round(size_bytes / p, 1)
     return '{} {}'.format(s, size_name[i])
-
-
-def remove_resources_that_should_not_be_included_in_the_datapackage(dataset):
-    log.info('Filtering resources for dataset: {}'.format(dataset.get('name', 'unknown')))
-    resource_formats_to_ignore = ['API', 'api']  # TODO make it configurable
-    log.info('Resource formats to ignore: {}'.format(resource_formats_to_ignore))
-
-    existing_zip_resource = None
-    resources_to_include = []
-    total_resources = len(dataset['resources'])
-    log.info('Total resources in dataset: {}'.format(total_resources))
-
-    for i, res in enumerate(dataset['resources']):
-        resource_id = res.get('id', 'unknown')
-        resource_name = res.get('name', 'unnamed')
-        resource_format = res.get('format', 'unknown')
-
-        log.info('Processing resource {}/{}: {} (ID: {}, Format: {})'.format(
-            i + 1, total_resources, resource_name, resource_id, resource_format))
-
-        if res.get('downloadall_metadata_modified'):
-            # this is an existing zip of all the other resources
-            log.info('Resource {}/{} skipped - is the zip itself (ID: {})'.format(
-                i + 1, total_resources, resource_id))
-            existing_zip_resource = res
-            continue
-
-        if resource_format in resource_formats_to_ignore:
-            log.info('Resource {}/{} skipped - because it is format {} (ID: {})'.format(
-                i + 1, total_resources, resource_format, resource_id))
-            continue
-
-        log.info('Resource {}/{} included: {} (ID: {})'.format(
-            i + 1, total_resources, resource_name, resource_id))
-        resources_to_include.append(res)
-
-    log.info('Resources after filtering: {} of {} will be included'.format(
-        len(resources_to_include), total_resources))
-
-    if existing_zip_resource:
-        log.info('Existing zip resource found: {} (ID: {})'.format(
-            existing_zip_resource.get('name', 'unnamed'), 
-            existing_zip_resource.get('id', 'unknown')))
-    else:
-        log.info('No existing zip resource found')
-
-    dataset = dict(dataset, resources=resources_to_include)
-    return dataset, resources_to_include, existing_zip_resource

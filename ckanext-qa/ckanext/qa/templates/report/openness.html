@@ -99,14 +99,34 @@
     border-color: #337ab7;
     color: #fff;
   }
-  button.score-pill.active .score-pill-label {
+  button.score-pill.active .score-pill-label,
+  button.score-pill.active .score-pill-unit {
     color: #dce9f7;
   }
   .score-pill-label {
     color: #56728d;
     font-weight: 500;
   }
+  .score-pill-value {
+    font-weight: 600;
+  }
+  .score-pill-unit {
+    color: #56728d;
+    font-weight: 500;
+    font-size: 0.9em;
+  }
 </style>
+
+{% macro render_dataset_count(count) -%}
+  {%- set count = count or 0 -%}
+  {%- set text = ungettext('{count} dataset', '{count} datasets', count) -%}
+  {%- set parts = text.split('{count}', 1) -%}
+  <span class="score-pill-value">
+    {%- if parts[0] and parts[0]|trim %}<span class="score-pill-unit">{{ parts[0]|trim }}</span> {% endif -%}
+    {{ count }}
+    {%- if parts|length > 1 and parts[1]|trim %} <span class="score-pill-unit">{{ parts[1]|trim }}</span>{% endif -%}
+  </span>
+{%- endmacro %}
 
 {% if c.options['organization'] == None %}
 
@@ -116,7 +136,7 @@
     <div class="col-md-3">
       <div class="well text-center">
         <h2>{{ c.data.get('total_organizations', c.data['table']|length) }}</h2>
-        <p>Οργανισμοί με σύνολα δεδομένων</p>
+        <p>{% trans %}Organizations with datasets{% endtrans %}</p>
       </div>
     </div>
     <div class="col-md-3">
@@ -138,12 +158,15 @@
       </div>
     </div>
   </div>
-  <p class="openness-meta">{% trans %}Score frequencies{% endtrans %}</p>
+  {% set total_score_counts = c.data.get('total_score_counts') or {} %}
+  {% set total_unscored = total_score_counts.get('null', total_score_counts.get(None, 0)) %}
+  <p class="openness-meta">{% trans %}Score frequencies (datasets){% endtrans %}</p>
   <div class="score-distribution">
-    <button type="button" class="score-pill active" data-filter-score="all"><span class="score-pill-label">Όλα</span> {{ c.data['table']|length }}</button>
-    <button type="button" class="score-pill" data-filter-score="null"><span class="score-pill-label">Δεν έχουν Βαθμολογηθεί</span> {{ c.data['total_score_counts'].get('null', 0) }}</button>
+    <button type="button" class="score-pill active" data-filter-score="all" aria-pressed="true"><span class="score-pill-label">{% trans %}All organizations{% endtrans %}</span> <span class="score-pill-value">{{ c.data['table']|length }}</span></button>
+    <button type="button" class="score-pill" data-filter-score="null" aria-pressed="false" title="{% trans %}Filter organizations with unscored datasets{% endtrans %}"><span class="score-pill-label">{% trans %}Not scored{% endtrans %}</span> {{ render_dataset_count(total_unscored) }}</button>
     {% for n in range(4) %}
-      <button type="button" class="score-pill" data-filter-score="{{ n }}"><span class="score-pill-label">{% trans %}Score{% endtrans %} {{ n }}</span> {{ c.data['total_score_counts'].get(n|string, 0) }}</button>
+      {% set score_count = total_score_counts.get(n|string, total_score_counts.get(n, 0)) %}
+      <button type="button" class="score-pill" data-filter-score="{{ n }}" aria-pressed="false" title="{{ _('Filter organizations with datasets of score {score}').format(score=n) }}"><span class="score-pill-label">{% trans %}Score{% endtrans %} {{ n }}</span> {{ render_dataset_count(score_count) }}</button>
     {% endfor %}
   </div>
 
@@ -161,7 +184,12 @@
   </div>
 
   <div class="report-table-wrapper">
-    <table class="table table-striped table-bordered table-condensed table-hover" id="report-table">
+    <table class="table table-striped table-bordered table-condensed table-hover"
+           id="report-table"
+           data-pagination-all-singular="{{ _('{total} organization') }}"
+           data-pagination-all-plural="{{ _('{total} organizations') }}"
+           data-pagination-range-singular="{{ _('{start}-{end} of {total} organization') }}"
+           data-pagination-range-plural="{{ _('{start}-{end} of {total} organizations') }}">
       <thead>
         <tr>
           <th class="sortable" data-sort="org_title" data-sort-type="string">
@@ -169,7 +197,7 @@
             <i class="fa fa-sort sort-icon"></i>
           </th>
           <th class="sortable" data-sort="score_tbc" data-sort-type="number">
-            Δεν έχουν Βαθμολογηθεί
+            {% trans %}Not scored{% endtrans %}
             <i class="fa fa-sort sort-icon"></i>
           </th>
           {% for n in range(4) %}
@@ -237,7 +265,7 @@
     <div class="col-md-3">
       <div class="well text-center">
         <h2>{{ c.data['num_packages'] - c.data['num_packages_scored'] }}</h2>
-        <p>Δεν έχουν Βαθμολογηθεί</p>
+        <p>{% trans %}Not scored{% endtrans %}</p>
       </div>
     </div>
     <div class="col-md-3">
@@ -247,12 +275,15 @@
       </div>
     </div>
   </div>
-  <p class="openness-meta">{% trans %}Score frequencies{% endtrans %}</p>
+  {% set org_score_counts = c.data.get('score_counts') or {} %}
+  {% set org_unscored = org_score_counts.get('null', org_score_counts.get(None, 0)) %}
+  <p class="openness-meta">{% trans %}Score frequencies (datasets){% endtrans %}</p>
   <div class="score-distribution">
-    <button type="button" class="score-pill active" data-filter-score="all"><span class="score-pill-label">Όλα</span> {{ c.data['table']|length }}</button>
-    <button type="button" class="score-pill" data-filter-score="null"><span class="score-pill-label">Δεν έχουν Βαθμολογηθεί</span> {{ c.data['score_counts'].get('null', 0) }}</button>
+    <button type="button" class="score-pill active" data-filter-score="all" aria-pressed="true"><span class="score-pill-label">{% trans %}All datasets{% endtrans %}</span> <span class="score-pill-value">{{ c.data['table']|length }}</span></button>
+    <button type="button" class="score-pill" data-filter-score="null" aria-pressed="false"><span class="score-pill-label">{% trans %}Not scored{% endtrans %}</span> {{ render_dataset_count(org_unscored) }}</button>
     {% for n in range(4) %}
-      <button type="button" class="score-pill" data-filter-score="{{ n }}"><span class="score-pill-label">{% trans %}Score{% endtrans %} {{ n }}</span> {{ c.data['score_counts'].get(n|string, 0) }}</button>
+      {% set score_count = org_score_counts.get(n|string, org_score_counts.get(n, 0)) %}
+      <button type="button" class="score-pill" data-filter-score="{{ n }}" aria-pressed="false"><span class="score-pill-label">{% trans %}Score{% endtrans %} {{ n }}</span> {{ render_dataset_count(score_count) }}</button>
     {% endfor %}
   </div>
 
@@ -270,7 +301,12 @@
   </div>
 
   <div class="report-table-wrapper">
-    <table class="table table-striped table-bordered table-condensed table-hover" id="report-table">
+    <table class="table table-striped table-bordered table-condensed table-hover"
+           id="report-table"
+           data-pagination-all-singular="{{ _('{total} dataset') }}"
+           data-pagination-all-plural="{{ _('{total} datasets') }}"
+           data-pagination-range-singular="{{ _('{start}-{end} of {total} dataset') }}"
+           data-pagination-range-plural="{{ _('{start}-{end} of {total} datasets') }}">
       <thead>
         <tr>
           <th class="sortable" data-sort="dataset" data-sort-type="string">
@@ -451,14 +487,25 @@
       row.style.display = visibleSet.has(row) ? '' : 'none';
     });
 
+    var table = document.getElementById('report-table');
     var info = document.getElementById('pagination-info');
-    if (perPage === 'all') {
-      info.textContent = totalRows + ' {% trans %}records{% endtrans %}';
-    } else {
-      var showStart = totalRows > 0 ? startIdx + 1 : 0;
-      var showEnd = Math.min(endIdx, totalRows);
-      info.textContent = showStart + '-' + showEnd +
-                         ' {% trans %}of{% endtrans %} ' + totalRows;
+    if (table && info) {
+      if (perPage === 'all') {
+        var allTemplate = table.getAttribute(
+          totalRows === 1 ? 'data-pagination-all-singular' : 'data-pagination-all-plural'
+        ) || '{total}';
+        info.textContent = allTemplate.replace('{total}', totalRows);
+      } else {
+        var showStart = totalRows > 0 ? startIdx + 1 : 0;
+        var showEnd = Math.min(endIdx, totalRows);
+        var rangeTemplate = table.getAttribute(
+          totalRows === 1 ? 'data-pagination-range-singular' : 'data-pagination-range-plural'
+        ) || '{start}-{end} / {total}';
+        info.textContent = rangeTemplate
+          .replace('{start}', showStart)
+          .replace('{end}', showEnd)
+          .replace('{total}', totalRows);
+      }
     }
 
     renderPaginationButtons(totalPages);
@@ -471,10 +518,10 @@
     nav.innerHTML = '';
 
     if (totalPages <= 1 || perPage === 'all') {
-      document.getElementById('pagination-nav').style.display = 'none';
+      nav.style.display = 'none';
       return;
     }
-    document.getElementById('pagination-nav').style.display = '';
+    nav.style.display = '';
 
     var prevLi = document.createElement('li');
     if (currentPage <= 1) prevLi.className = 'disabled';
@@ -537,8 +584,10 @@
     btn.addEventListener('click', function() {
       scoreFilterButtons.forEach(function(other) {
         other.classList.remove('active');
+        other.setAttribute('aria-pressed', 'false');
       });
       this.classList.add('active');
+      this.setAttribute('aria-pressed', 'true');
       currentScoreFilter = this.getAttribute('data-filter-score');
       currentPage = 1;
       render();

@@ -195,3 +195,12 @@ msgstr "Resource has no URL"
 
 msgid "Resource is a Download All ZIP resource"
 msgstr "Resource is a Download All ZIP resource"
+
+msgid "URL checked successfully"
+msgstr "URL checked successfully"
+
+msgid "URL check temporarily failed"
+msgstr "URL check temporarily failed"
+
+msgid "Not checked: the server %s did not respond (timeout) to %d previous links in this check"
+msgstr "Not checked: the server %s did not respond (timeout) to %d previous links in this check"

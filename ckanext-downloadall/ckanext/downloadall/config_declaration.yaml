@@ -1,0 +1,95 @@
+version: 1
+groups:
+  - annotation: ckanext-downloadall
+    options:
+
+      - key: ckanext.downloadall.queue
+        default: bulk
+        description: |
+          Ουρά RQ για τα jobs δημιουργίας του ZIP (στην παραγωγή: downloadall).
+
+      - key: ckanext.downloadall.dedup_strategy
+        default: request_cache
+        description: |
+          Deduplicate DownloadAll jobs per request, or across requests with
+          Redis. Valid values: request_cache, redis.
+
+      - key: ckanext.downloadall.redis_lock_ttl
+        type: int
+        default: 3600
+        description: Redis DownloadAll coordination lock lifetime in seconds.
+
+      - key: ckanext.downloadall.hvd_only
+        type: bool
+        default: false
+        description: |
+          ZIP μόνο για τα datasets υψηλής αξίας (HVD).
+
+      - key: ckanext.downloadall.hvd_field
+        default: hvd_category
+        description: |
+          Πεδίο του dataset με τις κατηγορίες HVD (list, JSON list ή string).
+
+      - key: ckanext.downloadall.exclude_resource_formats
+        default: ''
+        description: |
+          Μορφές πόρων που δεν μπαίνουν στο ZIP, π.χ. API. JSON list ή λίστα
+          χωρισμένη με κόμμα/νέα γραμμή, χωρίς διάκριση πεζών/κεφαλαίων.
+          Προεπιλογή: καμία, όπως πριν το OD-857.
+
+      - key: ckanext.downloadall.exclude_resource_name_patterns
+        default: ''
+        description: |
+          Κείμενα που, αν περιέχονται στο όνομα του πόρου (σε οποιαδήποτε
+          γλώσσα), τον αποκλείουν από το ZIP, π.χ. ["capabilities document"].
+
+      - key: ckanext.downloadall.connect_timeout
+        type: int
+        default: 10
+        description: Δευτερόλεπτα για τη σύνδεση σε κάθε πόρο.
+
+      - key: ckanext.downloadall.read_timeout
+        type: int
+        default: 60
+        description: Δευτερόλεπτα αναμονής για δεδομένα από κάθε πόρο.
+
+      - key: ckanext.downloadall.retries
+        type: int
+        default: 1
+        description: Επαναλήψεις σε προσωρινή αποτυχία (timeout, 429, 5xx).
+
+      - key: ckanext.downloadall.retry_failed_limit
+        type: int
+        default: 3
+        description: >
+          Πόσες φορές το update-all-zips --retry-failed ξαναχτίζει την ίδια
+          εκδοχή ενός dataset, όταν απέτυχαν πόροι με προσωρινή αποτυχία ή όταν
+          το build απέτυχε (0 = χωρίς όριο). Οι μόνιμες αποτυχίες (π.χ. 404)
+          ξαναδοκιμάζονται μόνο όταν αλλάξει το dataset.
+
+      - key: ckanext.downloadall.job_timeout
+        type: int
+        default: 1800
+        description: |
+          Δευτερόλεπτα για το job ενός dataset. 0: ισχύει το ckan.jobs.timeout.
+
+      - key: ckanext.downloadall.max_resources
+        type: int
+        default: 0
+        description: Μέγιστο πλήθος πόρων στο ZIP (0 = χωρίς όριο).
+
+      - key: ckanext.downloadall.max_resource_size
+        type: int
+        default: 0
+        description: Μέγιστο μέγεθος ενός πόρου σε bytes (0 = χωρίς όριο).
+
+      - key: ckanext.downloadall.max_total_size
+        type: int
+        default: 0
+        description: Μέγιστο συνολικό μέγεθος πόρων σε bytes (0 = χωρίς όριο).
+
+      - key: ckanext.downloadall.dataset_fields_to_add_to_datapackage
+        default: ''
+        description: |
+          Επιπλέον πεδία του dataset που προστίθενται στο datapackage.json
+          (χωρισμένα με κενό).

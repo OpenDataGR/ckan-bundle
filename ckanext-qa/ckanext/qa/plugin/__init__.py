@@ -9,12 +9,16 @@ from ckanext.archiver.interfaces import IPipe
 from ckanext.qa.logic import action, auth
 from ckanext.qa.model import QA, aggregate_qa_for_a_dataset
 from ckanext.qa.helpers import qa_show_openness_stars, qa_openness_stars_resource_html, qa_openness_stars_dataset_html, qa_mqa_rating_label
+from ckanext.qa import lib as qa_lib
 from ckanext.qa.lib import create_qa_update_package_task
 from ckanext.report.interfaces import IReport
 import ckanext.data_gov_gr.helpers as data_gov_gr_helpers
 
 
 log = logging.getLogger(__name__)
+
+# Τύποι datasets για τους οποίους δεν υπολογίζεται ανοικτότητα.
+OPENNESS_SKIPPED_TYPES = ('decision', 'data-service')
 
 
 if toolkit.check_ckan_version(min_version='2.9.0'):
@@ -90,6 +94,13 @@ class QAPlugin(MixinPlugin, p.SingletonPlugin, toolkit.DefaultDatasetForm):
     def update_config(self, config):
         toolkit.add_template_directory(config, '../templates')
 
+        # Έλεγχος του ckanext.qa.openness_mode κατά την εκκίνηση: άγνωστη
+        # τιμή σταματά την εφαρμογή αντί να γυρίσει σιωπηλά στο default.
+        log.info('QA openness mode: %s', qa_lib.openness_mode())
+        from ckanext.archiver import job_dedup
+        log.info('QA dedup strategy: %s', job_dedup.get_strategy('qa'))
+        qa_lib.register_session_hooks()
+
         # check for qsv config
         qsv_bin = config.get('ckanext.qa.qsv_bin')
         if qsv_bin:
@@ -111,10 +122,19 @@ class QAPlugin(MixinPlugin, p.SingletonPlugin, toolkit.DefaultDatasetForm):
 
     # IPipe
 
+    def reindexes_after_package_archived(self):
+        '''Στο archival mode το QA κάνει reindex μετά το package-archived· σε
+        metadata_only το αγνοεί, οπότε το reindex το κάνει ο archiver.'''
+        return not qa_lib.is_metadata_only_mode()
+
     def receive_data(self, operation, queue, **params):
         '''Receive notification from ckan-archiver that a dataset has been
         archived.'''
         if not operation == 'package-archived':
+            return
+        if qa_lib.is_metadata_only_mode():
+            # Σε metadata_only το QA μπαίνει στην ουρά από τα
+            # after_dataset_create/update και δεν εξαρτάται από τον archiver.
             return
         dataset_id = params['package_id']
 
@@ -175,6 +195,7 @@ class QAPlugin(MixinPlugin, p.SingletonPlugin, toolkit.DefaultDatasetForm):
             calculate_and_store_mqa_scores(pkg_dict['id'])
         except Exception as e:
             log.error('Error calculating MQA scores for dataset %s: %s', pkg_dict['id'], str(e))
+        self._queue_metadata_openness(pkg_dict)
 
     def after_dataset_update(self, context, pkg_dict):
         """
@@ -186,6 +207,23 @@ class QAPlugin(MixinPlugin, p.SingletonPlugin, toolkit.DefaultDatasetForm):
             calculate_and_store_mqa_scores(pkg_dict['id'])
         except Exception as e:
             log.error('Error calculating MQA scores for dataset %s: %s', pkg_dict['id'], str(e))
+        self._queue_metadata_openness(pkg_dict)
+
+    def _queue_metadata_openness(self, pkg_dict):
+        """
+        Σε metadata_only, κάθε create/update dataset βάζει QA job στην ουρά
+        priority, μετά το commit. Το package_update καλείται και από
+        resource create/update/delete/reorder, οπότε καλύπτονται κι αυτά.
+        """
+        try:
+            if not qa_lib.is_metadata_only_mode():
+                return
+            if pkg_dict.get('type') in OPENNESS_SKIPPED_TYPES:
+                return
+            qa_lib.queue_openness_after_commit(pkg_dict['id'])
+        except Exception as e:
+            log.error('Error queueing openness QA for dataset %s: %s',
+                      pkg_dict.get('id'), str(e))
 
     def after_dataset_show(self, context, pkg_dict):
         # Insert the qa info into the package_dict so that it is
@@ -196,7 +234,7 @@ class QAPlugin(MixinPlugin, p.SingletonPlugin, toolkit.DefaultDatasetForm):
         # overwritten here when output again.
 
         # Skip QA info for decisions and data-services
-        if pkg_dict.get('type') in ['decision', 'data-service']:
+        if pkg_dict.get('type') in OPENNESS_SKIPPED_TYPES:
             return
 
         qa_objs = QA.get_for_package(pkg_dict['id'])
@@ -228,7 +266,7 @@ class QAPlugin(MixinPlugin, p.SingletonPlugin, toolkit.DefaultDatasetForm):
         Extract QA scores from `qa` and add them to the package dictionary for indexing
         '''
         # Skip openness score for decisions and data-services
-        if pkg_dict.get('type') in ['decision', 'data-service']:
+        if pkg_dict.get('type') in OPENNESS_SKIPPED_TYPES:
             pkg_dict.pop('qa', None)
             return pkg_dict
 

@@ -433,8 +433,21 @@ def ckan_after_request(response: Response) -> Response:
     return response
 
 
+# Κλειδί του environ που σημαδεύει το εσωτερικό request context του url_for
+# έξω από web request (βλ. middleware.make_app)
+AUTO_URL_FOR_CONTEXT = 'ckan.auto_url_for_context'
+
+
 def ckan_teardown_request(
         exception: Optional[BaseException] = None) -> None:
+    # Έξω από web request (workers, εντολές CLI) το url_for ανοίγει και
+    # κλείνει ένα εσωτερικό request context (helpers._get_auto_flask_context).
+    # Το κλείσιμό του δεν είναι τέλος αιτήματος: το session ανήκει στον κώδικα
+    # που κάλεσε το url_for, που μπορεί να είναι στη μέση ενός transaction ή
+    # ενός commit (π.χ. search index στο before_commit). Το context αυτό το
+    # σημαδεύει το make_app με AUTO_URL_FOR_CONTEXT στο environ
+    if request.environ.get(AUTO_URL_FOR_CONTEXT):
+        return
     model.Session.remove()
 
 

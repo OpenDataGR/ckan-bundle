@@ -417,7 +417,11 @@ def jsonify_counter(counter):
     # When counters are stored as JSON, integers become strings. Do the conversion
     # here to ensure that when you run the report the first time, you get the same
     # response as subsequent times that go through the cache/JSON.
-    return dict((str(k) if k is not None else k, v) for k, v in counter.items())
+    # Το None (μη βαθμολογημένα) γίνεται 'null', όπως το γράφει το JSON της
+    # cache· αλλιώς η αναφορά που μόλις παράχθηκε (π.χ. μετά από ανανέωση)
+    # δείχνει 0 στη στήλη και στο φίλτρο «Δεν έχουν βαθμολογηθεί»
+    return dict((str(k) if k is not None else 'null', v)
+                for k, v in counter.items())
 
 
 def add_progress_bar(iterable, caption=None):

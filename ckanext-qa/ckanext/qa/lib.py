@@ -3,6 +3,7 @@ import json
 import re
 import logging
 from ckan.plugins import toolkit as tk
+from ckan.exceptions import CkanConfigurationException
 
 from ckan import plugins as p
 from ckanext.qa.tasks import update_package, update
@@ -14,8 +15,46 @@ enqueue_job = tk.enqueue_job
 
 _RESOURCE_FORMAT_SCORES = None
 
+# Τρόπος υπολογισμού της ανοικτότητας (openness).
+# archival: η ιστορική ροή, μετά τον archiver, με archival status και content sniffing.
+# metadata_only: μόνο από άδεια, κατάληξη URL και resource.format, ανεξάρτητα από τον archiver.
+OPENNESS_MODE_CONFIG = 'ckanext.qa.openness_mode'
+OPENNESS_MODE_ARCHIVAL = 'archival'
+OPENNESS_MODE_METADATA_ONLY = 'metadata_only'
+OPENNESS_MODES = (OPENNESS_MODE_ARCHIVAL, OPENNESS_MODE_METADATA_ONLY)
 
-def compat_enqueue(name, fn, queue, args=None):
+# Λογικά ονόματα ουρών· το πραγματικό όνομα ορίζεται παραμετρικά, π.χ.
+# ckanext.qa.queue.priority = qa_priority
+LOGICAL_QUEUES = ('priority', 'bulk')
+
+
+def openness_mode():
+    '''Επιστρέφει τον ενεργό τρόπο υπολογισμού ανοικτότητας.
+
+    Άγνωστη τιμή προκαλεί σφάλμα, αντί για σιωπηλή επιστροφή στο default.
+    '''
+    value = (config.get(OPENNESS_MODE_CONFIG) or OPENNESS_MODE_ARCHIVAL)
+    value = str(value).strip().lower()
+    if value not in OPENNESS_MODES:
+        raise CkanConfigurationException(
+            'Invalid value for %s: %r (allowed: %s)'
+            % (OPENNESS_MODE_CONFIG, value, ', '.join(OPENNESS_MODES)))
+    return value
+
+
+def is_metadata_only_mode():
+    return openness_mode() == OPENNESS_MODE_METADATA_ONLY
+
+
+def resolve_queue(queue):
+    '''Μετατρέπει λογικό όνομα ουράς (priority/bulk) στο πραγματικό όνομα
+    που έχει οριστεί για το QA. Άλλα ονόματα επιστρέφονται όπως είναι.'''
+    if queue in LOGICAL_QUEUES:
+        return config.get('ckanext.qa.queue.%s' % queue) or queue
+    return queue
+
+
+def compat_enqueue(name, fn, queue, args=None, job_id=None):
 
     u'''
     Enqueue a background job using Celery or RQ.
@@ -23,7 +62,8 @@ def compat_enqueue(name, fn, queue, args=None):
     try:
         # Try to use RQ
         log.debug('Trying to use RQ')
-        enqueue_job(fn, args=args, queue=queue)
+        rq_kwargs = {'job_id': job_id} if job_id else None
+        enqueue_job(fn, args=args, queue=resolve_queue(queue), rq_kwargs=rq_kwargs)
     except ImportError:
         # Fallback to Celery
         log.debug('RQ not installed, falling back to Celery')
@@ -90,9 +130,39 @@ def munge_format_to_be_canonical(format_name):
 
 def create_qa_update_package_task(package, queue):
 
-    compat_enqueue('qa.update_package', update_package, queue,  args=[package.id])
-    log.debug('QA of package put into queue %s: %s',
-              queue, package.name)
+    result = enqueue_qa_package(package.id, queue)
+    log.debug('QA of package %s: %s (queue %s)', package.name, result, queue)
+
+
+def enqueue_qa_package(package_id, queue):
+    '''Βάζει QA job για το dataset, ένα εκκρεμές ανά dataset
+    (βλ. ckanext.archiver.job_dedup).'''
+    from ckanext.archiver import job_dedup
+
+    def _enqueue(job_id):
+        compat_enqueue('qa.update_package', update_package, queue,
+                       args=[package_id], job_id=job_id)
+
+    return job_dedup.enqueue_once('qa', package_id, queue, _enqueue)
+
+
+def queue_openness_after_commit(package_id):
+    '''Σημειώνει ένα dataset ώστε να μπει στην ουρά priority του QA μόλις
+    γίνει commit.
+
+    Τα hooks after_dataset_create/update εκτελούνται πριν από το commit του
+    package_create/package_update. Αν το job έμπαινε αμέσως στην ουρά, ο worker
+    μπορεί να διάβαζε την προηγούμενη εκδοχή του dataset
+    (βλ. ckanext.archiver.job_dedup.enqueue_after_commit).
+    '''
+    from ckanext.archiver import job_dedup
+    job_dedup.enqueue_after_commit('qa', package_id, 'priority', enqueue_qa_package)
+
+
+def register_session_hooks():
+    '''Καταχωρεί τα SQLAlchemy events για το queue_openness_after_commit.'''
+    from ckanext.archiver import job_dedup
+    job_dedup.register_session_hooks()
 
 
 def create_qa_update_task(resource, queue):

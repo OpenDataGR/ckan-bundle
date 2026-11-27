@@ -133,6 +133,30 @@ def get_tag_metadata(tag_id):
     if not metadata:
         return None
 
+    return _metadata_as_dict(metadata)
+
+
+def get_tags_metadata(tag_ids):
+    """
+    Metadata για πολλά tags με ένα μόνο query, αντί για ένα query ανά tag.
+
+    Args:
+        tag_ids: Τα IDs των tags.
+
+    Returns:
+        dict tag_id -> dict metadata (ίδια μορφή με το get_tag_metadata).
+        Tags χωρίς metadata δεν εμφανίζονται στο αποτέλεσμα.
+    """
+    tag_ids = [tag_id for tag_id in tag_ids if tag_id]
+    if not tag_ids:
+        return {}
+    rows = meta.Session.query(VocabularyTagMetadata) \
+        .filter(VocabularyTagMetadata.tag_id.in_(tag_ids)) \
+        .all()
+    return {row.tag_id: _metadata_as_dict(row) for row in rows}
+
+
+def _metadata_as_dict(metadata):
     return {
         'value_uri': metadata.value_uri,
         'label_el': metadata.label_el,

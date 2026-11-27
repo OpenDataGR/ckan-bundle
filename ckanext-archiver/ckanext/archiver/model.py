@@ -35,6 +35,8 @@ class Status(object):
             # is_broken = False
             0: 'Archived successfully',
             1: 'Content has not changed',
+            # check_only: το URL απάντησε, χωρίς λήψη/αρχειοθέτηση αρχείου
+            2: 'URL checked successfully',
         }
         broken = {
             # is_broken = True
@@ -47,6 +49,9 @@ class Status(object):
             21: 'Chose not to download',
             22: 'Download failure',
             23: 'System error during archival',
+            # check_only: προσωρινή αποτυχία (timeout, 429, 5xx, δίκτυο) που
+            # δεν έχει ακόμη φτάσει το όριο για να θεωρηθεί broken
+            24: 'URL check temporarily failed',
         }
         self._by_id = dict(itertools.chain(not_broken.items(), broken.items()))
         self._by_id.update(not_sure)
@@ -78,7 +83,7 @@ class Status(object):
 
     @classmethod
     def is_ok(cls, status_id):
-        return status_id in [0, 1]
+        return status_id in [0, 1, 2]
 
 
 broken_enum = {True: 'Broken',
@@ -162,10 +167,12 @@ class Archival(Base):
         return Status.by_id(self.status_id)
 
     def as_dict(self):
+        from ckanext.archiver.resource_evaluation import get_url_check_state
         context = {'model': model}
         archival_dict = dictization.table_dictize(self, context)
         archival_dict['status'] = self.status
         archival_dict['is_broken_printable'] = broken_enum[self.is_broken]
+        archival_dict['check_state'] = get_url_check_state(self)
         return archival_dict
 
 

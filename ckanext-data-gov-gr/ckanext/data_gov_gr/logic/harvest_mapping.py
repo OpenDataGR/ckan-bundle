@@ -2163,6 +2163,9 @@ def _configured_capabilities_resource(
         "access_url": url,
         "download_url": url,
         "mimetype": XML_MIMETYPE,
+        # Περιγραφή της υπηρεσίας, όχι δεδομένα: δεν μπαίνει στο ZIP «Λήψη
+        # όλων» (ckanext-downloadall)
+        "downloadall_exclude": True,
     }
 
 

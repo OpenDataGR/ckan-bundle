@@ -11,9 +11,15 @@ import datetime
 import copy
 import mimetypes
 import re
-from time import sleep
+import ssl
+from time import sleep, monotonic
 
 from requests.packages import urllib3
+try:
+    # Στο urllib3 1.x το όνομα του πιστοποιητικού το ελέγχει το ίδιο το urllib3
+    from urllib3.util.ssl_match_hostname import CertificateError as _HostnameMismatch
+except ImportError:
+    _HostnameMismatch = ssl.SSLCertVerificationError
 from future.moves.urllib.parse import urlparse, urljoin, quote, urlunparse
 
 from ckan.common import _
@@ -171,7 +177,13 @@ def update_package(package_id, queue='bulk'):
     # Also put try/except around it is easier to monitor ckan's log rather than
     # celery's task status.
     try:
-        _update_package(package_id, queue, log)
+        from ckanext.archiver import job_dedup, lib as archiver_lib
+        # Ένα job ανά dataset τη φορά· αλλαγή όσο τρέχει → μία επανάληψη μετά
+        job_dedup.run_once(
+            'archiver', package_id,
+            lambda: _update_package(package_id, queue, log),
+            lambda rerun_queue: archiver_lib.enqueue_archiver_package(
+                package_id, rerun_queue))
     except Exception as e:
         if os.environ.get('DEBUG'):
             raise
@@ -184,32 +196,105 @@ def update_package(package_id, queue='bulk'):
 
 def _update_package(package_id, queue, log):
     from ckan import model
+    from ckanext.archiver.lib import is_check_only_mode
 
     get_action = toolkit.get_action
+    check_only = is_check_only_mode()
 
+    # archive: πόροι που αρχειοθετήθηκαν εκ νέου.
+    # check_only: πόροι των οποίων άλλαξε το αποτέλεσμα του ελέγχου URL.
     num_archived = 0
     context_ = {'model': model, 'ignore_auth': True, 'session': model.Session}
     package = get_action('package_show')(context_, {'id': package_id})
 
-    for resource in package['resources']:
+    resources = package['resources']
+    from ckanext.archiver import lib as archiver_lib
+    deadline = None
+    hosts = HostTimeouts(
+        archiver_lib.check_only_host_timeout_limit() if check_only else 0, log)
+    if check_only:
+        resources = _oldest_checked_first(package_id, resources)
+        deadline = _check_only_deadline()
+
+    for index, resource in enumerate(resources):
+        if deadline is not None and index > 0 and monotonic() > deadline:
+            # Οι υπόλοιποι πόροι ελέγχονται πρώτοι στο επόμενο job· το notify
+            # και το reindex γίνονται κανονικά για όσους ελέγχθηκαν
+            log.warning('Time limit reached for %s: %d of %d resources left '
+                        'unchecked', package['name'], len(resources) - index,
+                        len(resources))
+            break
         resource_id = resource['id']
-        res = _update_resource(resource_id, queue, log)
+        res = _update_resource(resource_id, queue, log, hosts)
         if res:
             num_archived += 1
 
+    if hosts.skipped:
+        log.info('Links not requested in %s because their server did not '
+                 'respond: %s', package['name'], hosts.skipped)
+
     if num_archived > 0:
-        log.info("Notifying package as %d items were archived", num_archived)
+        log.info("Notifying package as %d items were %s", num_archived,
+                 'checked with a changed result' if check_only else 'archived')
         notify_package(package, queue)
     else:
-        log.info("Not notifying package as 0 items were archived")
+        log.info("Not notifying package as 0 items were %s",
+                 'changed' if check_only else 'archived')
+
+    if check_only and num_archived == 0:
+        # Κανένας πόρος δεν άλλαξε κατάσταση· δεν χρειάζεται reindex
+        log.info('Search index skipped %s (no change)', package['name'])
+        return
 
     # Refresh the index for this dataset, so that it contains the latest
     # archive info. However skip it if there are downstream plugins that will
     # do this anyway, since it is an expensive step to duplicate.
-    if 'qa' not in get_plugins_waiting_on_ipipe():
+    if not _qa_reindexes_after_notify():
         _update_search_index(package_id, log)
     else:
         log.info('Search index skipped %s', package['name'])
+
+
+def _oldest_checked_first(package_id, resources):
+    '''check_only: πρώτα οι πόροι που δεν έχουν ελεγχθεί ποτέ και μετά όσοι
+    ελέγχθηκαν παλαιότερα. Αν ένα job σταματήσει στο χρονικό όριο, το επόμενο
+    συνεχίζει από τους πόρους που έμειναν, αντί να ξεκινά πάλι από την αρχή.'''
+    from ckanext.archiver.model import Archival
+    checked = dict((archival.resource_id, archival.updated)
+                   for archival in Archival.get_for_package(package_id))
+    return sorted(resources,
+                  key=lambda resource: checked.get(resource['id']) or datetime.datetime.min)
+
+
+def _check_only_deadline():
+    '''check_only: χρονική στιγμή (time.monotonic) μετά την οποία δεν ξεκινά
+    έλεγχος νέου πόρου, ώστε το job να τελειώνει πριν από το timeout της RQ.
+    Αφήνει περιθώριο για τον χειρότερο έλεγχο ενός πόρου (HEAD και GET σε κάθε
+    προσπάθεια), το notify και το reindex. None εκτός RQ ή χωρίς timeout.'''
+    from rq import get_current_job
+    from ckanext.archiver import lib as archiver_lib
+    job = get_current_job()
+    timeout = getattr(job, 'timeout', None) if job else None
+    if not isinstance(timeout, (int, float)) or timeout <= 0:
+        return None
+    retries = archiver_lib.check_only_retries()
+    worst_resource = (retries + 1) * 2 * archiver_lib.check_only_timeout() + \
+        retries * RETRY_DELAY_SECONDS
+    margin = max(timeout * 0.1, worst_resource + 60)
+    return monotonic() + max(timeout - margin, 0)
+
+
+def _qa_reindexes_after_notify():
+    '''True όταν κάποιος IPipe observer (π.χ. το QA σε archival mode) θα κάνει
+    reindex μετά το package-archived. Το δηλώνει ο ίδιος ο observer μέσω του
+    reindexes_after_package_archived(), αντί ο archiver να διαβάζει τις
+    ρυθμίσεις του.
+    '''
+    for observer in p.PluginImplementations(archiver_interfaces.IPipe):
+        check = getattr(observer, 'reindexes_after_package_archived', None)
+        if check is not None and check():
+            return True
+    return False
 
 
 def _update_search_index(package_id, log):
@@ -226,7 +311,7 @@ def _update_search_index(package_id, log):
     log.info('Search indexed %s', package['name'])
 
 
-def _update_resource(resource_id, queue, log):
+def _update_resource(resource_id, queue, log, hosts=None):
     """
     Link check and archive the given resource.
     If successful, updates the archival table with the cache_url & hash etc.
@@ -285,6 +370,11 @@ def _update_resource(resource_id, queue, log):
               resource)
         return
 
+    from ckanext.archiver.lib import is_check_only_mode
+    if is_check_only_mode():
+        # Έλεγχος μόνο του URL, χωρίς λήψη/hash/αντίγραφο στο Azure
+        return _check_resource_url(resource, queue, log, hosts)
+
     # Download
     try_as_api = False
     requires_archive = True
@@ -340,10 +430,15 @@ def _update_resource(resource_id, queue, log):
     log.info("Attempting to download resource: %s" % resource['url'])
     download_result = None
     download_status_id = Status.by_text('Archived successfully')
+    previous = Archival.get_for_resource(resource_id)
+    if previous is not None and not previous.cache_url:
+        # Χωρίς αρχειοθετημένο αντίγραφο, το ETag (π.χ. από έλεγχο check_only)
+        # δεν μπορεί να σημαίνει «δεν άλλαξε»· γίνεται κανονική λήψη
+        previous = None
     context = {
         'site_url': config.get('ckan.site_url_internally') or config['ckan.site_url'],
         'cache_url_root': config.get('ckanext-archiver.cache_url_root'),
-        'previous': Archival.get_for_resource(resource_id)
+        'previous': previous
         }
 
     err = None
@@ -466,7 +561,7 @@ def download(context, resource, url_timeout=30,
         # till https://github.com/ckan/ckanext-qa/issues/48 is resolved
         # Warning: this will result in double storage of all files below archival filesize limit
 
-        if not config.get('ckanext-archiver.archive_cloud', False):
+        if not toolkit.asbool(config.get('ckanext-archiver.archive_cloud', False)):
             raise ChooseNotToDownload('Skipping resource hosted externally to download resource: %s'
                                       % url,  url)
 
@@ -630,6 +725,416 @@ def archive_resource(context, resource, log, result=None, url_timeout=30):
     }
 
 
+# Αποτελέσματα ελέγχου URL στο check_only
+URL_OK = 'ok'
+URL_BROKEN = 'broken'
+URL_TRANSIENT = 'transient'
+# Ο πόρος δεν ελέγχεται (π.χ. upload στο cloud με archive_cloud = false)
+URL_SKIPPED = 'skipped'
+# Αναμονή ανάμεσα σε επαναλήψεις μετά από προσωρινή αποτυχία
+RETRY_DELAY_SECONDS = 2
+
+
+def _check_resource_url(resource, queue, log, hosts=None):
+    '''check_only: ελέγχει μόνο το resource.url και αποθηκεύει το αποτέλεσμα.
+
+    Δεν κατεβάζει το αρχείο, δεν γράφει προσωρινό αρχείο, δεν υπολογίζει hash
+    και δεν ανεβάζει αντίγραφο στο Azure.
+    Επιστρέφει True αν άλλαξε το αποτέλεσμα σε σχέση με τον προηγούμενο έλεγχο.
+    '''
+    try:
+        outcome = _url_check_outcome(resource, log, hosts)
+    except Exception:
+        # Απρόσμενο σφάλμα (π.χ. bug ή ρυθμίσεις), όχι αποτυχία του συνδέσμου:
+        # η εγγραφή archival μένει ως έχει, ώστε να μη μετρήσει στο κατώφλι
+        # αποτυχιών, και το job συνεχίζει με τους υπόλοιπους πόρους
+        log.exception('Unexpected error checking resource %s; result not saved',
+                      resource.get('id'))
+        return False
+    changed = save_url_check(resource, outcome, log)
+    notify_resource(resource, queue, None)
+    return changed
+
+
+def _outcome(result, reason='', status_text=None, url_redirected_to=None,
+             headers=None, timed_out=False, responded=False,
+             not_requested=False, retry=True):
+    '''Αποτέλεσμα ελέγχου ενός URL. timed_out: ο server δεν απάντησε μέσα στο
+    timeout· responded: ο server έδωσε απάντηση HTTP (οποιοσδήποτε κωδικός)·
+    not_requested: ο σύνδεσμος δεν ζητήθηκε, γιατί ο server του δεν απαντούσε.
+    Τα τρία χρησιμοποιούνται από το HostTimeouts. retry: μια νέα προσπάθεια σε
+    λίγα δευτερόλεπτα μπορεί να δώσει άλλο αποτέλεσμα. Ισχύει μόνο όταν δεν
+    ήρθε καμία απάντηση (σύνδεση που κόπηκε, άρνηση σύνδεσης, timeout)· όχι
+    όταν ο server απάντησε με σφάλμα HTTP ή δεν επαληθεύεται το πιστοποιητικό
+    του, γιατί αυτά δεν αλλάζουν σε δευτερόλεπτα.'''
+    return {'result': result, 'reason': reason, 'status_text': status_text,
+            'url_redirected_to': url_redirected_to,
+            'headers': {k.lower(): v for k, v in (headers or {}).items()},
+            'timed_out': timed_out, 'responded': responded,
+            'not_requested': not_requested, 'retry': retry}
+
+
+class HostTimeouts(object):
+    '''check_only: servers που δεν απαντούν, μέσα σε ένα job (ένα dataset).
+
+    Μετρά τους συνεχόμενους «αργούς» συνδέσμους κάθε server (host και port
+    του URL του πόρου): όσους δεν πήραν καμία απάντηση HTTP σε καμία
+    προσπάθεια, και τουλάχιστον μία προσπάθεια έληξε ή κράτησε όσο το timeout
+    (π.χ. DNS που κρεμά). Μετρά ο server του URL του πόρου, ακόμη κι αν το
+    timeout έγινε μετά από ανακατεύθυνση (π.χ. http → https).
+
+    - Μετά τον πρώτο αργό σύνδεσμο ενός server, οι επόμενοι σύνδεσμοί του
+      δοκιμάζονται μία φορά, χωρίς επανάληψη.
+    - Όταν οι αργοί σύνδεσμοι φτάσουν το όριο (ckanext.archiver.check_only.
+      host_timeout_limit), οι υπόλοιποι σύνδεσμοι του server σε αυτό το job
+      δεν ζητούνται. Μετρούν στις αποτυχίες (έως ένα κάτω από το κατώφλι),
+      αλλά ένας σύνδεσμος γίνεται broken μόνο μετά από πραγματικό έλεγχο που
+      απέτυχε, και ένας ήδη broken σύνδεσμος μένει όπως είναι, εκτός αν
+      άλλαξε ο πόρος (βλ. save_url_check).
+    - Οποιαδήποτε απάντηση HTTP σε οποιαδήποτε προσπάθεια (και 404, 503,
+      ανακατευθύνσεις σε κύκλο, ή απάντηση στο HEAD πριν από ένα GET που
+      λήγει) μηδενίζει τον μετρητή. Οι γρήγορες αποτυχίες (π.χ. SSL, άρνηση
+      σύνδεσης) δεν τον αλλάζουν, γιατί δεν κοστίζουν χρόνο.
+
+    Οι σύνδεσμοι που δεν ζητήθηκαν κρατούν την προηγούμενη ώρα ελέγχου
+    (archival.updated, ο τελευταίος πραγματικός έλεγχος), οπότε στο επόμενο
+    πέρασμα ελέγχονται πρώτοι (_oldest_checked_first).
+
+    Με όριο 0 δεν κάνει τίποτα (εκτός check_only ή σε έλεγχο ενός πόρου).
+    '''
+
+    DEFAULT_PORTS = {'http': 80, 'https': 443}
+
+    def __init__(self, limit=0, log=log):
+        self.limit = limit
+        self.log = log
+        self.slow = {}
+        self.skipped = {}
+
+    @classmethod
+    def host(cls, url):
+        '''host:port, με το προεπιλεγμένο port του scheme (80/443).'''
+        try:
+            parts = urlparse(url or '')
+            hostname = (parts.hostname or '').lower()
+            port = parts.port or cls.DEFAULT_PORTS.get((parts.scheme or '').lower())
+        except ValueError:
+            return None
+        if not hostname:
+            return None
+        return '%s:%s' % (hostname, port) if port else hostname
+
+    def blocked(self, host):
+        return bool(self.limit) and host is not None and \
+            self.slow.get(host, 0) >= self.limit
+
+    def retry_allowed(self, host):
+        '''Χωρίς επανάληψη για server που άργησε ήδη σε αυτό το job.'''
+        return not (self.limit and self.slow.get(host, 0))
+
+    def skip(self, host):
+        '''Αποτέλεσμα για σύνδεσμο που δεν ζητείται.'''
+        self.skipped[host] = self.skipped.get(host, 0) + 1
+        return _outcome(URL_TRANSIENT, _(
+            'Not checked: the server %s did not respond (timeout) to %d '
+            'previous links in this check') % (host, self.limit),
+            not_requested=True)
+
+    def record(self, host, responded, slow):
+        '''responded: κάποια προσπάθεια πήρε απάντηση HTTP· slow: καμία δεν πήρε
+        και κάποια έληξε ή κράτησε όσο το timeout.'''
+        if not self.limit or host is None:
+            return
+        if responded:
+            self.slow[host] = 0
+        elif slow:
+            self.slow[host] = self.slow.get(host, 0) + 1
+            if self.slow[host] == self.limit:
+                self.log.info('Server %s did not respond to %d consecutive links; '
+                              'its remaining links in this job are not requested',
+                              host, self.limit)
+
+
+def _url_check_outcome(resource, log, hosts=None):
+    from ckan.plugins.toolkit import config
+    if hosts is None:
+        hosts = HostTimeouts()
+
+    url = (resource.get('url') or '').strip()
+    site_url = config['ckan.site_url']
+
+    if resource.get('url_type') == 'upload':
+        relative = not url.startswith('http')
+        # Όπως στο _update_resource: η σύγκριση γίνεται με το δημόσιο URL του site
+        public_url = site_url.rstrip('/') + url if relative else url
+        upload = uploader.get_resource_uploader(resource)
+        filepath = upload.get_path(resource['id'])
+        hosted_externally = not public_url.startswith(site_url) or \
+            urlparse(filepath).scheme != ''
+        if not hosted_externally:
+            # Τοπικό upload: αρκεί να υπάρχει το αρχείο, χωρίς hashing
+            try:
+                stat = os.stat(filepath)
+            except OSError as e:
+                return _outcome(URL_BROKEN, str(e), 'URL request failed')
+            return _outcome(URL_OK, headers={'content-length': str(stat.st_size)})
+        if not toolkit.asbool(config.get('ckanext-archiver.archive_cloud', False)):
+            # Όπως στο archive mode: τα uploads στο cloud δεν ελέγχονται
+            return _outcome(URL_SKIPPED,
+                            'Skipping resource hosted externally to download resource: %s'
+                            % public_url, 'Chose not to download')
+        # Ο έλεγχος HTTP γίνεται στο εσωτερικό URL του site, όπως στο download()
+        url = (config.get('ckan.site_url_internally') or site_url).rstrip('/') + url \
+            if relative else url
+
+    try:
+        url = tidy_url(url)
+    except LinkInvalidError as e:
+        return _outcome(URL_BROKEN, str(e), 'URL invalid')
+
+    host = HostTimeouts.host(url)
+    if hosts.blocked(host):
+        return hosts.skip(host)
+
+    from ckanext.archiver import lib as archiver_lib
+    retries = archiver_lib.check_only_retries() if hosts.retry_allowed(host) else 0
+    timeout = archiver_lib.check_only_timeout()
+    outcome = None
+    responded = slow = False
+    for attempt in range(retries + 1):
+        started = monotonic()
+        outcome = _http_check_once(url, timeout)
+        # Ανά προσπάθεια, χωρίς την παύση ανάμεσα στις προσπάθειες
+        responded = responded or outcome['responded']
+        slow = slow or (not outcome['responded'] and
+                        outcome['result'] == URL_TRANSIENT and
+                        (outcome['timed_out'] or monotonic() - started >= timeout))
+        if outcome['result'] != URL_TRANSIENT:
+            break
+        log.info('URL check attempt %d failed for %s: %s',
+                 attempt + 1, url, outcome['reason'])
+        if not outcome['retry']:
+            break
+        if attempt < retries and RETRY_DELAY_SECONDS:
+            sleep(RETRY_DELAY_SECONDS)
+    hosts.record(host, responded, slow)
+    return outcome
+
+
+_CERT_ERRORS = (ssl.SSLCertVerificationError, _HostnameMismatch)
+
+
+def _cert_verify_failed(error):
+    '''True αν το σφάλμα SSL είναι αποτυχία επαλήθευσης του πιστοποιητικού του
+    server (π.χ. λείπει το ενδιάμεσο πιστοποιητικό, έληξε, self-signed, είναι
+    για άλλο όνομα). Αυτή δεν αλλάζει με νέα προσπάθεια, σε αντίθεση με άλλα
+    σφάλματα SSL, π.χ. μια σύνδεση που κόπηκε στη μέση του handshake.
+    Η requests τυλίγει το αρχικό σφάλμα: SSLError → MaxRetryError (στο
+    reason) → SSLError του urllib3 → σφάλμα του πιστοποιητικού.'''
+    pending, seen = [error], set()
+    while pending:
+        current = pending.pop()
+        if id(current) in seen:
+            continue
+        seen.add(id(current))
+        if isinstance(current, _CERT_ERRORS):
+            return True
+        pending.extend(e for e in (getattr(current, 'reason', None),) + current.args
+                       if isinstance(e, BaseException))
+    return False
+
+
+def _http_check_once(url, timeout):
+    '''HEAD με redirects· αν αποτύχει ή επιστρέψει >= 400, streamed GET που
+    κλείνει χωρίς να διαβάσει το body.'''
+    from ckan.plugins.toolkit import config
+    kwargs = {'timeout': timeout, 'headers': _set_user_agent_string({}),
+              'verify': verify_https(), 'allow_redirects': True}
+    if 'ckan.download_proxy' in config:
+        proxy = config.get('ckan.download_proxy')
+        kwargs['proxies'] = {'http': proxy, 'https': proxy}
+
+    # Αν ο server απαντήσει στο HEAD (>= 400), είναι ζωντανός, ακόμη κι αν το
+    # GET που ακολουθεί αποτύχει (HostTimeouts)
+    head_responded = False
+    try:
+        response = requests.head(url, **kwargs)
+        response.close()
+        if response.status_code < 400:
+            return _response_outcome(url, response)
+        head_responded = True
+    except requests.exceptions.Timeout:
+        # Δεν ξαναδοκιμάζουμε με GET, θα διπλασίαζε μόνο τον χρόνο αναμονής
+        return _outcome(URL_TRANSIENT, _('Connection timed out after %ss') % timeout,
+                        timed_out=True)
+    except requests.exceptions.SSLError as e:
+        if _cert_verify_failed(e):
+            # Το πιστοποιητικό είναι του server· το GET θα αποτύχει το ίδιο
+            return _outcome(URL_TRANSIENT, _('Connection error: %s') % e,
+                            retry=False)
+        # Άλλο σφάλμα SSL: δοκιμή με GET
+    except Exception:
+        pass  # π.χ. ο server κόβει τα HEAD· δοκιμή με GET
+
+    try:
+        response = requests.get(url, stream=True, **kwargs)
+        response.close()
+    except (requests.exceptions.InvalidURL, requests.exceptions.MissingSchema,
+            requests.exceptions.InvalidSchema) as e:
+        return _outcome(URL_BROKEN, str(e), 'URL invalid')
+    except requests.exceptions.TooManyRedirects:
+        # Ο server απαντά (με ανακατευθύνσεις σε κύκλο)
+        return _outcome(URL_BROKEN, _('Too many redirects'), 'URL request failed',
+                        responded=True)
+    except requests.exceptions.Timeout:
+        return _outcome(URL_TRANSIENT, _('Connection timed out after %ss') % timeout,
+                        timed_out=True, responded=head_responded)
+    except requests.exceptions.SSLError as e:
+        # Π.χ. ανακατεύθυνση σε server με πιστοποιητικό που δεν επαληθεύεται
+        return _outcome(URL_TRANSIENT, _('Connection error: %s') % e,
+                        responded=head_responded, retry=not _cert_verify_failed(e))
+    except requests.exceptions.ConnectionError as e:
+        return _outcome(URL_TRANSIENT, _('Connection error: %s') % e,
+                        responded=head_responded)
+    except requests.exceptions.RequestException as e:
+        return _outcome(URL_TRANSIENT, _('Error during request: %s') % e,
+                        responded=head_responded)
+    except Exception as e:
+        # π.χ. LocationParseError από redirect σε άκυρο host
+        return _outcome(URL_TRANSIENT, _('Error with the request: %s') % e,
+                        responded=head_responded)
+    return _response_outcome(url, response)
+
+
+def _response_outcome(url, response):
+    redirected = response.url if response.url and response.url != url else None
+    if response.status_code < 400:
+        return _outcome(URL_OK, url_redirected_to=redirected,
+                        headers=response.headers, responded=True)
+    reason = _('Server reported status error: %s %s') % \
+        (response.status_code, response.reason)
+    if response.status_code in (404, 410):
+        return _outcome(URL_BROKEN, reason, 'URL request failed', redirected,
+                        responded=True)
+    # 401, 403, 429, 5xx και λοιπά: προσωρινά, μέχρι να φτάσουν το όριο
+    # αποτυχιών. Χωρίς επανάληψη: ο server απάντησε (π.χ. 403 σε αυτόματα
+    # αιτήματα, 502 όταν έχει πέσει το GeoServer πίσω από τον proxy) και η
+    # απάντηση δεν θα αλλάξει σε 2 δευτερόλεπτα· από τις σύντομες διακοπές
+    # προστατεύει το κατώφλι αποτυχιών ανάμεσα στα περάσματα
+    return _outcome(URL_TRANSIENT, reason, url_redirected_to=redirected,
+                    responded=True, retry=False)
+
+
+def save_url_check(resource, outcome, log):
+    '''Αποθηκεύει αποτέλεσμα check_only στον πίνακα archival.
+
+    Ενημερώνει status, reason, redirect, ιστορικό αποτυχιών και updated σε
+    κάθε έλεγχο. Δεν αγγίζει τα cache_url, cache_filepath και hash.
+    Στο resource_timestamp κρατά το metadata_modified του πόρου που ελέγχθηκε
+    (στο CKAN 2.10 δεν χρησιμοποιείται αλλιώς, αφού δεν υπάρχουν revisions).
+
+    Επιστρέφει True αν άλλαξε το status ή αν ο πόρος τροποποιήθηκε (π.χ. νέο
+    URL ή format) από τον προηγούμενο έλεγχο· τότε στέλνεται package-archived,
+    ώστε το QA σε archival mode να ξαναβαθμολογήσει.
+    '''
+    from ckan import model
+    from ckanext.archiver.model import Archival, Status
+    from ckanext.archiver import lib as archiver_lib
+
+    now = datetime.datetime.now()
+    archival = Archival.get_for_resource(resource['id'])
+    first_check = archival is None
+    if first_check:
+        archival = Archival.create(resource['id'])
+        model.Session.add(archival)
+    previous_status_id = archival.status_id
+    not_requested = outcome.get('not_requested')
+    resource_timestamp = _resource_metadata_modified(resource)
+    edited = resource_timestamp is not None and \
+        archival.resource_timestamp is not None and \
+        resource_timestamp != archival.resource_timestamp
+    if not_requested and archival.is_broken and not edited:
+        # Δεν ζητήθηκε (ο server του δεν απαντούσε) και είναι ήδη broken από
+        # πραγματικό έλεγχο του ίδιου URL: η εγγραφή μένει ως έχει
+        log.info('URL not requested, archival unchanged (already broken): %s',
+                 archival.resource_id)
+        model.repo.commit_and_remove()
+        return False
+    if resource_timestamp is not None and not not_requested:
+        # Σε σύνδεσμο που δεν ζητήθηκε, η αλλαγή του πόρου μένει για τον
+        # επόμενο πραγματικό έλεγχο
+        archival.resource_timestamp = resource_timestamp
+
+    if outcome['result'] == URL_OK:
+        status_id = Status.by_text('URL checked successfully')
+        archival.last_success = now
+        archival.first_failure = None
+        archival.failure_count = 0
+        # Αν υπάρχει παλιό αρχειοθετημένο αντίγραφο, τα etag/last_modified/
+        # mimetype/size περιγράφουν εκείνο και δεν αλλάζουν· αλλιώς ένα νέο
+        # archive θα έβλεπε το ETag του ελέγχου και θα θεωρούσε το αρχείο
+        # «αμετάβλητο».
+        if not archival.cache_url:
+            headers = outcome['headers']
+            if headers.get('etag'):
+                archival.etag = headers['etag']
+            if headers.get('last-modified'):
+                archival.last_modified = headers['last-modified']
+            if headers.get('content-type'):
+                archival.mimetype = _clean_content_type(headers['content-type'].lower())
+            try:
+                archival.size = int(headers['content-length'].split(',')[0])
+            except (KeyError, ValueError, AttributeError):
+                pass
+    elif outcome['result'] == URL_SKIPPED:
+        status_id = Status.by_text(outcome['status_text'])
+    else:
+        # Συνεχόμενες αποτυχίες μετρούν μόνο αν και ο προηγούμενος έλεγχος απέτυχε
+        continuing = previous_status_id is not None and \
+            not Status.is_ok(previous_status_id) and \
+            previous_status_id != Status.by_text('Chose not to download')
+        threshold = archiver_lib.check_only_failure_threshold()
+        if continuing and archival.failure_count:
+            # Οι σύνδεσμοι που δεν ζητήθηκαν ανεβάζουν τον μετρητή έως ένα κάτω
+            # από το κατώφλι· πάνω από αυτό μόνο πραγματικοί έλεγχοι
+            if not not_requested or archival.failure_count < threshold - 1:
+                archival.failure_count += 1
+        else:
+            archival.first_failure = now
+            archival.failure_count = 1
+        if outcome['result'] == URL_BROKEN:
+            status_id = Status.by_text(outcome['status_text'])
+        elif archival.failure_count >= threshold and not not_requested:
+            # Broken μόνο μετά από πραγματικό έλεγχο που απέτυχε· ένας σύνδεσμος
+            # που δεν ζητήθηκε (HostTimeouts) μένει προσωρινή αποτυχία
+            status_id = Status.by_text('URL request failed')
+        else:
+            status_id = Status.by_text('URL check temporarily failed')
+
+    archival.status_id = status_id
+    archival.is_broken = Status.is_status_broken(status_id)
+    archival.reason = outcome['reason']
+    if not not_requested:
+        archival.url_redirected_to = outcome['url_redirected_to']
+        # Σύνδεσμος που δεν ζητήθηκε (HostTimeouts) κρατά την προηγούμενη
+        # ώρα ελέγχου, ώστε στο επόμενο πέρασμα να ελεγχθεί πρώτος
+        archival.updated = now
+    log.info('URL check saved: %r', archival)
+    changed = first_check or previous_status_id != status_id or edited
+    model.repo.commit_and_remove()
+    return changed
+
+
+def _resource_metadata_modified(resource):
+    value = resource.get('metadata_modified')
+    if isinstance(value, datetime.datetime):
+        return value
+    try:
+        return datetime.datetime.fromisoformat(value) if value else None
+    except ValueError:
+        return None
+
+
 def notify_resource(resource, queue, cache_filepath):
     '''
     Broadcasts an IPipe notification that an resource archival has taken place
@@ -666,7 +1171,9 @@ def _clean_content_type(ct):
     # For now we should remove the charset from the content type and
     # handle it better, differently, later on.
     if 'charset' in ct:
-        return ct[:ct.index(';')]
+        # Κρατά μόνο τον τύπο, κόβοντας στο ';' ή στο πρώτο κενό
+        # (π.χ. "text/html; charset=utf-8" ή "text/html charset=utf-8")
+        return re.split(r'[;\s]', ct.strip(), 1)[0]
     return ct
 
 
@@ -696,7 +1203,11 @@ def tidy_url(url):
         url = url.decode('ascii')
     except Exception:
         parts = list(urlparse(url))
-        parts[2] = quote(parts[2].encode('utf-8'))
+        # Κωδικοποιούνται μόνο οι χαρακτήρες εκτός ASCII (π.χ. ελληνικά ονόματα
+        # αρχείων). Τα ήδη κωδικοποιημένα %XX και οι χαρακτήρες με ειδική
+        # σημασία στο path μένουν ως έχουν· αλλιώς το %CE%B1 γινόταν %25CE%25B1
+        # και ο server απαντούσε 404.
+        parts[2] = quote(parts[2].encode('utf-8'), safe="/%:@!$&'()*+,;=")
         url = urlunparse(parts)
     url = str(url)
 

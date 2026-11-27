@@ -6,14 +6,16 @@ import sys
 import datetime
 import json
 import os
+import threading
 import traceback
+from contextlib import contextmanager
 
 from ckan.common import _
 
 from ckan.plugins import toolkit
 import ckan.lib.helpers as ckan_helpers
 from ckanext.qa.sniff_format import sniff_file_format
-from ckanext.archiver.model import Archival, Status
+from urllib.parse import urlparse, unquote
 
 import ckan.model as model
 
@@ -60,7 +62,13 @@ def update_package(package_id):
     """
 
     try:
-        update_package_(package_id)
+        from ckanext.archiver import job_dedup
+        from ckanext.qa.lib import enqueue_qa_package
+        # Ένα job ανά dataset τη φορά· αλλαγή όσο τρέχει → μία επανάληψη μετά
+        job_dedup.run_once(
+            'qa', package_id,
+            lambda: update_package_(package_id),
+            lambda rerun_queue: enqueue_qa_package(package_id, rerun_queue))
     except Exception as e:
         log.error('Exception occurred during QA update_package: %s: %s',
                   e.__class__.__name__, unicode(e))
@@ -75,12 +83,13 @@ def update_package_(package_id):
     log.info('Openness scoring package %s (%i resources)', package.name,
              len(package.resources))
 
-    for resource in package.resources:
-        qa_result = resource_score(resource)
-        log.info('Openness scoring: \n%r\n%r\n%r\n\n', qa_result, resource,
-                 resource.url)
-        save_qa_result(resource, qa_result)
-        log.info('CKAN updated with openness score')
+    with _open_licenses_loaded_once():
+        for resource in package.resources:
+            qa_result = resource_score(resource)
+            log.info('Openness scoring: \n%r\n%r\n%r\n\n', qa_result, resource,
+                     resource.url)
+            save_qa_result(resource, qa_result)
+            log.info('CKAN updated with openness score')
 
     # Refresh the index for this dataset, so that it contains the latest
     # qa info
@@ -152,6 +161,22 @@ def format_get(key):
 
 def resource_score(resource):
     """
+    Βαθμολογεί την ανοικτότητα ενός πόρου σύμφωνα με το ckanext.qa.openness_mode.
+
+    archival (default): η ιστορική ροή με archival status και content sniffing.
+    metadata_only: μόνο από άδεια, κατάληξη URL και resource.format.
+
+    Επιστρέφει dict με openness_score, openness_score_reason, format και
+    archival_timestamp.
+    """
+    from ckanext.qa.lib import is_metadata_only_mode
+    if is_metadata_only_mode():
+        return resource_score_metadata(resource)
+    return resource_score_archival(resource)
+
+
+def resource_score_archival(resource):
+    """
     Score resource on Sir Tim Berners-Lee\'s five stars of openness and calculate MQA scores.
 
     Returns a dict with keys:
@@ -169,6 +194,8 @@ def resource_score(resource):
 
     Raises QAError for reasonable errors
     """
+    from ckanext.archiver.model import Archival
+
     score = 0
     score_reason = ''
     format_ = None
@@ -214,43 +241,14 @@ def resource_score(resource):
     # is broken.
 
     # First check if the resource has its own license
-    resource_license_open = False
-
-    # Try to get the license from the resource - check both attribute and dictionary access
-    resource_license = None
-    if hasattr(resource, 'license') and resource.license:
-        resource_license = resource.license
-    elif hasattr(resource, 'get') and callable(resource.get) and resource.get('license'):
-        resource_license = resource.get('license')
-    elif hasattr(resource, 'extras') and resource.extras and 'license' in resource.extras:
-        resource_license = resource.extras['license']
-
-    if resource_license:
-        # If the resource has a license property, check if it's open
-        # Extract license ID from URI if possible
-        license_id = _extract_license_id_from_uri(resource_license)
-
-        # Get the list of known open licenses from vocabulary if available
-        open_licenses = _get_licenses_from_vocabulary()
-
-        # Check if the license ID or the original license string is in the open licenses list
-        resource_license_str = resource_license.lower() if isinstance(resource_license, str) else ''
-        license_id_str = license_id.lower() if isinstance(license_id, str) else ''
-
-        # Check if the license ID is in the open licenses list or if the license string contains any open license keywords
-        resource_license_open = license_id_str in open_licenses or any(open_lic in resource_license_str for open_lic in open_licenses)
-
-        log.info('Resource has license: %s, license ID: %s, is open: %s', resource_license, license_id, resource_license_open)
-
-        if resource_license_open:
-            score_reason = _('Resource has open license: %s') % resource_license
+    resource_license = _get_resource_license(resource)
+    resource_license_open = _is_resource_license_open(resource_license)
+    if resource_license_open:
+        score_reason = _('Resource has open license: %s') % resource_license
 
     # If the resource doesn't have its own license or it's not open, fall back to the package license
     if not resource_license_open:
-        if toolkit.check_ckan_version(max_version='2.2.99'):
-            package = resource.resource_group.package
-        else:
-            package = resource.package
+        package = _get_resource_package(resource)
 
         log.info('Falling back to package license check, package is open: %s', package.isopen())
 
@@ -270,6 +268,169 @@ def resource_score(resource):
     }
 
     return result
+
+
+def resource_score_metadata(resource):
+    """
+    Βαθμολογία ανοικτότητας μόνο από τα μεταδεδομένα του πόρου (metadata_only).
+
+    Δεν κάνει HTTP request, δεν ανοίγει αρχείο και δεν διαβάζει archiver status.
+    Σειρά:
+      1. Format από την κατάληξη του αρχείου στο URL (χωρίς query/fragment).
+      2. Αν δεν υπάρχει αναγνωρίσιμη κατάληξη, από το resource.format.
+      3. Αν κατάληξη και resource.format διαφωνούν, κερδίζει η κατάληξη και η
+         διαφωνία γράφεται στο reason.
+      4. Άδεια πόρου, αλλιώς άδεια dataset· αν δεν είναι ανοικτή, score 0.
+
+    Η βαθμολογία είναι εκτίμηση από τα μεταδεδομένα, όχι επαλήθευση του
+    περιεχομένου ή της διαθεσιμότητας του αρχείου.
+    """
+    from ckanext.qa.lib import resource_format_scores
+
+    score_reasons = []
+    format_field = (resource.format or '').strip()
+    url_format, extension = _format_from_url_suffix(resource.url)
+    field_format = _format_from_format_field(format_field)
+
+    if url_format:
+        format_ = url_format
+        if field_format and field_format != url_format:
+            score_reasons.append(
+                _('Format field "%s" does not match the URL extension "%s"; '
+                  'the URL extension was used.') % (format_field, extension))
+            log.info('Format field %r disagrees with URL extension %r for '
+                     'resource %s; using the URL extension',
+                     format_field, extension, resource.id)
+    else:
+        format_ = field_format
+
+    score = resource_format_scores().get(format_) if format_ else None
+    if score is None:
+        score = 1
+        score_reasons.append(
+            _('Could not understand the file format, therefore score is 1.'))
+    elif url_format:
+        score_reasons.append(
+            _('URL extension "%s" relates to format "%s" and receives score: %s.')
+            % (extension, format_, score))
+    else:
+        score_reasons.append(
+            _('Format field "%s" receives score: %s.') % (format_field, score))
+
+    resource_license = _get_resource_license(resource)
+    if _is_resource_license_open(resource_license):
+        score_reasons.append(
+            _('Resource has open license: %s') % resource_license)
+    else:
+        package = _get_resource_package(resource)
+        if package is None or not package.isopen():
+            score = 0
+            score_reasons.append(_('License not open') + '.')
+
+    score_reasons.append(
+        _('Score estimated from the resource metadata; '
+          'the file contents were not inspected.'))
+
+    log.info('Metadata openness score for resource %s: %s (%s)',
+             resource.id, score, format_)
+    return {
+        'openness_score': score,
+        'openness_score_reason': ' '.join(score_reasons),
+        'format': format_ or None,
+        'archival_timestamp': None,
+    }
+
+
+def _format_from_url_suffix(url):
+    '''Αναγνωρίζει format από την κατάληξη του ονόματος αρχείου στο URL.
+
+    Αγνοεί query string (π.χ. SAS token) και #fragment.
+    Επιστρέφει (format, extension) ή (None, None).
+    '''
+    if not url:
+        return None, None
+    path = unquote(urlparse(url.strip()).path or '')
+    for extension in extension_variants(path):
+        format_ = format_get(extension)
+        if format_:
+            return format_, extension
+    return None, None
+
+
+def _format_from_format_field(format_field):
+    '''Επιστρέφει το canonical format του resource.format, ή None.'''
+    from ckanext.qa.lib import munge_format_to_be_canonical
+    if not format_field:
+        return None
+    formats = ckan_helpers.resource_formats()
+    format_tuple = formats.get(format_field.lower()) or \
+        formats.get(munge_format_to_be_canonical(format_field))
+    return format_tuple[1] if format_tuple else None
+
+
+def _get_resource_license(resource):
+    '''Επιστρέφει την άδεια του ίδιου του πόρου (attribute, dict ή extras), ή None.'''
+    if hasattr(resource, 'license') and resource.license:
+        return resource.license
+    if hasattr(resource, 'get') and callable(resource.get) and resource.get('license'):
+        return resource.get('license')
+    if hasattr(resource, 'extras') and resource.extras and 'license' in resource.extras:
+        return resource.extras['license']
+    return None
+
+
+def _is_resource_license_open(resource_license):
+    '''True αν η άδεια του πόρου αντιστοιχεί σε γνωστή ανοικτή άδεια.'''
+    if not resource_license:
+        return False
+    # Extract license ID from URI if possible
+    license_id = _extract_license_id_from_uri(resource_license)
+
+    # Get the list of known open licenses from vocabulary if available
+    open_licenses = _open_licenses()
+
+    resource_license_str = resource_license.lower() if isinstance(resource_license, str) else ''
+    license_id_str = license_id.lower() if isinstance(license_id, str) else ''
+
+    # Check if the license ID is in the open licenses list or if the license string contains any open license keywords
+    is_open = license_id_str in open_licenses or \
+        any(open_lic in resource_license_str for open_lic in open_licenses)
+
+    log.info('Resource has license: %s, license ID: %s, is open: %s',
+             resource_license, license_id, is_open)
+    return is_open
+
+
+def _get_resource_package(resource):
+    if toolkit.check_ckan_version(max_version='2.2.99'):
+        return resource.resource_group.package
+    return resource.package
+
+
+# Οι ανοικτές άδειες, φορτωμένες μία φορά για όλους τους πόρους ενός dataset
+# (βλ. _open_licenses_loaded_once)
+_licenses_scope = threading.local()
+
+
+@contextmanager
+def _open_licenses_loaded_once():
+    '''Μέσα στο with, το λεξιλόγιο αδειών φορτώνεται μία φορά αντί για μία
+    φορά ανά πόρο. Εκτός with, κάθε κλήση το φορτώνει, όπως πριν.'''
+    previous = getattr(_licenses_scope, 'cache', None)
+    _licenses_scope.cache = {}
+    try:
+        yield
+    finally:
+        _licenses_scope.cache = previous
+
+
+def _open_licenses():
+    cache = getattr(_licenses_scope, 'cache', None)
+    if cache is None:
+        return _get_licenses_from_vocabulary()
+    if 'licenses' not in cache:
+        cache['licenses'] = _get_licenses_from_vocabulary()
+    return cache['licenses']
 
 
 def _get_licenses_from_vocabulary():
@@ -411,6 +572,7 @@ def score_by_sniffing_data(archival, resource, score_reasons):
       * If it cannot score it, then score is None
     '''
     from ckanext.qa.lib import resource_format_scores
+    from ckanext.archiver.model import Status
     if not archival or not archival.cache_filepath:
         score_reasons.append(_('This file had not been downloaded at the time of scoring it.'))
         return (None, None)

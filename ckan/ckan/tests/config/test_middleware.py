@@ -3,7 +3,7 @@
 import pytest
 import sqlalchemy as sa
 
-from flask import Blueprint
+from flask import Blueprint, has_request_context
 
 import ckan.model as model
 from ckan import plugins as p
@@ -181,4 +181,38 @@ def test_request_teardown_without_active_session_is_safe(app):
 
         assert not model.Session.registry.has()
     finally:
+        model.Session.remove()
+
+
+def test_url_for_outside_a_request_keeps_the_session(app):
+    '''Σε worker ή εντολή CLI το url_for ανοίγει και κλείνει το εσωτερικό
+    request context· το κλείσιμό του δεν αφαιρεί το session του κώδικα που
+    το κάλεσε (αλλιώς χάνεται το transaction του).'''
+    assert not has_request_context()
+    try:
+        session = model.Session()
+        session.execute(sa.text("SELECT 1"))
+        transaction = session.get_transaction()
+
+        url_for("home.index")
+
+        assert model.Session() is session
+        assert session.get_transaction() is transaction
+    finally:
+        model.Session.remove()
+
+
+def test_url_for_while_committing_outside_a_request(app):
+    '''Όπως το search index στο before_commit ενός job (π.χ. το URL ενός
+    πόρου upload): το commit ολοκληρώνεται, χωρίς AttributeError
+    '_transaction'.'''
+    def _before_commit(session):
+        url_for("home.index")
+
+    sa.event.listen(model.meta.Session, "before_commit", _before_commit)
+    try:
+        model.Session.execute(sa.text("SELECT 1"))
+        model.Session.commit()
+    finally:
+        sa.event.remove(model.meta.Session, "before_commit", _before_commit)
         model.Session.remove()

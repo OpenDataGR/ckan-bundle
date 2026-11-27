@@ -241,3 +241,59 @@ msgstr "Metadata"
 #: ckanext/report/templates/report/index.html:78
 msgid "Report"
 msgstr "Report"
+
+msgid "Format field \"%s\" does not match the URL extension \"%s\"; the URL extension was used."
+msgstr "Format field \"%s\" does not match the URL extension \"%s\"; the URL extension was used."
+
+msgid "Score estimated from the resource metadata; the file contents were not inspected."
+msgstr "Score estimated from the resource metadata; the file contents were not inspected."
+
+msgid "Score frequencies (datasets)"
+msgstr "Score frequencies (datasets)"
+
+msgid "Organizations with datasets"
+msgstr "Organizations with datasets"
+
+msgid "All organizations"
+msgstr "All organizations"
+
+msgid "All datasets"
+msgstr "All datasets"
+
+msgid "Not scored"
+msgstr "Not scored"
+
+msgid "{count} dataset"
+msgid_plural "{count} datasets"
+msgstr[0] "{count} dataset"
+msgstr[1] "{count} datasets"
+
+msgid "Filter organizations with unscored datasets"
+msgstr "Filter organizations with unscored datasets"
+
+msgid "Filter organizations with datasets of score {score}"
+msgstr "Filter organizations with datasets of score {score}"
+
+msgid "{total} organization"
+msgstr "{total} organization"
+
+msgid "{total} organizations"
+msgstr "{total} organizations"
+
+msgid "{start}-{end} of {total} organization"
+msgstr "{start}-{end} of {total} organization"
+
+msgid "{start}-{end} of {total} organizations"
+msgstr "{start}-{end} of {total} organizations"
+
+msgid "{total} dataset"
+msgstr "{total} dataset"
+
+msgid "{total} datasets"
+msgstr "{total} datasets"
+
+msgid "{start}-{end} of {total} dataset"
+msgstr "{start}-{end} of {total} dataset"
+
+msgid "{start}-{end} of {total} datasets"
+msgstr "{start}-{end} of {total} datasets"

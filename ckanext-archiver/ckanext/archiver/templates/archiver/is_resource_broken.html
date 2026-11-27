@@ -65,6 +65,9 @@ and all the Archival.as_dict() info from the package_show's resource['archiver']
       This was tested with an older version of this resource. An update should occur soon.<!-- resource_timestamp {{resource_timestamp}} revision_timestamp {{resource['revision_timestamp']}}--> <br>
   {% endif %}
  #}
+  {# Σύνδεσμος που δεν ελέγχθηκε ποτέ (check_only, server που δεν απαντά) δεν έχει updated #}
+  {% if updated %}
   <span>{% trans updated=h.render_datetime(updated) %}Link checked: {{ updated }}{% endtrans %}</span><br>
+  {% endif %}
 </div>
 

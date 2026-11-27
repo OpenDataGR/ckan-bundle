@@ -34,8 +34,10 @@ def archiver_is_resource_cached_html(resource):
     archival = resource.get('archiver')
     if not archival:
         return tk.literal('<!-- No archival info for this resource -->')
+    from ckanext.archiver.lib import is_check_only_mode
     extra_vars = {'resource': resource}
     extra_vars.update(archival)
+    extra_vars['check_only'] = is_check_only_mode()
     return tk.literal(
         tk.render('archiver/is_resource_cached.html',
                   extra_vars=extra_vars))
@@ -60,6 +62,8 @@ def archiver_status_label(status):
     mapping = {
         'Archived successfully': _('Archived successfully'),
         'Content has not changed': _('Content has not changed'),
+        'URL checked successfully': _('URL checked successfully'),
+        'URL check temporarily failed': _('URL check temporarily failed'),
         'URL invalid': _('URL invalid'),
         'URL request failed': _('URL request failed'),
         'Download error': _('Download error'),

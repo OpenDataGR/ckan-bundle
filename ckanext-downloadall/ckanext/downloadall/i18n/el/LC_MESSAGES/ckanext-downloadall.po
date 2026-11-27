@@ -34,3 +34,15 @@ msgstr "Δημιουργία"
 #: ckanext/downloadall/templates/package/read.html:51
 msgid "Preparing download..."
 msgstr "Προετοιμασία λήψης..."
+
+#: ckanext/downloadall/templates/downloadall/download_button.html:13
+msgid ""
+"The zip file does not include {count} of the resources; see downloadall-"
+"manifest.json inside it"
+msgstr ""
+"Το αρχείο δεν περιλαμβάνει {count} από τους πόρους· δείτε το downloadall-"
+"manifest.json μέσα σε αυτό"
+
+#: ckanext/downloadall/templates/downloadall/download_button.html:15
+msgid "The download is being updated"
+msgstr "Η μαζική λήψη ενημερώνεται"

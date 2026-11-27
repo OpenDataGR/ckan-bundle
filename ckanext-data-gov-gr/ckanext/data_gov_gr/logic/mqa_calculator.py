@@ -17,6 +17,19 @@ from ckanext.data_gov_gr.logic import mqa_access_url_cache
 
 log = logging.getLogger(__name__)
 
+
+def _is_transient_url_check(archival, status_cls) -> bool:
+    '''True αν το archival είναι προσωρινή αποτυχία του archiver check_only.
+
+    Με παλαιότερη έκδοση του archiver, χωρίς αυτό το status, επιστρέφει False.
+    '''
+    try:
+        transient_id = status_cls.by_text('URL check temporarily failed')
+    except KeyError:
+        return False
+    return archival.status_id == transient_id
+
+
 class MQACalculator:
     """
     Calculator for Metadata Quality Assessment (MQA) scores.
@@ -386,8 +399,14 @@ class MQACalculator:
             if resource_id:
                 archival = Archival.get_for_resource(resource_id)
                 if archival:
-                    # Αν ο πόρος έχει περάσει από archiver, χρησιμοποιούμε το archival status.
-                    is_accessible = Status.is_ok(archival.status_id)
+                    if _is_transient_url_check(archival, Status):
+                        # Προσωρινή αποτυχία του check_only (timeout, 429, 5xx):
+                        # χωρίς κλήση στο δίκτυο μέσα στο αίτημα αποθήκευσης·
+                        # προσβάσιμο αν ο σύνδεσμος έχει λειτουργήσει έστω μία φορά.
+                        is_accessible = archival.last_success is not None
+                    else:
+                        # Αν ο πόρος έχει περάσει από archiver, χρησιμοποιούμε το archival status.
+                        is_accessible = Status.is_ok(archival.status_id)
                     log.debug(f"→ Using archiver status: {archival.status} (accessible: {is_accessible})")
 
                     # Αποθήκευση του αποτελέσματος στο cache.

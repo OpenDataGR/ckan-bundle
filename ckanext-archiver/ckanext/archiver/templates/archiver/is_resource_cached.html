@@ -39,10 +39,14 @@ and all the Archival.as_dict() info from the package_show's resource['archiver']
       {% trans %}Download cached copy{% endtrans %}
     </a><br>
     {% trans %}Size{% endtrans %}: {{ size|filesizeformat }} <br>
+    {# Στο check_only το last_success είναι ο τελευταίος έλεγχος του URL, όχι
+       η ημερομηνία του αντιγράφου, γι' αυτό δεν εμφανίζεται #}
+    {% if not check_only %}
     {% trans %}Cached on{% endtrans %}: {{ h.render_datetime(last_success) }}
     {% if is_broken %}
       ({% trans %}before it was broken{% endtrans %})
     {% endif %}<br>
+    {% endif %}
   {% else %}
     {% trans %}No cached copy available{% endtrans %}<br>
   {% endif %}

@@ -161,7 +161,9 @@ def view(package_ref=None):
     print('Archived resources: %i total' % a_q.count())
     num_with_cache_url = a_q.filter(Archival.cache_url != '').count()
     print('                    %i with cache_url' % num_with_cache_url)
-    last_updated_res = a_q.order_by(Archival.updated.desc()).first()
+    # Σύνδεσμοι που δεν έχουν ελεγχθεί ποτέ (HostTimeouts) δεν έχουν updated
+    last_updated_res = a_q.filter(Archival.updated.isnot(None)) \
+        .order_by(Archival.updated.desc()).first()
     print('Latest archival: %s' % (last_updated_res.updated.strftime('%Y-%m-%d %H:%M') if last_updated_res else '(no)'))
 
     if package_ref:

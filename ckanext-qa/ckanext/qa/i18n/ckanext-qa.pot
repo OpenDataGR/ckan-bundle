@@ -211,3 +211,59 @@ msgstr ""
 #: ckanext/qa/templates/report/openness.html:55
 msgid "Average score"
 msgstr ""
+
+msgid "Format field \"%s\" does not match the URL extension \"%s\"; the URL extension was used."
+msgstr ""
+
+msgid "Score estimated from the resource metadata; the file contents were not inspected."
+msgstr ""
+
+msgid "Score frequencies (datasets)"
+msgstr ""
+
+msgid "Organizations with datasets"
+msgstr ""
+
+msgid "All organizations"
+msgstr ""
+
+msgid "All datasets"
+msgstr ""
+
+msgid "Not scored"
+msgstr ""
+
+msgid "{count} dataset"
+msgid_plural "{count} datasets"
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "Filter organizations with unscored datasets"
+msgstr ""
+
+msgid "Filter organizations with datasets of score {score}"
+msgstr ""
+
+msgid "{total} organization"
+msgstr ""
+
+msgid "{total} organizations"
+msgstr ""
+
+msgid "{start}-{end} of {total} organization"
+msgstr ""
+
+msgid "{start}-{end} of {total} organizations"
+msgstr ""
+
+msgid "{total} dataset"
+msgstr ""
+
+msgid "{total} datasets"
+msgstr ""
+
+msgid "{start}-{end} of {total} dataset"
+msgstr ""
+
+msgid "{start}-{end} of {total} datasets"
+msgstr ""
